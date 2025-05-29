@@ -1,0 +1,136 @@
+/* #root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+} */
+
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.adjust {
+  color: rgb(18, 35, 187) !important;
+  background-color: red !important;
+  height: calc(100vh - 64px) !important;
+}
+
+
+.active{
+  color:gold;
+}
+.coloring{
+  color:black;
+}
+
+
+
+
+/* ===========================sticky component styling */
+/* General Styling */
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Styling for the header */
+.header {
+  background-color: #333;
+  color: white;
+  padding: 20px;
+  text-align: center;
+  position: relative;
+  transition: all 0.3s ease-in-out;
+}
+
+/* Sticky Class Styling */
+.header.sticky {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000; /* Ensures it's on top of other content */
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Main Content Styling */
+.content {
+  padding: 20px;
+}
+
+footer {
+  background-color: #f1f1f1;
+  padding: 20px;
+  text-align: center;
+}
+
+
+/* calendar3========================================== */
+/* App.css */
+.App {
+  text-align: center;
+  margin: 20px;
+}
+
+.calendar-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+}
+
+.calendar-day {
+  padding: 20px;
+  border: 1px solid #ddd;
+  cursor: pointer;
+}
+
+.calendar-day.empty {
+  background-color: #f5f5f5;
+}
+
+.event {
+  background-color: #ffeb3b;
+  padding: 5px;
+  margin-top: 5px;
+  border-radius: 3px;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 5px;
+  width: 300px;
+}
+
