@@ -1,33 +1,36 @@
-import { lazy, Suspense } from 'react';
+// import { lazy, Suspense } from 'react';
 import "./App.css"
 import {Routes, Route } from "react-router-dom";
-import { ThemeProvider } from '@mui/material';
-import { theme } from './themes/theme';
-import About3 from './components/About3';
-import DrawCircle from './components/drawCircle';
-import MultipageAuth from './components/multipageAuth';
-import Layout from './components/layout';
-import Hero from './components/hero';
+import Header from "./components/header";
+// import { ThemeProvider } from '@mui/material';
+// import { theme } from './themes/theme';
+// import About3 from './components/About3';
+// import DrawCircle from './components/drawCircle';
+// import MultipageAuth from './components/multipageAuth';
+// import Layout from './components/layout';
+// import Hero from './components/hero';
 // import Tablewithpagination from './pages/muigrid/tablewithpagination';
 // import MultiStepForm from './pages/muigrid/form';
-import FaqComp from './components/FaqComp';
-import FormikComponent from './components/formik';
-import RegisterForm from './components/registrationForm';
-import StarRating from './components/starRating';
-import Caalendar from './components/calender/calendar';
-import Sticky from './components/sticky/sticky';
-import Calendar2 from './components/calendar2/calendar2';
-import Calendar3 from './components/calendar3/Calendar3';
-import FormikFieldArray from './components/formArray';
-import GridMui from './components/Grid';
-const Signup = lazy(()=>import('./components/signup'));
-//const Home = lazy(()=>import("./components/layout"))
-const About = lazy(()=>import("./components/about"))
-const User = lazy(()=>import("./components/user"))
-const Login = lazy(()=>import("./components/login"))
-const Counter = lazy(()=>import("./components/counter"))
-// const Home2 = lazy(()=> import("./components/home2"))
-const About2 = lazy(()=> import("./components/about2"))
+// import FaqComp from './components/FaqComp';
+// import FormikComponent from './components/formik';
+// import RegisterForm from './components/registrationForm';
+// import StarRating from './components/starRating';
+// import Caalendar from './components/calender/calendar';
+// import Sticky from './components/sticky/sticky';
+// import Calendar2 from './components/calendar2/calendar2';
+// import Calendar3 from './components/calendar3/Calendar3';
+// import FormikFieldArray from './components/formArray';
+// import GridMui from './components/Grid';
+// import { ThemeProvider } from './context/themeContext';
+// import Header from './components/header';
+// const Signup = lazy(()=>import('./components/signup'));
+// //const Home = lazy(()=>import("./components/layout"))
+// const About = lazy(()=>import("./components/about"))
+// const User = lazy(()=>import("./components/user"))
+// const Login = lazy(()=>import("./components/login"))
+// const Counter = lazy(()=>import("./components/counter"))
+// // const Home2 = lazy(()=> import("./components/home2"))
+// const About2 = lazy(()=> import("./components/about2"))
 
 
 
@@ -40,12 +43,13 @@ const App = () => {
     {/* <MultiStepForm></MultiStepForm> */}
     {/* <FormikComponent/> */}
     {/* <FaqComp></FaqComp> */}
-    <ThemeProvider theme={theme}>
+    {/* <ThemeProvider theme={theme}> */}
+    {/* <ThemeProvider defaultTheme="system" storageKey="marketpulse-ui-theme"> */}
     {/* <RegisterForm/> */}
     
-    <Suspense fallback={<h1>Loading....</h1>}>
+    {/* <Suspense fallback={<h1>Loading....</h1>}> */}
     <Routes>
-      <Route path='/' element={<Layout/>}>
+      {/* <Route path='/' element={<Layout/>}>
         <Route index element={<Hero/>} />
       </Route>
       <Route path='about' element={<About/>}>
@@ -64,10 +68,12 @@ const App = () => {
       <Route path='counter' element={<Counter/>}></Route>
       <Route path='drawCircle' element={<DrawCircle/>}></Route>
       <Route path='multipageauth' element={<MultipageAuth/>}></Route>
-      <Route path='*' element={<h1>page not found</h1>}></Route>
+      <Route path='*' element={<h1>page not found</h1>}></Route> */}
+      <Route path='/' element={<Header/>}></Route>
     </Routes>
-    </Suspense>
-    </ThemeProvider>
+    {/* </Suspense>
+    </ThemeProvider> */}
+    {/* </ThemeProvider> */}
     
     
     </>

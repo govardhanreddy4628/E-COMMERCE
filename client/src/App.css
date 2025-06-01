@@ -6,6 +6,79 @@
 } */
 
 
+
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap');
+
+
+/* .roboto-<uniquifier> {
+  font-family: "Montserrat", sans-serif;
+  font-optical-sizing: auto;
+  font-weight: <weight>;
+  font-style: normal;
+} */
+
+
+body {
+  font-family: 'Roboto', sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #f4f4f4;
+} 
+
+/*========================= header styling ======================*/
+.searchBox input::placeholder{color:black !important;}
+.searchBox .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
+  border: none;
+}
+
+
+.searchBox .MuiInputBase-input {
+  font-size: 18px;   /* Change text size */
+  color: red;   /* Change text color */
+}
+
+.link Button{
+  text-decoration: none;
+  color: black;
+  text-transform: capitalize;
+}
+
+
+/*========================= header styling ======================*/
+
+/* ===========================hero2 section========================== */
+.swiper-button-next::after, .swiper-button-prev:after{
+  color: rgba(0, 0, 0, 0.5) !important;
+  font-size: 25px !important;
+  z-index: 10 !important;
+  font-weight: 600 !important;
+}
+
+.swiper-button-next, .swiper-button-prev{
+  width: 40px !important;
+  height: 40px !important;
+  background-color: white !important;
+  border-radius: 50% !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+  transition: background-color 0.3s ease !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+}
+
+.swiper-button-next:hover, .swiper-button-prev:hover {
+  background-color: rgb(234, 167, 167) !important;
+  color: white !important;
+  box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2) !important;
+  transform: scale(0.9) !important;
+  transition: background-color 0.3s ease, transform 0.3s ease !important
+}
+
+
+
+/* ===========================hero2 section========================== */
+
 @keyframes logo-spin {
   from {
     transform: rotate(0deg);
