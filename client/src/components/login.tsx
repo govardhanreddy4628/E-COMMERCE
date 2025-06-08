@@ -1,4 +1,4 @@
-import { Box, Grid, Grid2, Paper, TextField, Typography } from "@mui/material"
+import { Box, Grid, Paper, TextField, Typography } from "@mui/material"
 import { useRef } from "react"
 
 const Login = () => {

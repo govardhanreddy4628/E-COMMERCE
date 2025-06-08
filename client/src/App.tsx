@@ -4,7 +4,6 @@ import {Routes, Route } from "react-router-dom";
 import Header from "./components/header";
 // import { ThemeProvider } from '@mui/material';
 // import { theme } from './themes/theme';
-// import About3 from './components/About3';
 // import DrawCircle from './components/drawCircle';
 // import MultipageAuth from './components/multipageAuth';
 // import Layout from './components/layout';
@@ -21,16 +20,9 @@ import Header from "./components/header";
 // import Calendar3 from './components/calendar3/Calendar3';
 // import FormikFieldArray from './components/formArray';
 // import GridMui from './components/Grid';
-// import { ThemeProvider } from './context/themeContext';
-// import Header from './components/header';
-// const Signup = lazy(()=>import('./components/signup'));
-// //const Home = lazy(()=>import("./components/layout"))
-// const About = lazy(()=>import("./components/about"))
-// const User = lazy(()=>import("./components/user"))
-// const Login = lazy(()=>import("./components/login"))
-// const Counter = lazy(()=>import("./components/counter"))
-// // const Home2 = lazy(()=> import("./components/home2"))
-// const About2 = lazy(()=> import("./components/about2"))
+import { ThemeProvider } from './context/themeContext';
+import ProductDetails from "./components/productDetails";
+import NotFound from "./pages/NotFound";
 
 
 
@@ -44,7 +36,7 @@ const App = () => {
     {/* <FormikComponent/> */}
     {/* <FaqComp></FaqComp> */}
     {/* <ThemeProvider theme={theme}> */}
-    {/* <ThemeProvider defaultTheme="system" storageKey="marketpulse-ui-theme"> */}
+    <ThemeProvider defaultTheme="system" storageKey="marketpulse-ui-theme">
     {/* <RegisterForm/> */}
     
     {/* <Suspense fallback={<h1>Loading....</h1>}> */}
@@ -52,11 +44,6 @@ const App = () => {
       {/* <Route path='/' element={<Layout/>}>
         <Route index element={<Hero/>} />
       </Route>
-      <Route path='about' element={<About/>}>
-      <Route index element={<About3><About2/></About3>} />
-      </Route>
-      
-      <Route path='user' element={<User/>}></Route>
       <Route path='login' element={<Login/>}></Route>
       <Route path='signup' element={<Signup/>}></Route>
       <Route path='formikfieldarray' element={<FormikFieldArray/>}></Route>
@@ -70,10 +57,12 @@ const App = () => {
       <Route path='multipageauth' element={<MultipageAuth/>}></Route>
       <Route path='*' element={<h1>page not found</h1>}></Route> */}
       <Route path='/' element={<Header/>}></Route>
+      <Route path='ProductDetails/:id' element={<ProductDetails/>}></Route>
+      <Route path='*' element={<NotFound/>}></Route>
     </Routes>
     {/* </Suspense>
     </ThemeProvider> */}
-    {/* </ThemeProvider> */}
+    </ThemeProvider>
     
     
     </>

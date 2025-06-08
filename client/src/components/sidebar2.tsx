@@ -14,7 +14,7 @@ import MailIcon from '@mui/icons-material/Mail';
 
 interface TemporaryDrawerProps {
   open: boolean;
-  toggleDrawer: (newOpen: boolean) => () => void;
+  toggleDrawer: (newOpen: boolean) => void;
 }
 
 
@@ -22,7 +22,7 @@ export default function TemporaryDrawer({open, toggleDrawer}: TemporaryDrawerPro
   
 
   const DrawerList = (
-    <Box sx={{ width: 250 }} role="presentation" onClick={toggleDrawer(false)}>
+    <Box sx={{ width: 250 }} role="presentation" onClick={()=>toggleDrawer(false)}>
       <List>
         {['Inbox', 'Starred', 'Send email', 'Drafts'].map((text, index) => (
           <ListItem key={text} disablePadding>
@@ -54,7 +54,7 @@ export default function TemporaryDrawer({open, toggleDrawer}: TemporaryDrawerPro
   return (
     <div>
       
-      <Drawer open={open} onClose={toggleDrawer(false)}>
+      <Drawer open={open} onClose={()=>toggleDrawer(false)}>
         {DrawerList}
       </Drawer>
     </div>

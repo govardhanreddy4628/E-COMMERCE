@@ -9,8 +9,10 @@ export function ThemeToggle() {
   const toggleTheme = () => {
     if (theme === "light") {
       setTheme("dark")
+      console.log("Theme changed to dark")
     } else {
       setTheme("light")
+      
     }
   }
 

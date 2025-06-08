@@ -1,3 +1,173 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 220 14% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 14% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 14% 10%;
+
+    --primary: 224 82% 56%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 14% 14%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 8% 46%;
+
+    --accent: 224 82% 96%;
+    --accent-foreground: 224 82% 26%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 72% 52%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --danger: 0 84% 60%;
+    --danger-foreground: 0 0% 100%;
+
+    --border: 220 13% 91%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 224 82% 56%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 220 14% 10%;
+    --sidebar-foreground: 220 14% 96%;
+    --sidebar-primary: 224 82% 56%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 18%;
+    --sidebar-accent-foreground: 220 14% 96%;
+    --sidebar-border: 220 14% 18%;
+    --sidebar-ring: 224 82% 56%;
+  }
+
+  .dark {
+    --background: 220 14% 10%;
+    --foreground: 220 14% 96%;
+
+    --card: 220 14% 13%;
+    --card-foreground: 220 14% 96%;
+
+    --popover: 220 14% 13%;
+    --popover-foreground: 220 14% 96%;
+
+    --primary: 224 82% 56%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 18%;
+    --secondary-foreground: 220 14% 96%;
+
+    --muted: 220 14% 18%;
+    --muted-foreground: 220 14% 72%;
+
+    --accent: 224 82% 26%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 72% 52%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    --danger: 0 84% 60%;
+    --danger-foreground: 0 0% 100%;
+
+    --border: 240 3.7% 15.9%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224 82% 56%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body {
+    @apply h-full overflow-x-hidden antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Glass morphism */
+  .glass {
+    @apply bg-white/10 backdrop-blur-lg border border-white/20 shadow-glass;
+  }
+
+  .glass-dark {
+    @apply bg-black/20 backdrop-blur-lg border border-white/10 shadow-glass;
+  }
+
+  /* Card transitions */
+  .card-hover-effect {
+    @apply transition-all duration-300 ease-in-out;
+  }
+  
+  /* Custom scrollbar for webkit browsers */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+
+  /* Chart & data visualization styles */
+  .chart-container {
+    @apply w-full h-full min-h-[200px] rounded-lg overflow-hidden;
+  }
+
+  .animate-enter {
+    @apply animate-slide-up;
+  }
+
+  /* Stock price trends */
+  .trend-up {
+    @apply text-success;
+  }
+  
+  .trend-down {
+    @apply text-danger;
+  }
+
+  /* Loading states */
+  .loading-pulse {
+    @apply animate-pulse-gentle;
+  }
+}
+
+
+
+
+
+
+
+
