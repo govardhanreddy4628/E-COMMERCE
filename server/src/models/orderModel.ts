@@ -1,12 +1,7 @@
 import mongoose, { Document } from "mongoose";  //In Mongoose + TypeScript, every model instance you retrieve from the database (e.g., const user = await User.findById(id)) is not just a plain object — it's a Mongoose document that comes with built-in methods like .save(), .populate(), etc.So, Document is the base type for these returned objects.
 const { Schema } = mongoose;
 
-type DeliveryDetails = {
-    email: string;
-    name: string;
-    address: string;
-    city: string;
-}
+
 
 type CartItems = {
     menuId: string;
@@ -17,9 +12,18 @@ type CartItems = {
 }
 
 export interface IOrder extends Document {
-    user: mongoose.Schema.Types.ObjectId;
-    deliveryDetails: DeliveryDetails,
+    userId: mongoose.Schema.Types.ObjectId;
+    orderId: string,
+    productId: mongoose.Schema.Types.ObjectId;
+    product_details: {name: string, image: string[]};
+    paymentId: string;
+    subTotalAmt: number;
+    delivery_details: mongoose.Schema.Types.ObjectId;
     cartItems: CartItems;
+    totalItems: number;
+    paymentMethod: string;
+    paymentStatus: string;
+    selectedAddress: any;
     totalAmount: number;
     status: "pending" | "confirmed" | "preparing" | "outfordelivery" | "delivered"
 }
@@ -32,23 +36,47 @@ const paymentMethods = {
 
 const orderSchema = new mongoose.Schema<IOrder>(
   {
-    user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    totalAmount: { type: Number },  // you can write this like totalAmount:Number, but object typt allows you to configure additional options like:required,default,min / max, validate, enum (for strings) and more...
-    totalItems: { type: Number },
+    userId: { 
+      type: Schema.Types.ObjectId, 
+      ref: 'User', 
+      required: true 
+    },
+    orderId : {
+      type : String,
+      required : [true, "Provide orderId"],
+      unique : true
+    },
+    productId : {
+      type : mongoose.Schema.ObjectId,
+      ref : "Product"
+    },
+    product_details : {
+      name : String,
+      image : Array,
+    },
+    paymentId : {
+      type : String,
+      default : "",
+    },
+    paymentStatus: { 
+      type: String, 
+      default: 'pending' },   //when you have default value you no need to mention required:true.
+    subTotalAmt : {
+      type : Number,
+      default : 0,
+    },
+    totalAmount: { type: Number, default: 0 },  // you can write this like totalAmount:Number, but object typt allows you to configure additional options like:required,default,min / max, validate, enum (for strings) and more...
+    totalItems: { type: Number, default: 0 },
     paymentMethod: { type: String, required: true, enum: paymentMethods },
-    paymentStatus: { type: String, default: 'pending' },   //when you have default value you no need to mention required:true.
     status:{
         type:String,
         enum:["pending" , "confirmed" , "preparing" , "outfordelivery" , "delivered"],
-        // required:true,
         default: 'pending'
-    }
-    selectedAddress: { type: Schema.Types.Mixed, required: true },
-    deliveryDetails:{
-        email:{type:String, required:true},
-        name:{type:String, required:true},
-        address:{type:String, required:true},
-        city:{type:String, required:true},
+    },
+    delivery_details: {
+      type: mongoose.Schema.ObjectId,
+      ref: "Address",
+      required: true
     },
     cartItems:[
         {
@@ -75,27 +103,5 @@ orderSchema.set('toJSON', {
   },
 });
 
-exports.Order = mongoose.model('Order', orderSchema);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-   
-   
-    
-    
-    
-
-
-}, { timestamps: true });
-export const Order = mongoose.model("Order", orderSchema);
+export const orderModel = mongoose.model("Order", orderSchema);

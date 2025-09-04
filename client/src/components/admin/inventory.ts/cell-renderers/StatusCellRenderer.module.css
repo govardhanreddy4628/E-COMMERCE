@@ -1,0 +1,42 @@
+.tag {
+  border-radius: 100px;
+  padding-left: 2px;
+  padding-right: 6px;
+  line-height: 2;
+  font-weight: 500;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.activeTag {
+  color: green; 
+}
+
+.outOfStockTag {
+  color: rgb(234, 83, 83);
+}
+
+.pausedTag {
+  color: #f1a10bb4;
+}
+
+.circle {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+  margin-left: 6px;
+}
+
+.activeCircle {
+  background-color: #6d9b7e;
+}
+
+.outOfStockCircle {
+  background-color: #ea5353;
+}
+
+.pausedCircle {
+  background-color: #a06d37;
+}

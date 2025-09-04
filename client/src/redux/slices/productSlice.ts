@@ -1,18 +1,19 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { getAllProducts } from "../actions/productAction";
+import { getAllProducts } from "../actions/fakeStoreproductAction";
 import { Product } from "../../types/types";
 
 interface ProductState {
     loading: boolean;
     data: Product[]; // Explicitly type the data as an array of Product
     error: string | null;
-  }
+}
 
 const initialState : ProductState = {
     loading : false,
     data : [],
     error : null
 }
+
 export const productSlice = createSlice({
     name: "product",
     initialState,

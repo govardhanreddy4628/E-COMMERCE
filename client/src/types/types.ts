@@ -12,4 +12,9 @@ export interface Product {
     "image": string,
     "rating": Rating
   }
+
+export interface Category {
+  "id": number,
+  "name": string,
+}
   

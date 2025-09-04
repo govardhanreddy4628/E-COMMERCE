@@ -1,42 +1,113 @@
-import mongoose from "mongoose"; //or we can destructure it like this  -->  import { Schema, model } from 'mongoose';
-import IUser from "../types/modelTypes.ts/userTypes";
+import mongoose, { Document, Model } from "mongoose";   //or we can destructure it like this  -->  import { Schema } from 'mongoose';
 
-const userSchema = new mongoose.Schema<IUser>({
-  name: {
+
+interface IUser extends Document {
+  fullName: string;
+  email: string;
+  password: string;
+  phoneNumber: Number;
+  refresh_token: string;
+  verify_email: Boolean;
+  isVerified: boolean;
+  role: "USER" | "ADMIN";
+  status: string;
+  otp: string;
+  otpExpiresAt?: Date;
+  access_token: string,
+  refresh_token_expiresAt?: Date;
+  avatar: string;
+  last_login_date?: Date;
+  address_details?: mongoose.Types.ObjectId[];
+  shopping_cart?: mongoose.Types.ObjectId[];
+  orderHistory?: mongoose.Types.ObjectId[];
+}
+
+interface IUserDocument extends IUser, Document {
+    createdAt:Date;
+    updatedAt:Date;
+}
+
+
+const userSchema = new mongoose.Schema<IUserDocument>({
+  fullName: {
     type: String,
-    required: [true, "provide name"],
-    trim: true,
   },
   email: {
     type: String,
     required: [true, "provide email"],
+    lowercase: true,
+    trim: true,
     unique: true,
   },
   password: {
-    type: String,
+    type: String,                         //insted type: Buffer, can also be used when want to Store the password as binary data.
     required: [true, "provide password"],
+    select: false,
   },
-  contact: {
-    type: Number,
-  },
-  profilePicture: {
+  avatar: {
     type: String,
     default: "",
   },
-  lastLogin: {
+  phoneNumber: {
+    type: Number,
+    default: null
+  },
+  isVerified: {
+    type: Boolean, 
+    default: false 
+  },
+  access_token : {
+    type: String,
+    default: ""
+  },
+  refresh_token : {
+    type: String,
+    default: ""
+  },
+  last_login_date: {
     type: Date,
     default: Date.now,
   },
+  status: {
+    type : String,
+    enum : ["Active", "Inactive", "Suspended"],
+    default : "Active"
+  },
+  address_details : [
+    {
+      type: mongoose.Schema.ObjectId,
+      ref: "address"
+    }
+  ],
+  shopping_cart : [
+    {
+      type: mongoose.Schema.ObjectId,
+      ref: "cart"
+    }
+  ],
+  orderHistory : [
+    {
+      type : mongoose.Schema.ObjectId,
+      ref : "order"
+    }
+  ],
+  otp: {
+    type: String, 
+    default: null,
+    select: false, 
+  },
+  otpExpiresAt: {
+    type : Date,
+    default : "",
+    select: false,
+  },
   role: {
     type: String,
-    required: true,
-    enum: ["user", "admin"],
-    default: "user",
+    enum: ["ADMIN", "USER"],
+    default: "USER",
   },
-  isVerified: { type: Boolean, default: false },
-  verificationToken: String,
-  resetPasswordToken: { type: String, default: "" },
-});
+  refresh_token_expiresAt: Date,
+},{timestamps: true});
 
 const virtual = userSchema.virtual("id");
 virtual.get(function () {
@@ -50,67 +121,6 @@ userSchema.set("toJSON", {
   },
 });
 
-const userModel = mongoose.model<IUser>("user", userSchema);
-export default userModel;
+const UserModel = mongoose.model<IUserDocument>("user", userSchema);
+export default UserModel;
 
-// const userSchema = new Schema({
-
-//   password: { type: Buffer, required: true },
-
-//   addresses: { type: [Schema.Types.Mixed] },
-//   // for addresses, we can make a separate Schema like orders. but in this case we are fine.
-//   salt: Buffer,
-
-// },{timestamps: true});
-
-// import mongoose, { Document, Model } from "mongoose";
-
-// export interface IUser {
-//     fullname:string;
-
-//     address:string;
-//     city:string;
-//     country:string;
-
-//     admin:boolean;
-
-//     isVerified?: boolean;
-//     resetPasswordToken?:string;
-//     resetPasswordTokenExpiresAt?:Date;
-//     verificationToken?:string;
-//     verificationTokenExpiresAt?:Date
-// }
-
-// export interface IUserDocument extends IUser, Document {
-//     createdAt:Date;
-//     updatedAt:Date;
-// }
-
-// const userSchema = new mongoose.Schema<IUserDocument>({
-//     fullname: {
-//         type: String,
-//         required: true
-//     },
-
-//     address: {
-//         type: String,
-//         default: "Update your address"
-//     },
-//     city:{
-//         type:String,
-//         default:"Update your city"
-//     },
-//     country:{
-//         type:String,
-//         default:"Update your country"
-//     },
-
-//     admin:{type:Boolean, default:false},
-//     // advanced authentication
-
-//     resetPasswordTokenExpiresAt:Date,
-
-//     verificationTokenExpiresAt:Date,
-// },{timestamps:true});
-
-// export const User : Model<IUserDocument> = mongoose.model<IUserDocument>("User", userSchema);

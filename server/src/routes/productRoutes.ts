@@ -1,18 +1,34 @@
 import express from "express";
 import {
+  checkoutController,
   createProductController,
   deleteProductController,
   getAllProductController,
   getSingleProductByIdController,
   //updateProductController,
 } from "../controllers/productController";
+import { auth } from "../middleware/auth";
+import { Roles } from "../constants";
 
-const router = express.Router();
+const productRouter = express.Router();
 
-router.get("/getAllproduct", getAllProductController);
-router.get("/getSingleproduct/:id", getSingleProductByIdController);
-router.get("/createproduct", createProductController);
+
+const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+//productRouter.post('/uploadImages', auth, upload.array('images'), uploadImages);
+productRouter.post("/create", createProductController);
+//productRouter.get("/getAllproduct", getAllProductController);
+//productRouter.get("/getAllproductsByCatId/:id", getAllProductsByCatIdController);
+//productRouter.get("/getAllproductsByCatName", getAllProductsByCatIdController);
+
+
+
+//productRouter.get("/getSingleproduct/:id", getSingleProductByIdController);
 // router.put("/updateproduct", updateProductController)
-router.delete("/deleteproduct", deleteProductController);
+productRouter.delete("/deleteproduct", deleteProductController);
+productRouter.post('/checkout', asyncHandler(checkoutController));
 
-export default router;
+
+export default productRouter;

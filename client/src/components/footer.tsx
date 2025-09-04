@@ -1,9 +1,46 @@
-import { Box, ButtonGroup, Divider, IconButton, Typography } from '@mui/material';
-import { SearchIcon } from 'lucide-react';
+import { Box, Button, ButtonGroup, Checkbox, Divider, FormControlLabel, IconButton, TextField, Typography } from '@mui/material';
+
+import { LiaShippingFastSolid } from "react-icons/lia";
+import { GrReturn } from "react-icons/gr";
+import { RiSecurePaymentLine } from "react-icons/ri";
+import { IoGiftOutline } from "react-icons/io5";
+import { TfiHeadphoneAlt } from "react-icons/tfi";
+
+import { IoChatboxOutline } from "react-icons/io5";
+
 import { FaFacebookF } from "react-icons/fa";
 import { FaInstagram } from "react-icons/fa";
 import { FaPinterestP } from "react-icons/fa";
 import { FiYoutube } from "react-icons/fi";
+
+
+const serviceItems = [
+  {
+    Icon: LiaShippingFastSolid,
+    title: 'Free Shipping',
+    description: 'For all Orders Over $100',
+  },
+  {
+    Icon: GrReturn,
+    title: 'Easy Returns',
+    description: '30-day return policy',
+  },
+  {
+    Icon: RiSecurePaymentLine,
+    title: 'Secure Payment',
+    description: '100% secure payment',
+  },
+  {
+    Icon: IoGiftOutline,
+    title: 'Gift Service',
+    description: 'Free gift wrapping',
+  },
+  {
+    Icon: TfiHeadphoneAlt,
+    title: '24/7 Support',
+    description: 'We are here to help',
+  },
+];
 
 const Footer = () => {
   navigator.geolocation.getCurrentPosition((location) => {
@@ -12,54 +49,83 @@ const Footer = () => {
     () => { console.log("no location") })
   return (
     <>
-      <div>
-        <img />
-        <h3></h3>
-        <p></p>
-      </div>
-      <Divider sx={{ margin: '20px 0' }} />
+      <div className='dark:bg-gray-800'>
+        <div className="flex flex-wrap justify-center gap-16 py-12">
+          {serviceItems.map(({ Icon, title, description }, index) => (
+            <div key={index} className="flex flex-col items-center text-center gap-3 max-w-[250px] group">
+              <Icon className="sm:text-[40px] text-[20px] group-hover:-translate-y-2 transition-all duration-500 group-hover:text-red-500" />
+              <h3 className="text-[18px] font-medium">{title}</h3>
+              <p className="text-[14px] text-gray-600 dark:text-gray-400">{description}</p>
+            </div>
+          ))}
+        </div>
 
-      <div className='flex items-center justify-start gap-4'>
-        <div className='flex flex-col items-center gap-4 w-[30%]'>
-          <h3>Contact us</h3>
-          <p></p>
-          <h1>(+91) 9876-543-210</h1>
-          <div>
-            <img />
-            <h3>Online Chat Get Expert Help</h3>
+
+        <Divider className='dark:!bg-gray-400 !w-[95%] !mx-auto'/>
+
+        <div className='flex justify-start gap-4 w-[95%] mx-auto py-10'>
+
+          <div className='flex flex-col gap-4 w-[30%]'>
+            <h3 className='text-[24px]'>Contact us</h3>
+            <p className='text-gray-600'>Classyshop - Mega Super Store
+              507-Union Trade Centre France</p>
+            <h1 className='text-red-500 text-[30px]'>(+91) 9876-543-210</h1>
+            <div className='flex gap-4 items-center'>
+              <IoChatboxOutline className='text-[30px] text-red-500' />
+              <h3>Online Chat Get Expert Help</h3>
+            </div>
+          </div>
+
+
+          <div className="w-[1px] bg-gray-300 mx-4"></div>
+
+
+          <div className='flex  justify-between w-[70%]'>
+            <div className='flex flex-col gap-4'>
+              <h1 className='text-[24px]'>Products</h1>
+              <ul className='flex flex-col gap-2'>
+                <li className='text-gray-600 dark:text-gray-400'>Product 1</li>
+                <li className='text-gray-600 dark:text-gray-400'>Product 2</li>
+                <li className='text-gray-600 dark:text-gray-400'>Product 3</li>
+                <li className='text-gray-600 dark:text-gray-400'>Product 4</li>
+                <li className='text-gray-600 dark:text-gray-400'>Product 5</li>
+                <li className='text-gray-600 dark:text-gray-400'>Product 6</li>
+
+              </ul>
+            </div>
+            <div className='flex flex-col gap-4'>
+              <h1 className='text-[24px]'>Our Company</h1>
+              <ul className='flex gap-2 flex-col'>
+                <li className='text-gray-600 dark:text-gray-400'>Product 1</li>
+                <li className='text-gray-600 dark:text-gray-400'>Product 1</li>
+                <li className='text-gray-600 dark:text-gray-400'>Product 1</li>
+                <li className='text-gray-600 dark:text-gray-400'>Product 1</li>
+                <li className='text-gray-600 dark:text-gray-400'>Product 1</li>
+                <li className='text-gray-600 dark:text-gray-400'>Product 1</li>
+              </ul>
+            </div>
+            <div className='max-w-96 flex flex-col gap-5'>
+              <h1 className='text-[24px]'>Subscribe To Newsletter</h1>
+              <p className='text-gray-600'>Subscribe to our latest newsletter to get news about special discounts.</p>
+              <TextField variant="outlined" type="text" placeholder="enter your email"></TextField>
+              <Button variant="contained" sx={{ width: 160 }} className='!bg-red-400'>SUBSCRIBE</Button>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    color="primary"
+                    size="small"
+                  />
+                }
+                label="Accept Terms and Conditions"
+              />
+            </div>
           </div>
         </div>
-        <Divider orientation='vertical' />
-
-        <div className='flex  items-center width-[70%] gap-12'>
-          <div className='flex flex-col items-center gap-3'>
-            <h1>Products</h1>
-            <ul>
-              <li>Product 1</li>
-              <li>Product 2</li>
-              <li>Product 3</li>
-              <li>Product 4</li>
-            </ul>
-          </div>
-          <div className='flex flex-col items-center gap-4'>
-            <h1>Our Company</h1>
-            <ul>
-              <li>Product 1</li>
-              <li>Product 2</li>
-              <li>Product 3</li>
-              <li>Product 4</li>
-            </ul>
-          </div>
-          <div>
-            <h1>Subscribe To Newsletter</h1>
-            <p></p>
-          </div>
-        </div>
       </div>
 
 
-      
-        <Box
+
+      <Box
         sx={{
           position: 'static',
           bottom: 0,
@@ -73,21 +139,23 @@ const Footer = () => {
           justifyContent: 'space-between',
           margin: '0 auto',
           alignItems: 'center',
-        }}>
-        <ButtonGroup color="primary" aria-label="outlined primary button group" sx={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent:"center" }}>
-          {[FaFacebookF, FaInstagram, FiYoutube, FaPinterestP].map((Icon, index) => (
-            <IconButton aria-label="search" className='!text-red-500' key={index} >
-            <Icon className='!text-[32px]' />
-            </IconButton>
-          ))}
-        </ButtonGroup>
-        <Typography variant="body2" color="textSecondary">
-          © {new Date().getFullYear()} Your Company Name. All rights reserved.
-        </Typography>
+        }} className='dark:bg-gray-900'>
+        <Box sx={{ width: '95%', gap: "80px" }}>
+          <ButtonGroup color="primary" aria-label="outlined primary button group" sx={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: "center" }}>
+            {[FaFacebookF, FaInstagram, FiYoutube, FaPinterestP].map((Icon, index) => (
+              <IconButton aria-label="search" className='!text-gray-700 dark:!text-gray-200 bg-gray-200 border border-gray-300 shadow hover:!bg-red-500 hover:!text-white transition duration-500' key={index} >
+                <Icon className='!text-[18px]' />
+              </IconButton>
+            ))}
+          </ButtonGroup>
+          <Typography variant="body2" color="textSecondary" className='text-gray-700 dark:text-gray-200'>
+            © {new Date().getFullYear()} Your Company Name. All rights reserved.
+          </Typography>
+        </Box>
       </Box>
-      
 
-      
+
+
     </>
 
   )

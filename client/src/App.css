@@ -18,12 +18,28 @@
 } */
 
 
-body {
-  font-family: 'Roboto', sans-serif;
+html, body {
   margin: 0;
   padding: 0;
+  height: 100%;
+  overflow:hidden;
   background-color: #f4f4f4;
-} 
+  font-family: 'Roboto', sans-serif;
+}
+
+
+/* Hide arrows in input[type=number] for all browsers */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield; /* Firefox */
+}
+
+
 
 ::-webkit-scrollbar {
   width: 6px;
@@ -31,7 +47,7 @@ body {
 }
 ::-webkit-scrollbar-thumb {
   background-color: #dc8585;
-  border-radius: px;
+  border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background-color: #f30a0a;
@@ -57,6 +73,8 @@ body {
   color: black;
   text-transform: capitalize;
 }
+
+
 
 
 /*========================= header styling ======================*/
@@ -86,11 +104,16 @@ body {
   background-color: rgb(234, 167, 167) !important;
   color: white !important;
   box-shadow: 0 6px 8px rgba(0, 0, 0, 0.2) !important;
-  transform: scale(0.9) !important;
+  transform: scale(1.0) !important;
   transition: background-color 0.3s ease, transform 0.3s ease !important
 }
 
-
+/*===========zoom swiper thumb============================*/
+.swiper-slide-thumb-active{
+  opacity:1 !important;
+  border: 2px black solid ;
+}
+/*===========zoom swiper thumb============================*/
 
 /* ===========================hero2 section========================== */
 
@@ -123,7 +146,44 @@ body {
   color:black;
 }
 
+/*=======================mui slider and checkbox styling=========*/
 
+.css-1xcmt9q-MuiSlider-thumb{
+  height:15px !important;
+  width:15px !important;
+  color: #f30a0a;
+}
+
+.css-xvk2i-MuiSlider-track{
+  border: none !important;
+  background-color: #d57474 !important;
+}
+
+.css-120dh41-MuiSvgIcon-root {
+  fill : #cd4f4f;
+  border: gray;
+}
+
+/*=======================mui slider and checkbox styling=========*/
+
+/*============================image zoomer button==============*/
+.iiz__btn{
+  display: none !important;
+}
+
+.iiz__img{
+  aspect-ratio: 14 / 16; /* width / height */
+  object-fit: cover;   /* or contain, depending on the use case */
+  height: auto;
+}
+/*============================image zoomer button==============*/
+
+/*============================admin header styling=====================*/
+.ring-offset-background {
+     --tw-ring-offset-color: none !important; 
+}
+
+/*============================admin header styling=====================*/
 
 
 /* ===========================sticky component styling */

@@ -1,6 +1,6 @@
 // import { lazy, Suspense } from 'react';
 import "./App.css"
-import {Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Header from "./components/header";
 // import { ThemeProvider } from '@mui/material';
 // import { theme } from './themes/theme';
@@ -22,26 +22,52 @@ import Header from "./components/header";
 // import GridMui from './components/Grid';
 import { ThemeProvider } from './context/themeContext';
 import ProductDetails from "./components/productDetails";
-import NotFound from "./pages/NotFound";
+//import NotFound from "./pages/NotFound";
+import Productcategory from "./components/productcategory";
+import BlogDetail from "./components/BlogDetails";
+import BlogSection from "./components/BlogSection";
+import { Dashboard } from "./components/admin/dashboard";
+import { AuthProvider } from "./context/authContext";
+import CartPage from "./components/cartPage";
+import AddressForm from "./components/addressForm";
+import OtpVerify from "./components/otpVerify";
+import Login from "./components/auth/login";
+import MyAccount from "./components/myAccount";
+import AddressPage from "./components/addAddress";
+import Testh from "./components/Testh";
+import ResetPassword from "./components/auth/resetPassword";
+import ForgotPassword from "./components/auth/forgotPassword";
+import Toaster from "./ui/Toaster";
+import CreateProduct from "./components/admin/createProduct";
+import CreateCategory from "./components/admin/categories/createCategory";
+import Orders from "./components/admin/orders";
+import AdminLayout from "./components/admin/layout";
+import AdminProfile from "./components/admin/adminProfile";
+import CustomersTable from "./components/admin/customers/customersTable";
+import GuestRoute from "./routes/GuestRoutes";
+//import ProtectedRoute from "./routes/ProtectedRoute";
+import Chat from "./components/admin/chat/chat";
 
 
 
 
 const App = () => {
-  
-  return(
+
+
+  return (
     <>
-    {/* <Tablewithpagination></Tablewithpagination> */}
-    {/* <MultiStepForm></MultiStepForm> */}
-    {/* <FormikComponent/> */}
-    {/* <FaqComp></FaqComp> */}
-    {/* <ThemeProvider theme={theme}> */}
-    <ThemeProvider defaultTheme="system" storageKey="marketpulse-ui-theme">
-    {/* <RegisterForm/> */}
-    
-    {/* <Suspense fallback={<h1>Loading....</h1>}> */}
-    <Routes>
-      {/* <Route path='/' element={<Layout/>}>
+      {/* <Tablewithpagination></Tablewithpagination> */}
+      {/* <MultiStepForm></MultiStepForm> */}
+      {/* <FormikComponent/> */}
+      {/* <FaqComp></FaqComp> */}
+      {/* <ThemeProvider theme={theme}> */}
+      <ThemeProvider defaultTheme="system" storageKey="marketpulse-ui-theme">
+        <AuthProvider>
+          {/* <RegisterForm/> */}
+
+          {/* <Suspense fallback={<h1>Loading....</h1>}> */}
+          <Routes>
+            {/* <Route path='/' element={<Layout/>}>
         <Route index element={<Hero/>} />
       </Route>
       <Route path='login' element={<Login/>}></Route>
@@ -56,15 +82,50 @@ const App = () => {
       <Route path='drawCircle' element={<DrawCircle/>}></Route>
       <Route path='multipageauth' element={<MultipageAuth/>}></Route>
       <Route path='*' element={<h1>page not found</h1>}></Route> */}
-      <Route path='/' element={<Header/>}></Route>
-      <Route path='ProductDetails/:id' element={<ProductDetails/>}></Route>
-      <Route path='*' element={<NotFound/>}></Route>
-    </Routes>
-    {/* </Suspense>
+            {/* <Route element={<ProtectedRoute />}> */}
+              <Route path='/' element={<Header />}></Route>
+              <Route path="/address" element={<AddressForm />}></Route>
+              <Route path='ProductDetails/:id' element={<ProductDetails />}></Route>
+              <Route path="Productcategory" element={<Productcategory />}></Route>
+              <Route path="/blogsection" element={<BlogSection />}></Route>
+              <Route path="/blog/:id" element={<BlogDetail />} />
+              <Route path="cartPage" element={<CartPage />}></Route>
+              <Route path="myaccount" element={<MyAccount />}></Route>
+              <Route path="addaddress" element={<AddressPage />}></Route>
+              <Route path="category-chart" element={<Testh />}></Route>
+              <Route path="rating"></Route>
+            {/* </Route> */}
+
+            <Route path="/" element={<AdminLayout />}>
+              <Route path="dashboard" element={<Dashboard />}></Route>
+              <Route path="products/create" element={<CreateProduct />} />
+              <Route path="categories/create" element={<CreateCategory />} />
+              <Route path="orders" element={<Orders />}></Route>
+              <Route path="/customers" element={<CustomersTable />} />
+              <Route path="admin-profile" element={<AdminProfile />} />
+              <Route path="chat" element={<Chat />} />
+            </Route>
+
+            <Route element={<GuestRoute />}>
+              {/* <Route path="signup" element={<Signup />}></Route> */}
+              <Route path="login" element={<Login />}></Route>
+              <Route path="otpverify" element={<OtpVerify />}></Route>
+              <Route path="forgot-password/:email" element={<ForgotPassword />}></Route>
+              <Route path="reset-password" element={<ResetPassword />}></Route>
+            </Route>
+
+            {/* <Route path='*' element={<NotFound />}></Route>  */}
+            {/* or */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+
+          </Routes>
+          {/* </Suspense>
     </ThemeProvider> */}
-    </ThemeProvider>
-    
-    
+          <Toaster />
+        </AuthProvider>
+      </ThemeProvider>
+
+
     </>
   )
 };
