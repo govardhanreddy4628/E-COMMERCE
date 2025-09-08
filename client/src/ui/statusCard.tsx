@@ -41,12 +41,11 @@ export default function StatsCard({
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         {icon && <div className="h-4 w-4 text-muted-foreground">{icon}</div>}
       </CardHeader>
+      
       <CardContent>
         <div className="text-2xl font-bold tracking-tight truncate" style={{ lineHeight: '1.5' }}>
           <span className={valueClassName}>{value}</span>
-        </div>
-        
-       
+        </div>       
       </CardContent>
     </Card>
   );

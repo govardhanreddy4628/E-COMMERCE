@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Button } from "@/components/ui/button";
+import { Button } from "../../../ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -48,7 +48,7 @@ type ProductFormData = z.infer<typeof productSchema>;
 
 // Categories are now managed dynamically through CategoryContext
 
-export function CreateProduct() {
+export function CreateProduct2() {
     const [uploadedImages, setUploadedImages] = useState<File[]>([]);
     const [tagInput, setTagInput] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("");

@@ -6,9 +6,9 @@ import {
   Box, Button, TextField, Typography, MenuItem,
   Paper, Grid, InputLabel, Select, FormControl,
 } from '@mui/material';
-import ReactQuill from './ReactQuillWrapper';
+import ReactQuill from '../../ReactQuillWrapper';
 import 'react-quill/dist/quill.snow.css';
-import { useTheme } from '../../context/themeContext';
+import { useTheme } from '../../../../context/themeContext';
 import { IoMdEye, IoMdTrash } from "react-icons/io";
 import { FiUploadCloud } from "react-icons/fi";
 import { SelectChangeEvent } from '@mui/material';
@@ -438,75 +438,9 @@ const CreateProduct: React.FC = () => {
                   borderRadius: '4px',
                 }}
               />
-            </Grid>
+            </Grid>     
 
-            <Grid item xs={6}>
-              <TextField
-                label="Price (₹)"
-                name="price"
-                type="number"
-                size="medium"
-                fullWidth
-                required
-                value={product.price}
-                onChange={handleChange}
-                variant="outlined"
-                InputProps={{
-                  sx: {
-                    backgroundColor: isDark ? '#1e1e1e' : '#fff',
-                    color: isDark ? '#fff' : '#000',
-                  },
-                }}
-                InputLabelProps={{
-                  sx: { color: isDark ? '#ccc' : '#555' },
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={6}>
-              <TextField
-                label="Discount (%)"
-                name="discount"
-                type="number"
-                fullWidth
-                required
-                value={product.price}
-                onChange={handleChange}
-                variant="outlined"
-                InputProps={{
-                  sx: {
-                    backgroundColor: isDark ? '#1e1e1e' : '#fff',
-                    color: isDark ? '#fff' : '#000',
-                  },
-                }}
-                InputLabelProps={{
-                  sx: { color: isDark ? '#ccc' : '#555' },
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={6}>
-              <TextField
-                label="Stock"
-                name="stock"
-                type="number"
-                fullWidth
-                required
-                value={product.stock}
-                onChange={handleChange}
-                variant="outlined"
-                InputProps={{
-                  sx: {
-                    backgroundColor: isDark ? '#1e1e1e' : '#fff',
-                    color: isDark ? '#fff' : '#000',
-                  },
-                }}
-                InputLabelProps={{
-                  sx: { color: isDark ? '#ccc' : '#555' },
-                }}
-              />
-            </Grid>
-
+          
             <Grid item xs={6}>
               <FormControl fullWidth variant="outlined">
                 <InputLabel sx={{ color: isDark ? '#ccc' : '#555' }}>Category</InputLabel>
@@ -593,13 +527,6 @@ const CreateProduct: React.FC = () => {
                 }}
               />
             </Grid>
-
-
-
-
-
-
-
 
 
             <Grid item xs={6}>

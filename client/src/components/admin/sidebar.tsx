@@ -108,7 +108,7 @@ export const navItems: NavItem[] = [
   {
     title: 'Calendar',
     icon: FaRegCalendarAlt,
-    href: '/Calendar',
+    href: '/calendar2',
   },
   {
     title: 'Chat',

@@ -38,7 +38,7 @@ import Testh from "./components/Testh";
 import ResetPassword from "./components/auth/resetPassword";
 import ForgotPassword from "./components/auth/forgotPassword";
 import Toaster from "./ui/Toaster";
-import CreateProduct from "./components/admin/createProduct";
+import CreateProduct from "./components/admin/products/CreateProduct/createProduct";
 import CreateCategory from "./components/admin/categories/createCategory";
 import Orders from "./components/admin/orders";
 import AdminLayout from "./components/admin/layout";
@@ -47,6 +47,11 @@ import CustomersTable from "./components/admin/customers/customersTable";
 import GuestRoute from "./routes/GuestRoutes";
 //import ProtectedRoute from "./routes/ProtectedRoute";
 import Chat from "./components/admin/chat/chat";
+import Calendar2 from "./components/calendar2/calendar2";
+import Calendar3 from "./components/calendar3/Calendar3";
+import Cp from "./components/admin/cp";
+import CreateProduct3 from "./components/admin/products/CreateProduct/CreateProduct3";
+import { CreateProduct2 } from "./components/admin/products/CreateProduct";
 
 
 
@@ -83,27 +88,32 @@ const App = () => {
       <Route path='multipageauth' element={<MultipageAuth/>}></Route>
       <Route path='*' element={<h1>page not found</h1>}></Route> */}
             {/* <Route element={<ProtectedRoute />}> */}
-              <Route path='/' element={<Header />}></Route>
-              <Route path="/address" element={<AddressForm />}></Route>
-              <Route path='ProductDetails/:id' element={<ProductDetails />}></Route>
-              <Route path="Productcategory" element={<Productcategory />}></Route>
-              <Route path="/blogsection" element={<BlogSection />}></Route>
-              <Route path="/blog/:id" element={<BlogDetail />} />
-              <Route path="cartPage" element={<CartPage />}></Route>
-              <Route path="myaccount" element={<MyAccount />}></Route>
-              <Route path="addaddress" element={<AddressPage />}></Route>
-              <Route path="category-chart" element={<Testh />}></Route>
-              <Route path="rating"></Route>
+            <Route path='/' element={<Header />}></Route>
+            <Route path="/address" element={<AddressForm />}></Route>
+            <Route path='ProductDetails/:id' element={<ProductDetails />}></Route>
+            <Route path="Productcategory" element={<Productcategory />}></Route>
+            <Route path="/blogsection" element={<BlogSection />}></Route>
+            <Route path="/blog/:id" element={<BlogDetail />} />
+            <Route path="cartPage" element={<CartPage />}></Route>
+            <Route path="myaccount" element={<MyAccount />}></Route>
+            <Route path="addaddress" element={<AddressPage />}></Route>
+            <Route path="category-chart" element={<Testh />}></Route>
+            <Route path="rating"></Route>
             {/* </Route> */}
 
             <Route path="/" element={<AdminLayout />}>
               <Route path="dashboard" element={<Dashboard />}></Route>
-              <Route path="products/create" element={<CreateProduct />} />
               <Route path="categories/create" element={<CreateCategory />} />
               <Route path="orders" element={<Orders />}></Route>
               <Route path="/customers" element={<CustomersTable />} />
               <Route path="admin-profile" element={<AdminProfile />} />
               <Route path="chat" element={<Chat />} />
+              <Route path="calendar2" element={<Calendar2 />} />
+              <Route path="calendar3" element={<Calendar3 />} />
+              <Route path="products/create" element={<CreateProduct />} />
+              <Route path="createproduct3" element={<CreateProduct3 />} />
+              {/* <Route path="createproduct" element={<CreateProduct2/>} /> */}
+
             </Route>
 
             <Route element={<GuestRoute />}>

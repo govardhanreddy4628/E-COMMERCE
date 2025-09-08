@@ -13,6 +13,8 @@ import { sendVerificationEmail } from "../utils/sendEmail";
 import fs from "fs";
 import cloudinary from "../config/cloudinary";
 import validator from "validator";
+import redisClient from "../config/redis";
+import logger from "../utils/logger";
 
 // ===================== registration =======================
 export const registerController = async (
@@ -620,42 +622,73 @@ export async function updateUserDetails(req: Request, res: Response) {
 
 
 //================logout======================
+// Helper to build Redis keys consistently
+const getUserSessionKey = (userId: string) => `user_sessions:${userId}`;
+const getBlacklistKey = (token: string) => `bl_refresh:${token}`;
+
 export const logoutController = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<void> => {
   try {
     const userId = req.userId;
+    const refreshToken = req.cookies.refreshToken;
 
+    if (!userId || !refreshToken) {
+      return res.status(401).json({
+        message: "Unauthorized: Missing user or token",
+        error: true,
+        success: false,
+      });
+    }
+
+    // Build Redis keys
+    const sessionKey = getUserSessionKey(userId);
+    const blacklistKey = getBlacklistKey(refreshToken);
+
+    // Clear cookies
     const cookiesOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV_MODE === "production",
       sameSite:
-        process.env.NODE_ENV_MODE === "production"
-          ? "none"
-          : ("strict" as "none" | "strict"),
+        process.env.NODE_ENV_MODE === "production" ? "none" : "strict",
     };
-
     res.clearCookie("accessToken", cookiesOptions);
     res.clearCookie("refreshToken", cookiesOptions);
 
-    const removeRefreshToken = await UserModel.findByIdAndUpdate(userId, {
-      refresh_token: "",
-    });
+    // Remove the refresh token from user's active sessions
+    const removed = await redisClient.sRem(sessionKey, refreshToken);
 
-    res.status(200).json({
-      message: "Logout successfull",
+    if (removed === 0) {
+      logger.warn(
+        `Logout attempt for token not in session list. User: ${userId}`
+      );
+    }
+
+    // Blacklist the token to prevent reuse
+    await redisClient.setEx(
+      blacklistKey,
+      7 * 24 * 60 * 60, // 7 days in seconds
+      "blacklisted"
+    );
+
+    logger.info(`User ${userId} logged out. Refresh token invalidated.`);
+
+    return res.status(200).json({
+      message: "Logout successful",
       error: false,
       success: true,
     });
-  } catch (error) {
-    res.status(500).json({
-      message: error,
+  } catch (err) {
+    logger.error("Logout error:", err);
+    return res.status(500).json({
+      message: "Internal server error during logout",
       error: true,
       success: false,
     });
   }
 };
+
 
 
 //======================forgotpassword================

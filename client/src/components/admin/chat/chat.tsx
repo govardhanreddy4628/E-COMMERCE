@@ -3,6 +3,7 @@ import io from 'socket.io-client';
 import { useState } from "react";
 import { ChatSidebar } from './ChatSidebar';
 import { ChatArea } from './ChatArea';
+import "./chat.css"
 
 
 interface Message {
@@ -107,10 +108,10 @@ const mockMessages: Record<string, Message[]> = {
 };
 
 const Chat = () => {
-    // ✅ Infer the correct type from the io() return
-    const socketRef = useRef<ReturnType<typeof io> | null>(null);
+  // ✅ Infer the correct type from the io() return
+  const socketRef = useRef<ReturnType<typeof io> | null>(null);
 
-     const [selectedChatId, setSelectedChatId] = useState<string>();
+  const [selectedChatId, setSelectedChatId] = useState<string>();
   const [messages, setMessages] = useState<Record<string, Message[]>>(mockMessages);
 
   const selectedChat = mockChats.find(chat => chat.id === selectedChatId) || null;
@@ -118,7 +119,7 @@ const Chat = () => {
 
   const handleSendMessage = (content: string) => {
     if (!selectedChatId) return;
-    
+
     const newMessage: Message = {
       id: Date.now().toString(),
       content,
@@ -133,37 +134,37 @@ const Chat = () => {
     }));
   };
 
-    useEffect(() => {
-        const backendUrl = import.meta.env.VITE_BACKEND_URL as string;
+  useEffect(() => {
+    const backendUrl = import.meta.env.VITE_BACKEND_URL as string;
 
-        if (!backendUrl) {
-            console.error('Backend URL is not defined.');
-            return;
-        }
+    if (!backendUrl) {
+      console.error('Backend URL is not defined.');
+      return;
+    }
 
-        socketRef.current = io(backendUrl, {
-            transports: ['websocket'],
-            reconnectionAttempts: 5,
-            reconnectionDelay: 1000,
-            reconnectionDelayMax: 5000,
-        });
+    socketRef.current = io(backendUrl, {
+      transports: ['websocket'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+    });
 
-        return () => {
-            socketRef.current?.disconnect();
-        };
-    }, []);
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, []);
 
-    return <div className="h-screen flex bg-background">
-      <ChatSidebar 
-        selectedChatId={selectedChatId}
-        onChatSelect={setSelectedChatId}
-      />
-      <ChatArea
-        selectedChat={selectedChat}
-        messages={currentMessages}
-        onSendMessage={handleSendMessage}
-      />
-    </div>
+  return <div className="h-[calc(100vh-4rem)] flex bg-background">
+    <ChatSidebar
+      selectedChatId={selectedChatId}
+      onChatSelect={setSelectedChatId}
+    />
+    <ChatArea
+      selectedChat={selectedChat}
+      messages={currentMessages}
+      onSendMessage={handleSendMessage}
+    />
+  </div>
 };
 
 export default Chat;

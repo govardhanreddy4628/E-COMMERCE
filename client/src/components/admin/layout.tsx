@@ -1,13 +1,20 @@
-import React, { useState } from 'react'
+import React, { useContext } from 'react'
 import Sidebar from './sidebar'
 import { Navbar } from './navbar';
 import { Outlet } from 'react-router-dom';
+import { sideBarContext } from '../../context/sidebarContext';
 
  
-
 const AdminLayout: React.FC = () => {
-    const [isExpand, setIsExpand] = useState(true);
-    const toggleExpand = () => { setIsExpand(!isExpand) }
+
+    const context = useContext(sideBarContext);
+
+    if (!context) {
+        throw new Error('sideBarContext must be used within a Provider');
+    }
+
+    const { isExpand, toggleExpand, setIsExpand } = context;
+
 
     return (
         <div className="flex flex-col w-full h-screen">

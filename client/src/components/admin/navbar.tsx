@@ -61,7 +61,7 @@ export function Navbar({ className }: NavbarProps) {
     };
 
     return (
-        <header className={cn("bg-white/95 backdrop-blur-sm sticky top-0 z-30 border-b dark:bg-gray-950")}>
+        <header className={cn("bg-white/95 backdrop-blur-sm sticky top-0 z-10 border-b dark:bg-gray-950")}>
             <div className="container flex items-center justify-between h-16 px-4">
                 <h1 className="text-lg font-semibold tracking-tight lg:text-xl"><span className='text-green-500'>Go-</span>Board</h1>
                 <div className="flex items-center gap-2 lg:gap-4">

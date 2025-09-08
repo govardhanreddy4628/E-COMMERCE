@@ -62,7 +62,7 @@ const mockChats: Chat[] = [
 
 export function ChatSidebar({ selectedChatId, onChatSelect }: ChatSidebarProps) {
   return (
-    <div className="w-80 bg-chat-sidebar border-r border-border flex flex-col h-full">
+    <div className="w-96 bg-chat-sidebar border-r border-border flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-4">
@@ -99,7 +99,7 @@ export function ChatSidebar({ selectedChatId, onChatSelect }: ChatSidebarProps) 
               }`}
             >
               <div className="relative">
-                <Avatar className="h-12 w-12">
+                <Avatar className="h-9 w-9">
                   <AvatarImage src={chat.avatar} />
                   <AvatarFallback className="bg-primary text-primary-foreground">
                     {chat.isGroup ? (

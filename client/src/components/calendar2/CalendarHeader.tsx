@@ -1,70 +1,111 @@
-import ChevronLeftOutlinedIcon from '@mui/icons-material/ChevronLeftOutlined';
-import ChevronRightOutlinedIcon from '@mui/icons-material/ChevronRightOutlined';
-import IconButton from '@mui/material/IconButton';
-import { Box, Button, Typography } from '@mui/material';
-import { useContext } from 'react';
-import { calendarContext } from './calendarContext';
-import dayjs, { Dayjs } from 'dayjs';
+import { useContext, useState } from "react";
+import { calendarContext } from "./calendarContext";
+import { FaCaretDown } from "react-icons/fa";
+import { MdChevronLeft, MdChevronRight } from "react-icons/md";
 
 const CalendarHeader = () => {
+  const [selectedDuration, setSelectedDuration] = useState("month");
+  const [openDurationDropdown, setOpenDurationDropdown] = useState(false);
+  const today = new Date().getDate();
 
-    const context = useContext(calendarContext);
-      
-      if (!context) {
-        // Handle the case when context is null (e.g., return a loading state or error)
-        return <div>Loading...</div>;
-      }
-    
-      const { currentMonth, setCurrentMonth } = context;
+  const ctx = useContext(calendarContext);
+  if (!ctx) return <div>Calendar context not found</div>;
 
-    // const handleClick = (value:number) =>{
-    //     setCurrentMonth((prev) => (dayjs(prev).month()+value))
-    // }
+  const { currentMonth, goToNextMonth, goToPrevMonth, resetToToday } = ctx;
 
-    const handleClick = (value: number) => {
-        setCurrentMonth((prev) => {
-            const newMonth = dayjs(prev[0][0]).add(value, 'month'); // Get the first day of the current month and change the month
-            return getMonth(newMonth.month());
-        });
-    };
-
-    function getMonth(month: number = dayjs().month()): Dayjs[][] {
-        const year = dayjs().year();
-        const firstDayOfMonth = dayjs(new Date(year, month, 1)).day();
-        let currentMonthCount: number = 0 - firstDayOfMonth;
-        const daysMatrix = new Array(6).fill([]).map(() => {
-            return new Array(7).fill(null).map(() => {
-                currentMonthCount++;
-                return dayjs(new Date(year, month, currentMonthCount));
-            });
-        });
-        return daysMatrix;
-    }
+  const firstDay = currentMonth[0][0];
 
   return (
-    <header className='px-4 py-2 flex items-center gap-2'>
-      <img src='https://static.vecteezy.com/system/resources/previews/022/613/030/original/google-calendar-icon-logo-symbol-free-png.png' className='h-10'/>
-      <Typography variant="h4" component="h2">Calendar</Typography>
-      <Button className="border rounded py-2 px-4 mx-5" size="large">Today</Button>
-      <Box>
-        <span className='material-icons-outlined cursor-pointer text-gray-600 mx-2'>
-        <IconButton aria-label="previous" onClick={()=>{handleClick(-1)}}><ChevronLeftOutlinedIcon/></IconButton>
-        </span>
-      </Box>
-      <button>
-        <span className='material-icons-outlined cursor-pointer text-gray-600 mx-2'>
-        <IconButton aria-label="next" onClick={()=>{handleClick(1)}}><ChevronRightOutlinedIcon/></IconButton>
-            
-        </span>
-      </button>
-      <Box><h2>
-          {new Date(currentMonth[0][0]).toLocaleString("default", {
-            month: "long",
-            year: "numeric",
-          })}
-        </h2></Box>
-    </header>
-  )
-}
+    <header className="px-4 py-2 flex items-center gap-2 justify-between w-full">
+      <div className="flex items-center gap-12">
+        {/* Calendar Logo */}
+        <div className="flex items-center gap-2">
+          <img
+            src={`https://ssl.gstatic.com/calendar/images/dynamiclogo_2020q4/calendar_${today}_2x.png`}
+            srcSet={`
+              https://ssl.gstatic.com/calendar/images/dynamiclogo_2020q4/calendar_${today}_2x.png 1x,
+              https://ssl.gstatic.com/calendar/images/dynamiclogo_2020q4/calendar_${today}_2x.png 2x
+            `}
+            alt="Calendar logo"
+            aria-hidden="true"
+            role="presentation"
+            width={40}
+            height={40}
+          />
+          <h3 className="font-medium text-xl">Calendar</h3>
+        </div>
 
-export default CalendarHeader
+        {/* Month navigation */}
+        <div className="flex items-center gap-4">
+          <button
+            className="capitalize text-primary flex items-center justify-between gap-2 px-4 py-2 mr-5 border border-gray-900 rounded-lg shadow-sm hover:bg-gray-100 transition duration-150"
+            onClick={resetToToday}
+          >
+            Today
+          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              aria-label="previous"
+              onClick={goToPrevMonth}
+              className="p-1 rounded-full hover:bg-gray-300 text-gray-700 transition-colors duration-200"
+            >
+              <MdChevronLeft size={22} />
+            </button>
+
+            <button
+              aria-label="next"
+              onClick={goToNextMonth}
+              className="p-1 rounded-full hover:bg-gray-300 text-gray-700 transition-colors duration-200"
+            >
+              <MdChevronRight size={22} />
+            </button>
+          </div>
+
+          <h2 className="text-lg font-medium">
+            {/* {currentMonth && currentMonth[0] && currentMonth[0][0] &&
+              new Date(currentMonth[0][0]).toLocaleString("default", {
+                month: "long",
+                year: "numeric",
+              })} */}
+              {firstDay.toLocaleString("default", { month: "long", year: "numeric" })}
+          </h2>
+        </div>
+      </div>
+
+      {/* Duration Dropdown */}
+      <div className="relative inline-block">
+        <button
+          onClick={() => setOpenDurationDropdown(!openDurationDropdown)}
+          className="flex items-center justify-between gap-2 px-4 py-2 mr-5 border border-gray-900 rounded-lg shadow-sm hover:bg-gray-100 transition duration-150"
+        >
+          <span className="capitalize">{selectedDuration}</span>
+          <FaCaretDown
+            className={`transition-transform duration-200 ${
+              openDurationDropdown ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+
+        {openDurationDropdown && (
+          <div className="absolute top-full -left-2 mt-2 w-full bg-white border border-gray-200 shadow-lg rounded-md z-10">
+            {["day", "week", "month", "year"].map((duration) => (
+              <div
+                key={duration}
+                onClick={() => {
+                  setSelectedDuration(duration);
+                  setOpenDurationDropdown(false);
+                }}
+                className="px-4 py-2 cursor-pointer hover:bg-gray-100 w-full text-center capitalize transition-colors"
+              >
+                {duration}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </header>
+  );
+};
+
+export default CalendarHeader;
