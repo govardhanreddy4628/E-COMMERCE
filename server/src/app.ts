@@ -12,9 +12,11 @@ import helmet from "helmet";
 import { Server } from "socket.io";
 import { errorHandler } from "./middleware/errorHandler";
 import cartRouter from "./routes/cartRoute";
-import { Message } from "./models/Message";
+import { Message } from "./models/MessageModel";
 import rateLimit from 'express-rate-limit';
 import { customersData } from "./data/customers";
+import chatRoutes from "./routes/chatRoutes";
+import offersRoutes from "./routes/offersRoutes";
 
 const app = express();
 
@@ -46,7 +48,7 @@ const io = new Server(server, {
 });
 
 io.on("connection", (socket) => {
-  console.log("🔌 A user connected:", socket.id);
+  console.log("🟢 A user connected:", socket.id);
 
   socket.on("message", (msg) => {
     console.log("📨 Message received:", msg);
@@ -79,13 +81,15 @@ app.get("/api/messages/:userId", async (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.send("Socket.IO server is running");
+  res.send("Socket.IO server is running...");
 });
 
 //api
 app.use("/api/v1/user", userRoutes);
 app.use("/api/v1/product", productRoutes);
 app.use("/api/v1/category", categoryRoutes);
+app.use("/api/v1/chat", chatRoutes)
+app.use("/api/v1/offers", offersRoutes)
 // app.use("/api/v1/upload", uploadRouter);
 // app.use("/api/v1/cart", cartRouter);
 // app.use("/api/v1/coupons", couponRouter);

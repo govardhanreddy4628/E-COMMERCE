@@ -1,101 +1,207 @@
-import React, { useState, ChangeEvent, FormEvent } from 'react';
+import { useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { Plus } from 'lucide-react';
+import { Button } from '../../../ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '../../../ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '../../../ui/form';
+import { Input } from '../../../ui/input';
+import { Textarea } from '../../../ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../../ui/select';
+import { useCategories } from '../../../context/CategoryContext';
+import { useToast } from '../../../hooks/use-toast';
 
-const CategoryForm: React.FC = () => {
-  const [category, setCategory] = useState({
-    name: '',
-    images: [] as File[],
-  })
+const categorySchema = z.object({
+  name: z.string().min(1, 'Category name is required').max(50, 'Name too long'),
+  description: z.string().optional(),
+  parentId: z.string().optional(),
+});
 
-  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setCategory((prev) => ({ ...prev, images: Array.from(e.target.files || []) }))
-  };
+type CategoryFormData = z.infer<typeof categorySchema>;
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
+interface CreateCategoryProps {
+  mode?: 'category' | 'subcategory';
+  parentCategoryId?: string;
+  trigger?: React.ReactNode;
+}
 
-    if (!category.name.trim()) {
-      alert('Category name is required');
-      return;
+export function CreateCategory({ mode = 'category', parentCategoryId, trigger }: CreateCategoryProps) {
+  const [open, setOpen] = useState(false);
+  const { categories, addCategory, addSubcategory } = useCategories();
+  const { toast } = useToast();
+
+  const form = useForm<CategoryFormData>({
+    resolver: zodResolver(categorySchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      parentId: parentCategoryId || 'none',
+    },
+  });
+
+  const onSubmit = (data: CategoryFormData) => {
+    try {
+      if (mode === 'subcategory' && parentCategoryId) {
+        addSubcategory(parentCategoryId, {
+          name: data.name,
+          description: data.description,
+        });
+        toast({
+          title: 'Success',
+          description: 'Subcategory created successfully',
+        });
+      } else {
+        // Check for duplicate names
+        const isDuplicate = categories.some(
+          cat => cat.name.toLowerCase() === data.name.toLowerCase()
+        );
+        if (isDuplicate) {
+          form.setError('name', { message: 'Category name already exists' });
+          return;
+        }
+
+        addCategory({
+          name: data.name,
+          description: data.description,
+          parentId: data.parentId === 'none' ? undefined : data.parentId,
+        });
+        toast({
+          title: 'Success',
+          description: 'Category created successfully',
+        });
+      }
+
+      form.reset();
+      setOpen(false);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to create category',
+        variant: 'destructive',
+      });
+      console.error('Create category error:', error);
     }
-
-    console.log('Category Name:', category.name);
-    console.log('Images:', category.images);
-
-    // Implement further submit logic (e.g., API call)
   };
+
+  const defaultTrigger = (
+    <Button size="sm" className="text-primary-foreground shadow-soft">
+      <Plus className="w-4 h-4 mr-2" />
+      Add {mode === 'subcategory' ? 'Subcategory' : 'Category'}
+    </Button>
+  );
 
   return (
-    <section className="p-5 bg-gray-50 dark:bg-gray-900 dark:text-white">
-      <form className="form py-1 p-1 md:p-8 md:py-1" onSubmit={handleSubmit}>
-        <div className="scroll max-h-[72vh] overflow-y-scroll pr-1 md:pr-4 pt-4">
-          <div className="grid grid-cols-1 mb-3">
-            <div className="col w-full md:w-[25%]">
-              <h3 className="text-[14px] font-[500] mb-1 text-black dark:text-white">Category Name</h3>
-              <input
-                type="text"
-                className="w-full h-[40px] border border-[rgba(0,0,0,0.2)] focus:outline-none focus:border-[rgba(0,0,0,0.4)] dark:bg-gray-800 dark:border-gray-600 dark:text-white rounded-sm p-3 text-sm"
-                name="name"
-                value={category.name}
-                onChange={(e) => setCategory(prev => ({ ...prev, name: e.target.value }))}
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {trigger || defaultTrigger}
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>
+            Create New {mode === 'subcategory' ? 'Subcategory' : 'Category'}
+          </DialogTitle>
+          <DialogDescription>
+            Add a new {mode === 'subcategory' ? 'subcategory' : 'category'} to organize your products.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter category name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description (Optional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Enter category description"
+                      className="resize-none"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {mode === 'category' && (
+              <FormField
+                control={form.control}
+                name="parentId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Parent Category (Optional)</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a parent category" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">None (Main Category)</SelectItem>
+                        {categories.map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-          </div>
+            )}
 
-          <br />
-          <h3 className="text-[14px] font-[500] mb-2 text-black dark:text-white">Category Image</h3>
-
-          <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-            <div className="uploadBox p-3 rounded-md overflow-hidden border border-dashed border-[rgba(0,0,0,0.3)] h-[150px] w-full bg-gray-100 dark:bg-gray-800 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center flex-col relative">
-              <svg
-                stroke="currentColor"
-                fill="currentColor"
-                strokeWidth="0"
-                viewBox="0 0 576 512"
-                className="text-[40px] opacity-35 pointer-events-none"
-                height="1em"
-                width="1em"
-                xmlns="http://www.w3.org/2000/svg"
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOpen(false)}
               >
-                <path d="M160 80h352c8.8 0 16 7.2 16 16v224c0 8.8-7.2 16-16 16h-21.2L388.1 178.9c-4.4-6.8-12-10.9-20.1-10.9s-15.7 4.1-20.1 10.9l-52.2 79.8-12.4-16.9c-4.5-6.2-11.7-9.8-19.4-9.8s-14.8 3.6-19.4 9.8L175.6 336H160c-8.8 0-16-7.2-16-16V96c0-8.8 7.2-16 16-16zm-64 16v224c0 35.3 28.7 64 64 64h352c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64H160c-35.3 0-64 28.7-64 64zM48 120c0-13.3-10.7-24-24-24S0 106.7 0 120v224c0 75.1 60.9 136 136 136h320c13.3 0 24-10.7 24-24s-10.7-24-24-24H136c-48.6 0-88-39.4-88-88V120zm208 24a32 32 0 1 0-64 0 32 32 0 1 0 64 0z" />
-              </svg>
-              <h4 className="text-[14px] pointer-events-none">Image Upload</h4>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="absolute top-0 left-0 w-full h-full z-50 opacity-0"
-                name="images"
-                onChange={handleImageChange}
-              />
+                Cancel
+              </Button>
+              <Button type="submit" className=" text-primary-foreground">
+                Create {mode === 'subcategory' ? 'Subcategory' : 'Category'}
+              </Button>
             </div>
-          </div>
-        </div>
-
-        <br /><br />
-
-        <div className="w-[250px]">
-          <button
-            type="submit"
-            className="btn-blue btn-lg w-full flex gap-2 items-center justify-center bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition"
-          >
-            <svg
-              stroke="currentColor"
-              fill="currentColor"
-              strokeWidth="0"
-              viewBox="0 0 640 512"
-              className="text-[25px]"
-              height="1em"
-              width="1em"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path d="M537.6 226.6c4.1-10.7 6.4-22.4 6.4-34.6 0-53-43-96-96-96-19.7 0-38.1 6-53.3 16.2C367 64.2 315.3 32 256 32c-88.4 0-160 71.6-160 160 0 2.7.1 5.4.2 8.1C40.2 219.8 0 273.2 0 336c0 79.5 64.5 144 144 144h368c70.7 0 128-57.3 128-128 0-61.9-44-113.6-102.4-125.4zM393.4 288H328v112c0 8.8-7.2 16-16 16h-48c-8.8 0-16-7.2-16-16V288h-65.4c-14.3 0-21.4-17.2-11.3-27.3l105.4-105.4c6.2-6.2 16.4-6.2 22.6 0l105.4 105.4c10.1 10.1 2.9 27.3-11.3 27.3z" />
-            </svg>
-            Publish and View
-          </button>
-        </div>
-      </form>
-    </section>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
-};
-
-export default CategoryForm;
+}

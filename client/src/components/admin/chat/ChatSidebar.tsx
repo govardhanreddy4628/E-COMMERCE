@@ -1,9 +1,15 @@
-import { Search, Plus, Settings, Users, MessageCircle } from "lucide-react";
-import { Input } from "../../../ui/input";
-import { ScrollArea } from "../../../ui/scroll-area";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../../../ui/dialog";
+import { toast } from "../../../hooks/use-toast";
+import { Search, Plus, Settings, Users, MessageCircle, UserPlus, Users2 } from "lucide-react";
 import { Button } from "../../../ui/button";
+import { Label } from "../../../ui/label";
+import { Switch } from "../../../ui/switch";
+import { Input } from "../../../ui/input";
+import { Separator } from "../../../ui/separator";
+import { ScrollArea } from "../../../ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "../../../ui/avatar";
-import { Badge } from "@mui/material";
+import { Badge } from "../../../ui/badge";
 
 interface Chat {
   id: string;
@@ -19,6 +25,7 @@ interface Chat {
 interface ChatSidebarProps {
   selectedChatId?: string;
   onChatSelect: (chatId: string) => void;
+  onNewChat?: () => void;
 }
 
 const mockChats: Chat[] = [
@@ -60,20 +67,115 @@ const mockChats: Chat[] = [
   }
 ];
 
-export function ChatSidebar({ selectedChatId, onChatSelect }: ChatSidebarProps) {
+export function ChatSidebar({ selectedChatId, onChatSelect, onNewChat }: ChatSidebarProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [notifications, setNotifications] = useState(true);
+  const [readReceipts, setReadReceipts] = useState(true);
+  const [lastSeen, setLastSeen] = useState(false);
+  
+  const filteredChats = mockChats.filter(chat =>
+    chat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    chat.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const handleNewChat = () => {
+    setNewChatOpen(true);
+  };
+
+  const handleCreateIndividualChat = () => {
+    setNewChatOpen(false);
+    toast({
+      title: "New Individual Chat",
+      description: "Creating a new individual conversation..."
+    });
+    onNewChat?.();
+  };
+
+  const handleCreateGroupChat = () => {
+    setNewChatOpen(false);
+    toast({
+      title: "New Group Chat",
+      description: "Creating a new group conversation..."
+    });
+    onNewChat?.();
+  };
   return (
-    <div className="w-96 bg-chat-sidebar border-r border-border flex flex-col h-full">
+    <div className="w-80 bg-chat-sidebar border-r border-border flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-xl font-semibold text-foreground">Messages</h1>
           <div className="flex gap-2">
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" onClick={handleNewChat}>
               <Plus className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm">
-              <Settings className="h-4 w-4" />
-            </Button>
+            <Dialog open={settingsOpen} onOpenChange={setSettingsOpen}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Chat Settings</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-6 py-4">
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium">Notifications</h4>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="notifications" className="text-sm">Enable notifications</Label>
+                      <Switch 
+                        id="notifications" 
+                        checked={notifications} 
+                        onCheckedChange={(checked) => {
+                          setNotifications(checked);
+                          toast({
+                            title: checked ? "Notifications enabled" : "Notifications disabled",
+                            description: checked ? "You'll receive message notifications" : "You won't receive message notifications"
+                          });
+                        }}
+                      />
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium">Privacy</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="read-receipts" className="text-sm">Read receipts</Label>
+                        <Switch 
+                          id="read-receipts" 
+                          checked={readReceipts} 
+                          onCheckedChange={(checked) => {
+                            setReadReceipts(checked);
+                            toast({
+                              title: checked ? "Read receipts enabled" : "Read receipts disabled",
+                              description: checked ? "Others can see when you read messages" : "Others can't see when you read messages"
+                            });
+                          }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="last-seen" className="text-sm">Show last seen</Label>
+                        <Switch 
+                          id="last-seen" 
+                          checked={lastSeen} 
+                          onCheckedChange={(checked) => {
+                            setLastSeen(checked);
+                            toast({
+                              title: checked ? "Last seen visible" : "Last seen hidden",
+                              description: checked ? "Others can see when you were last online" : "Others can't see when you were last online"
+                            });
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
         
@@ -83,6 +185,8 @@ export function ChatSidebar({ selectedChatId, onChatSelect }: ChatSidebarProps) 
           <Input 
             placeholder="Search conversations..." 
             className="pl-10 bg-chat-input border-border"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
       </div>
@@ -90,7 +194,15 @@ export function ChatSidebar({ selectedChatId, onChatSelect }: ChatSidebarProps) 
       {/* Chat List */}
       <ScrollArea className="flex-1">
         <div className="p-2">
-          {mockChats.map((chat) => (
+          {filteredChats.length === 0 ? (
+            <div className="text-center py-8">
+              <MessageCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">
+                {searchQuery ? "No conversations found" : "No conversations yet"}
+              </p>
+            </div>
+          ) : (
+            filteredChats.map((chat) => (
             <div
               key={chat.id}
               onClick={() => onChatSelect(chat.id)}
@@ -110,11 +222,11 @@ export function ChatSidebar({ selectedChatId, onChatSelect }: ChatSidebarProps) 
                   </AvatarFallback>
                 </Avatar>
                 {chat.isOnline && !chat.isGroup && (
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-online-indicator rounded-full border-2 border-chat-sidebar"></div>
+                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-600 rounded-full border-2 border-chat-sidebar"></div>
                 )}
               </div>
               
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 max-w-48">           
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium text-foreground truncate">
                     {chat.name}
@@ -123,20 +235,48 @@ export function ChatSidebar({ selectedChatId, onChatSelect }: ChatSidebarProps) 
                     {chat.timestamp}
                   </span>
                 </div>
-                <p className="text-sm text-muted-foreground truncate">
+                {/* for truncate to make work it's nearest parent should contrain its child width thats why i given max-w-48 for its parent. */}
+                <p className="text-sm text-muted-foreground truncate">     
                   {chat.lastMessage}
                 </p>
               </div>
               
               {chat.unreadCount > 0 && (
-                <Badge className="bg-primary text-primary-foreground">
+                <Badge variant="default" className="bg-primary text-primary-foreground">
                   {chat.unreadCount}
                 </Badge>
               )}
             </div>
-          ))}
+          )))}
         </div>
       </ScrollArea>
+      
+      {/* New Chat Dialog */}
+      <Dialog open={newChatOpen} onOpenChange={setNewChatOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Start New Chat</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Button 
+              onClick={handleCreateIndividualChat}
+              className="w-full justify-start"
+              variant="outline"
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Start Individual Chat
+            </Button>
+            <Button 
+              onClick={handleCreateGroupChat}
+              className="w-full justify-start"
+              variant="outline"
+            >
+              <Users2 className="h-4 w-4 mr-2" />
+              Create Group Chat
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

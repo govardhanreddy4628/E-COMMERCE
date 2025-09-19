@@ -6,6 +6,7 @@ import { ApiError } from "../utils/ApiError";
 import {
   generateAccessToken,
   generateRefreshToken,
+  REFRESH_EXPIRES_SEC,
 } from "../utils/generateToken";
 import { ApiResponse } from "../utils/ApiResponse";
 import { Request, Response, NextFunction } from "express";
@@ -25,7 +26,7 @@ export const registerController = async (
   try {
     const { email, password, fullName, confirmPassword } = req.body;
     const avatar = req.file?.path || undefined; // Assuming you're using multer for file uploads
-    console.log(avatar)
+    console.log(avatar);
     // if (!email ) {
     //   return res
     //     .status(400)
@@ -88,10 +89,10 @@ export const registerController = async (
         await existingUser.save();
 
         const intentToken = jwt.sign(
-        { email: existingUser.email, userId: existingUser.id.toString() },  //actually here no need to use toString() method because mongoose.Document has a built-in getter for .id, and it returns a string by default. ✅ existingUser.id is already a string. ❌ existingUser._id is an ObjectId, and would need .toString()
-        process.env.LOGIN_INTENT_SECRET!,
-        { expiresIn: "15m" }
-      );
+          { email: existingUser.email, userId: existingUser.id.toString() }, //actually here no need to use toString() method because mongoose.Document has a built-in getter for .id, and it returns a string by default. ✅ existingUser.id is already a string. ❌ existingUser._id is an ObjectId, and would need .toString()
+          process.env.LOGIN_INTENT_SECRET!,
+          { expiresIn: "15m" }
+        );
 
         await sendVerificationEmail(existingUser.email, otp);
 
@@ -111,7 +112,7 @@ export const registerController = async (
       email,
       password: hashedPassword,
       otp: hashedOtp,
-      otpExpiresAt: new Date(now.getTime() + 900000),   //or new Date(Date.now() + 15 * 60 * 1000),
+      otpExpiresAt: new Date(now.getTime() + 900000), //or new Date(Date.now() + 15 * 60 * 1000),
       avatar,
       isVerified: false,
     });
@@ -128,7 +129,7 @@ export const registerController = async (
       msg: "New user created. Check your email to verify.",
       intentToken,
       success: true,
-      error: false
+      error: false,
     });
   } catch (err) {
     next(err);
@@ -215,7 +216,9 @@ export const loginController = async (
       return;
     }
 
-    const user = await UserModel.findOne({ email }).select("+password +otp +otpExpiresAt");
+    const user = await UserModel.findOne({ email }).select(
+      "+password +otp +otpExpiresAt"
+    );
 
     if (!user) {
       throw new ApiError(400, "User Does not Exist.");
@@ -248,7 +251,6 @@ export const loginController = async (
         process.env.LOGIN_INTENT_SECRET!,
         { expiresIn: "15m" }
       );
-        
 
       res.status(200).json({
         success: false,
@@ -260,7 +262,12 @@ export const loginController = async (
 
     // ✅ Email verified, generate tokens
     const accessToken = generateAccessToken(user.id, user.role);
-    const refreshToken = await generateRefreshToken(user.id);
+    const refreshToken = generateRefreshToken(user.id);
+
+    // store refresh in redis for revocation & rotation
+    await redisClient.set(`refresh:${refreshToken}`, user.id, {
+      EX: REFRESH_EXPIRES_SEC
+    });
 
     await UserModel.findByIdAndUpdate(user.id, {
       last_login_date: new Date(),
@@ -270,9 +277,11 @@ export const loginController = async (
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict" as const,
+      path: "/auth/refresh",            //path: "/auth/refresh" The path only controls when the browser will send that cookie back to the server in future requests, but not when to send cookies from backend.  path: "/auth/refresh" only limits when the cookie is returned back to the server. if u give path: "/" it ensures cookie is recieved from every request
+       maxAge: REFRESH_EXPIRES_SEC * 1000,
     };
 
-    res.cookie("accessToken", accessToken, cookieOptions);
+    //res.cookie("accessToken", accessToken, cookieOptions);
     res.cookie("refreshToken", refreshToken, cookieOptions);
 
     res.status(200).json({
@@ -280,13 +289,61 @@ export const loginController = async (
       message: "Login successful",
       data: {
         accessToken,
-        refreshToken,
       },
     });
   } catch (err) {
     next(err);
   }
 };
+
+
+
+//========================regenerate new accessToken and refreshToken==============
+export const getNewAccessToken = async (req: Request, res: Response) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    if (!refreshToken) {
+      return res.status(401).json({ message: "No refresh token provided" });
+    }
+    const storedUserIdInRedis = await redisClient.get(`refresh:${refreshToken}`);
+    if (!storedUserIdInRedis) {
+      return res.status(403).json({ message: "Invalid refresh token" });
+    }
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET!) as {
+      id: string;
+    };
+    if (decoded.id !== storedUserIdInRedis) {
+      return res.status(403).json({ message: "Token user mismatch" });
+    }
+    const user = await UserModel.findById(decoded.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    
+    // rotate: issue new refresh token and delete old entry
+    const newRefresh = generateRefreshToken(decoded.id );
+    await redisClient.del(`refresh:${refreshToken}`);
+    await redisClient.set(`refresh:${newRefresh}`, decoded.id, { EX: REFRESH_EXPIRES_SEC });
+
+    // set new cookie
+    res.cookie("refreshToken", newRefresh, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict" as const,
+      path: "/auth/refresh",
+      maxAge: REFRESH_EXPIRES_SEC * 1000,
+    });
+
+    const newAccessToken = generateAccessToken(user.id, user.role);
+    res.json({ accessToken: newAccessToken });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
 
 
 // controllers/authController.ts
@@ -299,7 +356,9 @@ export const getCurrentUserController = async (
     const userId = req.userId;
 
     if (!userId) {
-      return res.status(401).json({ success: false, message: "Unauthorized: Missing user ID" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Unauthorized: Missing user ID" });
     }
 
     const user = await UserModel.findById(userId).select(
@@ -315,32 +374,6 @@ export const getCurrentUserController = async (
       message: "User fetched successfully",
       user,
     });
-  } catch (err) {
-    next(err);
-  }
-};
-
-
-  
-
-//========================regenerate access token==============
-export const regenerateAccessTokenController = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
-  try {
-    const token = req.cookies.refreshToken;
-    if (!token) throw new ApiError(401, "No refresh token");
-
-    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET!) as {
-      id: string;
-    };
-    const user = await UserModel.findById(decoded.id);
-    if (!user) throw new ApiError(404, "User not found");
-
-    const accessToken = generateAccessToken(user.id, user.role);
-    res.json({ accessToken });
   } catch (err) {
     next(err);
   }
@@ -372,6 +405,8 @@ export const regenerateAccessTokenController = async (
 //   });
 // }
 
+
+//=================upload images==================
 //method1 :
 
 //     var imagesArr = [];
@@ -620,19 +655,17 @@ export async function updateUserDetails(req: Request, res: Response) {
   }
 }
 
-
-//================logout======================
-// Helper to build Redis keys consistently
+// --- controllers/auth/logoutController.ts ---
 const getUserSessionKey = (userId: string) => `user_sessions:${userId}`;
 const getBlacklistKey = (token: string) => `bl_refresh:${token}`;
 
 export const logoutController = async (
   req: Request,
-  res: Response,
-): Promise<void> => {
+  res: Response
+): Promise<Response> => {
   try {
     const userId = req.userId;
-    const refreshToken = req.cookies.refreshToken;
+    const refreshToken = req.cookies?.refreshToken;
 
     if (!userId || !refreshToken) {
       return res.status(401).json({
@@ -642,33 +675,37 @@ export const logoutController = async (
       });
     }
 
-    // Build Redis keys
+    // Redis keys
     const sessionKey = getUserSessionKey(userId);
     const blacklistKey = getBlacklistKey(refreshToken);
 
-    // Clear cookies
-    const cookiesOptions = {
+    // Cookie options (must match login!)
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV_MODE === "production",
       sameSite:
-        process.env.NODE_ENV_MODE === "production" ? "none" : "strict",
+        process.env.NODE_ENV_MODE === "production"
+          ? ("none" as "none")
+          : ("strict" as "strict"),
+      path: "/", // 🔑 important to match original cookie
     };
-    res.clearCookie("accessToken", cookiesOptions);
-    res.clearCookie("refreshToken", cookiesOptions);
 
-    // Remove the refresh token from user's active sessions
+    // Clear cookies
+    res.clearCookie("accessToken", cookieOptions);
+    res.clearCookie("refreshToken", cookieOptions);
+
+    // Remove refresh token from user's active session list
     const removed = await redisClient.sRem(sessionKey, refreshToken);
-
     if (removed === 0) {
       logger.warn(
-        `Logout attempt for token not in session list. User: ${userId}`
+        `Logout: Refresh token not found in session set. User: ${userId}`
       );
     }
 
-    // Blacklist the token to prevent reuse
+    // Blacklist refresh token to prevent reuse
     await redisClient.setEx(
       blacklistKey,
-      7 * 24 * 60 * 60, // 7 days in seconds
+      7 * 24 * 60 * 60, // 7 days
       "blacklisted"
     );
 
@@ -679,7 +716,7 @@ export const logoutController = async (
       error: false,
       success: true,
     });
-  } catch (err) {
+  } catch (err: any) {
     logger.error("Logout error:", err);
     return res.status(500).json({
       message: "Internal server error during logout",
@@ -689,66 +726,7 @@ export const logoutController = async (
   }
 };
 
-
-
-//======================forgotpassword================
-// export const forgotPasswordController = async (req: Request, res: Response) => {
-//   try {
-//     const { email, answer, newPassword } = req.body;
-
-//     if (!email) {
-//       return res.status(400).send({ message: "Email is required" });
-//     }
-//     if (!answer) {
-//       return res.status(400).send({ message: "Answer is required" });
-//     }
-//     if (!newPassword) {
-//       return res.status(400).send({ message: "New Password is required" });
-//     }
-
-//     const user = await UserModel.findOne({ email, answer });
-//     if (!user) {
-//       return res.status(404).send({
-//         success: false,
-//         message: "Wrong Email Or Answer",
-//       });
-//     }
-
-//     let verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
-//     user.otp = verifyCode;
-//     user.otpExpires = new Date(Date.now() + 600000)
-
-//     await user.save()
-
-//     await sendVerificationEmail(user?.email, verifyCode);
-
-//     return res.json({
-//       message: "check your email",
-//       error: false,
-//       success: true
-//     })
-//     const hashed = await bcrypt.hash(newPassword, 10);
-//     await UserModel.findByIdAndUpdate(user?.id, { password: hashed });
-
-//     return res.status(200).send({
-//       success: true,
-//       message: "Password Reset Successful",
-//     });
-//   } catch (error) {
-//     console.log(error);
-//     return res.status(500).send({
-//       success: false,
-//       message: "Something Went Wrong",
-//       error,
-//     });
-//   }
-// };
-
-
-
-
-
-
+//================forgot password======================
 export const forgotPasswordController = async (
   req: Request,
   res: Response,
@@ -759,7 +737,9 @@ export const forgotPasswordController = async (
 
     if (!email) throw new ApiError(400, "Email is required");
 
-    const user = await UserModel.findOne({ email }).select("+otp +otpExpiresAt");
+    const user = await UserModel.findOne({ email }).select(
+      "+otp +otpExpiresAt"
+    );
 
     // Always respond with success message to avoid email enumeration
     if (!user) {
@@ -787,9 +767,6 @@ export const forgotPasswordController = async (
   }
 };
 
-
-
-
 export const resetPasswordController = async (
   req: Request,
   res: Response,
@@ -816,7 +793,9 @@ export const resetPasswordController = async (
       throw new ApiError(400, "Passwords do not match");
     }
 
-    const user = await UserModel.findById(userId).select("+password +otp +otpExpiresAt");
+    const user = await UserModel.findById(userId).select(
+      "+password +otp +otpExpiresAt"
+    );
 
     if (!user || user.email !== email) {
       throw new ApiError(404, "User not found");
@@ -831,15 +810,13 @@ export const resetPasswordController = async (
 
     res.status(200).json({
       success: true,
-      message: "Password reset successful. Please log in with your new password.",
+      message:
+        "Password reset successful. Please log in with your new password.",
     });
   } catch (err) {
     next(err);
   }
 };
-
-
-
 
 export const verifyForgotPasswordOtpController = async (
   req: Request,
@@ -884,3 +861,7 @@ export const verifyForgotPasswordOtpController = async (
     next(err);
   }
 };
+
+
+
+

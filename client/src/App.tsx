@@ -14,7 +14,6 @@ import Header from "./components/header";
 // import FormikComponent from './components/formik';
 // import RegisterForm from './components/registrationForm';
 // import StarRating from './components/starRating';
-// import Caalendar from './components/calender/calendar';
 // import Sticky from './components/sticky/sticky';
 // import Calendar2 from './components/calendar2/calendar2';
 // import Calendar3 from './components/calendar3/Calendar3';
@@ -39,7 +38,7 @@ import ResetPassword from "./components/auth/resetPassword";
 import ForgotPassword from "./components/auth/forgotPassword";
 import Toaster from "./ui/Toaster";
 import CreateProduct from "./components/admin/products/CreateProduct/createProduct";
-import CreateCategory from "./components/admin/categories/createCategory";
+import CreateCategory from "./components/admin/categories/createCategory2";
 import Orders from "./components/admin/orders";
 import AdminLayout from "./components/admin/layout";
 import AdminProfile from "./components/admin/adminProfile";
@@ -47,11 +46,17 @@ import CustomersTable from "./components/admin/customers/customersTable";
 import GuestRoute from "./routes/GuestRoutes";
 //import ProtectedRoute from "./routes/ProtectedRoute";
 import Chat from "./components/admin/chat/chat";
-import Calendar2 from "./components/calendar2/calendar2";
-import Calendar3 from "./components/calendar3/Calendar3";
+import Calendar2 from "./components/admin/calendar2/calendar2";
+import Calendar3 from "./components/admin/calendar3/Calendar3";
 import Cp from "./components/admin/cp";
 import CreateProduct3 from "./components/admin/products/CreateProduct/CreateProduct3";
 import { CreateProduct2 } from "./components/admin/products/CreateProduct";
+import AdminAgentLayout from "./components/admin/Agents/chatBot";
+import Categories from "./components/admin/categories/categories";
+import { CategoryProvider } from "./context/CategoryContext";
+import SubCategory from "./components/admin/categories/subCategory";
+import CustomerSupport from "./pages/CustomerSupport";
+
 
 
 
@@ -68,6 +73,7 @@ const App = () => {
       {/* <ThemeProvider theme={theme}> */}
       <ThemeProvider defaultTheme="system" storageKey="marketpulse-ui-theme">
         <AuthProvider>
+          <CategoryProvider>
           {/* <RegisterForm/> */}
 
           {/* <Suspense fallback={<h1>Loading....</h1>}> */}
@@ -80,7 +86,6 @@ const App = () => {
       <Route path='formikfieldarray' element={<FormikFieldArray/>}></Route>
       <Route path='gridmui' element={<GridMui/>}></Route>
       <Route path='sticky' element={<Sticky/>}></Route>
-      <Route path='calendar' element={<Caalendar/>}></Route>
       <Route path='calendar2' element={<Calendar2/>}></Route>
       <Route path='calendar3' element={<Calendar3/>}></Route>
       <Route path='counter' element={<Counter/>}></Route>
@@ -98,12 +103,15 @@ const App = () => {
             <Route path="myaccount" element={<MyAccount />}></Route>
             <Route path="addaddress" element={<AddressPage />}></Route>
             <Route path="category-chart" element={<Testh />}></Route>
+            <Route path="customersupport" element={<CustomerSupport/>}></Route>
             <Route path="rating"></Route>
             {/* </Route> */}
 
             <Route path="/" element={<AdminLayout />}>
               <Route path="dashboard" element={<Dashboard />}></Route>
               <Route path="categories/create" element={<CreateCategory />} />
+              <Route path="categories" element={<Categories/>} />
+              <Route path="categories/create-subcategory" element={<SubCategory/>} />
               <Route path="orders" element={<Orders />}></Route>
               <Route path="/customers" element={<CustomersTable />} />
               <Route path="admin-profile" element={<AdminProfile />} />
@@ -112,6 +120,7 @@ const App = () => {
               <Route path="calendar3" element={<Calendar3 />} />
               <Route path="products/create" element={<CreateProduct />} />
               <Route path="createproduct3" element={<CreateProduct3 />} />
+              <Route path="adminagent" element={<AdminAgentLayout />} />
               {/* <Route path="createproduct" element={<CreateProduct2/>} /> */}
 
             </Route>
@@ -132,6 +141,7 @@ const App = () => {
           {/* </Suspense>
     </ThemeProvider> */}
           <Toaster />
+          </CategoryProvider>
         </AuthProvider>
       </ThemeProvider>
 

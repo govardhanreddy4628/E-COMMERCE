@@ -1,16 +1,25 @@
+import DeleteDialog from "./DeleteDialog";
 
-const BulkDelete = ({handleBulkDelete, selected}) => {
-    return (
-        <>
-            <button
-                onClick={handleBulkDelete}
-                disabled={selected.length === 0}
-                className="px-3 py-1 bg-red-600 rounded text-white disabled:opacity-50"
-            >
-                Delete
-            </button>
-        </>
-    )
-}
+type BulkDeleteProps = {
+  selected: (string | number)[];
+};
 
-export default BulkDelete
+const BulkDelete = ({ selected }: BulkDeleteProps) => {
+  return (
+    <DeleteDialog
+      selectedIds={selected}
+      deleteUrl="/api/customers/bulk-delete"
+      resourceName="customer(s)"
+      trigger={
+        <button
+          disabled={selected.length === 0}
+          className="px-3 py-1 bg-red-600 rounded text-white disabled:opacity-50"
+        >
+          Delete
+        </button>
+      }
+    />
+  );
+};
+
+export default BulkDelete;

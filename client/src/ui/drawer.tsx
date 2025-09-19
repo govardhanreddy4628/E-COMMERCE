@@ -14,9 +14,10 @@ export default function SideDrawer({open, toggleDrawer, anchor, drawerList}: sid
 
   return (
      
-      <Drawer open={open} onClose={()=>toggleDrawer(false, anchor)} anchor={anchor} disableScrollLock={true}>
+      <Drawer open={open} onClose={()=>toggleDrawer(false, anchor)} anchor={anchor} disableScrollLock={true} >
         {drawerList}
       </Drawer>
+      
     
   );
 }

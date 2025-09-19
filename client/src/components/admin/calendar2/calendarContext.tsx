@@ -1,5 +1,11 @@
 import { createContext, ReactNode, useState } from "react";
 
+interface Event {
+  id: number;
+  title: string;
+  date: Date;
+}
+
 interface CalendarContextType {
   currentMonth: Date[][];
   monthIndex: number;
@@ -7,6 +13,8 @@ interface CalendarContextType {
   goToNextMonth: () => void;
   goToPrevMonth: () => void;
   resetToToday: () => void;
+  events: Event[];
+  addEvent: (event: Event) => void;
 }
 
 export const calendarContext = createContext<CalendarContextType | null>(null);
@@ -42,6 +50,9 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
   const [monthIndex, setMonthIndex] = useState<number>(today.getMonth());
   const [year, setYear] = useState<number>(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState<Date[][]>(getMonth(monthIndex, year));
+  const [events, setEvents] = useState<Event[]>([])
+
+  const addEvent = (event: Event) => setEvents((prev) => [...prev, event])
 
   const updateMonth = (m: number, y: number) => {
     setMonthIndex(m);
@@ -75,7 +86,7 @@ export const CalendarProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   return (
     <calendarContext.Provider
-      value={{ currentMonth, monthIndex, year, goToNextMonth, goToPrevMonth, resetToToday }}
+      value={{ currentMonth, monthIndex, year, goToNextMonth, goToPrevMonth, resetToToday, events, addEvent }}
     >
       {children}
     </calendarContext.Provider>

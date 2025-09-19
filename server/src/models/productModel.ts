@@ -1,21 +1,43 @@
-import mongoose, { Schema } from "mongoose";
-import { Document } from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 import slugify from "slugify";
+
+interface IReview {
+  user: mongoose.Types.ObjectId;
+  rating: number;
+  comment: string;
+  createdAt?: Date;
+}
+
+interface IQuestion {
+  user: mongoose.Types.ObjectId;
+  question: string;
+  answer?: string;
+  createdAt?: Date;
+}
+
+interface IOffer {
+  title: string;
+  discountPercentage: number;
+  validUntil: Date;
+}
 
 interface IProduct extends Document {
   name: string;
   slug: string;
+  shortDescription: string;
   description: string;
   price: number;
-  discountPercentage?: number;
+  costPerItem?: number;
   discountedPrice?: number;
+  discountPercentage?: number;
   isFeatured?: boolean;
+  warranty?: string;
   productRam?: string[];
   productWeight?: string[];
   productColor?: string[];
   countInStock: number;
   isAvailable?: boolean;
-  category?: mongoose.Types.ObjectId;
+  category: mongoose.Types.ObjectId;
   brand: string;
   recentQuantity: number;
   rating?: number;
@@ -30,7 +52,15 @@ interface IProduct extends Document {
   updatedBy?: mongoose.Types.ObjectId;
   createdAt?: Date;
   shipping?: boolean;
-  // photo?: {data: Buffer; contentType: string;};
+  sku?: string;
+  barcode?: string;
+  tags?: string[];
+  seoTitle?: string;
+  seoDescription?: string;
+  returnPolicy?: string;
+  offers?: IOffer[];
+  reviews?: IReview[];
+  questions?: IQuestion[];
 }
 
 const productSchema = new mongoose.Schema<IProduct>(
@@ -48,16 +78,17 @@ const productSchema = new mongoose.Schema<IProduct>(
       lowercase: true,
       index: true,
     },
-    description: {
-      type: String,
-      required: true,
-    },
+    shortDescription: { type: String, required: true },
+    description: { type: String, required: true },
+
     price: {
       type: Number,
       required: true,
       min: [1, "wrong min price"],
       max: [100000, "wrong max price"],
     },
+    costPerItem: { type: Number, min: 0 },
+
     discountPercentage: {
       type: Number,
       min: [1, "wrong min discount"],
@@ -65,16 +96,14 @@ const productSchema = new mongoose.Schema<IProduct>(
     },
     discountedPrice: {
       type: Number,
-      //required: true,
-      min: [1, "wrong min price"],
-      max: [100000, "wrong max price"],
       validate: {
         validator: function (val: number) {
-          return val < this.price;
+          return !val || val < this.price;
         },
         message: "Discounted price must be less than original price",
       },
     },
+
     brand: {
       type: String,
       required: true,
@@ -83,116 +112,85 @@ const productSchema = new mongoose.Schema<IProduct>(
       minlength: [2, "Brand name must be at least 2 characters long"],
     },
 
+    warranty: { type: String },
     rating: {
       type: Number,
       min: [0, "wrong min rating"],
       max: [5, "wrong max rating"],
-      default: 5,
-    },
-    isFeatured: {
-      type: Boolean,
-      default: false,
-    },
-    productRam: {
-      type: [String],
-      default: [],
-    },
-    productMeasurement: {
-      type: [String],
-      default: null,
-    },
-    productWeight: {
-      type: [String],
-      default: null,
-    },
-    productColor: {
-      type: [String],
-      default: [],
-      trim: true,
-      lowerase: true,
-    },
-    category: {
-      type: Schema.Types.ObjectId,
-      ref: "Category",
-      required: true,
-    },
-    recentQuantity: {
-      type: Number,
-      min: [0, "wrong min quantity"],
       default: 0,
     },
-    countInStock: {
-      type: Number,
-      min: [0, "wrong min stock"],
-      default: 0,
-    },
+    isFeatured: { type: Boolean, default: false },
+    productRam: { type: [String], default: [] },
+    productMeasurement: { type: [String], default: [] },
+    productWeight: { type: [String], default: [] },
+    productColor: { type: [String], default: [] },
+
+    category: { type: Schema.Types.ObjectId, ref: "Category", required: true },
+
+    recentQuantity: { type: Number, min: 0, default: 0 },
+    countInStock: { type: Number, min: 0, default: 0 },
+
     thumbnails: {
       type: [String],
       required: true,
-      validate: [
-        (val: string[]) => val.length > 0,
-        "At least one thumbnail required",
-      ],
+      validate: [(val: string[]) => val.length > 0, "At least one thumbnail required"],
     },
     images: {
       type: [String],
       required: true,
-      validate: [
-        (val: string[]) => val.length > 0,
-        "At least one image required",
-      ],
+      validate: [(val: string[]) => val.length > 0, "At least one image required"],
     },
-    sizes: {
-      type: [Schema.Types.Mixed], //Schema.Types.Mixed (or just mongoose.Schema.Types.Mixed) defines a Mongoose schema field that holds an array of arbitrary values — in other words, it's an array where each element can be any type (object, string, number, etc.).
-      default: [],
-    },
-    highlights: {
-      type: [String],
-      default: [],
-    },
-    shipping: {
-      type: Boolean,
-      default: false,
-    },
-    status: {
-      type: String,
-      enum: ["active", "inactive", "deleted"],
-      default: "active",
-    },
-    createdBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-    },
-    updatedBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now,
-    },
+    sizes: { 
+      type: [Schema.Types.Mixed],       //Schema.Types.Mixed (or just mongoose.Schema.Types.Mixed) defines a Mongoose schema field that holds an array of arbitrary values — in other words, it's an array where each element can be any type (object, string, number, etc.).
+      default: []
+     },
+    highlights: { type: [String], default: [] },
+    shipping: { type: Boolean, default: false },
+
+    sku: { type: String, unique: true, index: true },
+    barcode: { type: String, unique: true, sparse: true },
+    tags: { type: [String], default: [] },
+
+    seoTitle: { type: String, maxlength: 60 },
+    seoDescription: { type: String, maxlength: 160 },
+    returnPolicy: { type: String },
+
+    offers: [
+      {
+        title: String,
+        discountPercentage: Number,
+        validUntil: Date,
+      },
+    ],
+
+    reviews: [
+      {
+        user: { type: Schema.Types.ObjectId, ref: "User" },
+        rating: { type: Number, min: 1, max: 5 },
+        comment: String,
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+
+    questions: [
+      {
+        user: { type: Schema.Types.ObjectId, ref: "User" },
+        question: String,
+        answer: String,
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+
+    status: { type: String, enum: ["active", "inactive", "deleted"], default: "active" },
+
+    createdBy: { type: Schema.Types.ObjectId, ref: "User" },
+    updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
+    createdAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
 );
 
-const productModel = mongoose.model("Product", productSchema);
-
-// ✅ Auto-generate slug from name
-productSchema.pre("save", function (next) {
-  if (!this.isModified("name")) return next();
-
-  this.slug = slugify(this.name, {
-    lower: true,
-    strict: true,
-    trim: true,
-  });
-
-  next();
-});
-
-//or
-
-//To ensure unique slugs if multiple products have the same name: This will automatically append -1, -2, etc. to ensure uniqueness.
+// ✅ Auto-generate slug before saving  //To ensure unique slugs if multiple products have the same name: This will automatically append -1, -2, etc. to ensure uniqueness.
 productSchema.pre("save", async function (next) {
   if (!this.isModified("name")) return next();
 
@@ -200,7 +198,8 @@ productSchema.pre("save", async function (next) {
   let slug = baseSlug;
   let count = 1;
 
-  while (await productModel.exists({ slug })) {
+  const Product = mongoose.model("Product", productSchema);
+  while (await Product.exists({ slug })) {
     slug = `${baseSlug}-${count}`;
     count++;
   }
@@ -216,16 +215,25 @@ productSchema.pre("save", async function (next) {
 // productSchema.index({ isFeatured: 1 });
 
 
+// ✅ Virtual field for final price
 productSchema.virtual("finalPrice").get(function () {
   const discount = this.discountPercentage || 0;
   return Math.round(this.price * (1 - discount / 100));
 });
 
+const productModel = mongoose.model<IProduct>("Product", productSchema);
 export default productModel;
 
+
+
+
+    
+   
+
+
+
+
 // const productSchema = new Schema({
-//     stock: { type: Number, min:[0, 'wrong min stock'], default:0},
-//     category: { type : String, required: true},
 //     colors:{ type : [Schema.Types.Mixed] },
 //     sizes:{ type : [Schema.Types.Mixed]},
 //     discountPrice: { type: Number},

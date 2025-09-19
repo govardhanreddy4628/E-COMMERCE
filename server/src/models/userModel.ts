@@ -46,7 +46,7 @@ const userSchema = new mongoose.Schema<IUserDocument>({
   },
   avatar: {
     type: String,
-    default: "",
+    default: "",                   //or give any image like as default like default: "https://example.com/default-avatar.png"
   },
   phoneNumber: {
     type: Number,
@@ -103,7 +103,7 @@ const userSchema = new mongoose.Schema<IUserDocument>({
   },
   role: {
     type: String,
-    enum: ["ADMIN", "USER"],
+    enum: ["ADMIN", "USER", "SUPER-ADMIN", "VENDOR"],
     default: "USER",
   },
   refresh_token_expiresAt: Date,

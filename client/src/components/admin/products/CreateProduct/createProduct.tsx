@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import Cropper from 'react-easy-crop';
 import { Area } from 'react-easy-crop';
-
 import {
   Box, Button, TextField, Typography, MenuItem,
   Paper, Grid, InputLabel, Select, FormControl,
@@ -9,10 +8,12 @@ import {
 import ReactQuill from '../../ReactQuillWrapper';
 import 'react-quill/dist/quill.snow.css';
 import { useTheme } from '../../../../context/themeContext';
-import { IoMdEye, IoMdTrash } from "react-icons/io";
 import { FiUploadCloud } from "react-icons/fi";
 import { SelectChangeEvent } from '@mui/material';
 import { IoMdClose } from "react-icons/io";
+import { IoMdTrash } from "react-icons/io";
+import { RiImageEditLine } from "react-icons/ri";
+
 
 
 const categories = ['Electronics', 'Fassion', 'Groceries', 'Bags', 'Footware', 'wellness', 'jewellery'];
@@ -50,6 +51,17 @@ const CreateProduct: React.FC = () => {
   const [contrast, setContrast] = useState(100);
   const [grayscale, setGrayscale] = useState(0);
   const [rotate, setRotate] = useState(0);
+  const [aspect, setAspect] = useState<number>(4 / 3);
+
+  const handleResetFilters = () => {
+    setBrightness(100);
+    setContrast(100);
+    setGrayscale(0);
+    setRotate(0);
+    setZoom(1);
+  };
+
+
 
   const [images, setImages] = useState<File[]>([]);
 
@@ -179,8 +191,6 @@ const CreateProduct: React.FC = () => {
 
 
 
-
-
   const handleCropAndSave = async () => {
     if (
       previewIndex === null ||
@@ -204,7 +214,6 @@ const CreateProduct: React.FC = () => {
     const newImages = [...images];
     newImages[previewIndex] = result.file;
     setImages(newImages);
-
     setPreviewIndex(null); // Close modal
   };
 
@@ -225,27 +234,6 @@ const CreateProduct: React.FC = () => {
 
         <Box component="form" onSubmit={handleSubmit}>
           <Grid container spacing={2}>
-            <Grid item xs={6}>
-              <TextField
-                label="Product Name"
-                name="name"
-                fullWidth
-                required
-                value={product.name}
-                onChange={handleChange}
-                variant="outlined"
-                InputProps={{
-                  sx: {
-                    backgroundColor: isDark ? '#1e1e1e' : '#fff',
-                    color: isDark ? '#fff' : '#000',
-                  },
-                }}
-                InputLabelProps={{
-                  sx: { color: isDark ? '#ccc' : '#555' },
-                }}
-              />
-            </Grid>
-
 
 
             <Grid item xs={12}>
@@ -270,14 +258,15 @@ const CreateProduct: React.FC = () => {
 
                           <div className="absolute inset-2 bg-[#000000ba] group-hover:flex hidden text-xl items-center justify-center gap-2">
                             <span
-                              className="text-gray-100 hover:text-gray-300 cursor-pointer p-1.5"
-                              title="Preview"
+                              className="text-gray-100 hover:text-green-600 cursor-pointer p-1.5"
+                              title="Edit"
                               onClick={() => setPreviewIndex(index)}
                             >
-                              <IoMdEye />
+                              <RiImageEditLine />
+
                             </span>
                             <span
-                              className="text-gray-100 hover:text-gray-300 cursor-pointer p-1.5"
+                              className="text-gray-100 hover:text-red-600 cursor-pointer p-1.5"
                               onClick={() => handleRemoveImage2(index)}
                               title="Remove"
                             >
@@ -304,7 +293,7 @@ const CreateProduct: React.FC = () => {
                                   crop={crop}
                                   zoom={zoom}
                                   rotation={rotate}
-                                  aspect={4 / 3}
+                                  aspect={aspect}
                                   onCropChange={setCrop}
                                   onZoomChange={setZoom}
                                   onRotationChange={setRotate}
@@ -376,10 +365,33 @@ const CreateProduct: React.FC = () => {
                                     className="w-full"
                                   />
                                 </div>
+
+                                <div className="flex items-center gap-4">
+                                  <label className="w-24 text-nowrap">Aspect Ratio</label>
+                                  <select
+                                    value={aspect}
+                                    onChange={(e) => setAspect(parseFloat(e.target.value))}
+                                    className="w-full border rounded px-2 py-1 bg-white dark:bg-gray-800 text-black dark:text-white"
+                                  >
+                                    <option value={1}>1:1</option>
+                                    <option value={4 / 3}>4:3</option>
+                                    <option value={16 / 9}>16:9</option>
+                                    <option value={3 / 4}>3:4</option>
+                                    <option value={9 / 16}>9:16</option>
+                                  </select>
+                                </div>
+
                               </div>
 
                               {/* Save Button */}
-                              <div className="mt-6 text-right">
+                              <div className="mt-6 text-right flex justify-end gap-4">
+                                <button
+                                  type="button"
+                                  onClick={handleResetFilters}
+                                  className="px-4 py-2 bg-gray-300 dark:bg-gray-700 text-black dark:text-white rounded"
+                                >
+                                  Reset
+                                </button>
                                 <button className="px-4 py-2 bg-blue-600 text-white rounded" type="button" onClick={handleCropAndSave}>
                                   Crop & Save
                                 </button>
@@ -438,9 +450,9 @@ const CreateProduct: React.FC = () => {
                   borderRadius: '4px',
                 }}
               />
-            </Grid>     
+            </Grid>
 
-          
+
             <Grid item xs={6}>
               <FormControl fullWidth variant="outlined">
                 <InputLabel sx={{ color: isDark ? '#ccc' : '#555' }}>Category</InputLabel>
@@ -505,29 +517,6 @@ const CreateProduct: React.FC = () => {
                 </Select>
               </FormControl>
             </Grid>
-
-
-            <Grid item xs={6}>
-              <TextField
-                label="Color"
-                name="Color"
-                fullWidth
-                required
-                value={product.id}
-                onChange={handleChange}
-                variant="outlined"
-                InputProps={{
-                  sx: {
-                    backgroundColor: isDark ? '#1e1e1e' : '#fff',
-                    color: isDark ? '#fff' : '#000',
-                  },
-                }}
-                InputLabelProps={{
-                  sx: { color: isDark ? '#ccc' : '#555' },
-                }}
-              />
-            </Grid>
-
 
             <Grid item xs={6}>
               <Button type="submit" variant="contained" color="primary" fullWidth >

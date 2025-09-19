@@ -16,7 +16,7 @@ const mockCategories: Category[] = [
   { _id: '4', name: 'Laptops', parentCategoryId: '1', isActive: true },
 ];
 
-const CreateCategory = () => {
+const CreateCategory3 = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedPath, setSelectedPath] = useState<Category[]>([]);
   const [addingParent, setAddingParent] = useState<Category | null | 'root'>(null);
@@ -257,4 +257,4 @@ const CreateCategory = () => {
   );
 };
 
-export default CreateCategory;
+export default CreateCategory3;

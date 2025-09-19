@@ -1,6 +1,6 @@
 // --- src/middleware/auth.ts ---
 import jwt from "jsonwebtoken";
-import { RequestHandler } from 'express';
+import { RequestHandler } from "express";
 //import { Request, Response, NextFunction } from "express";
 import { ApiError } from "../utils/ApiError";
 
@@ -8,7 +8,7 @@ import { ApiError } from "../utils/ApiError";
 declare global {
   namespace Express {
     interface Request {
-      userId?: String;
+      userId?: string;
       userRole?: string;
     }
   }
@@ -29,22 +29,28 @@ export const auth = (roles?: string[]): RequestHandler => {
           ? req.headers.authorization.split(" ")[1]
           : null);
 
-      if (!process.env.JWT_ACCESS_SECRET) {
-        throw new Error("JWT_ACCESS_SECRET is not defined in environment variables");  
-      }
-
       if (!accessToken) {
         res.status(401).json({ message: "Provide Token" });
         return;
       }
-      const decoded = jwt.verify(accessToken,process.env.JWT_ACCESS_SECRET!) as DecodedToken;
+
+      if (!process.env.JWT_ACCESS_SECRET) {
+        throw new Error(
+          "JWT_ACCESS_SECRET is not defined in environment variables"
+        );
+      }
+
+      const decoded = jwt.verify(
+        accessToken,
+        process.env.JWT_ACCESS_SECRET!
+      ) as DecodedToken;
       console.log("Decoded Token:", decoded);
       if (!decoded?.id) {
         res.status(401).json({
           message: "unauthorized access",
           error: true,
           success: false,
-        })
+        });
         return;
       }
       if (roles && !roles.includes(decoded?.role)) {
@@ -53,14 +59,29 @@ export const auth = (roles?: string[]): RequestHandler => {
       req.userId = decoded.id;
       req.userRole = decoded.role;
       next();
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === "TokenExpiredError") {
+        res.status(401).json({
+          message: "Access token expired",
+          error: true,
+          success: false,
+        });
+        return;
+      }
+      if (error.name === "JsonWebTokenError") {
+        res.status(401).json({
+          message: "Invalid access token",
+          error: true,
+          success: false,
+        });
+        return;
+      }
       res.status(500).json({
-        message: "you are not logged in",
+        message: "Authentication error",
         error: true,
         success: false,
       });
+      return;
     }
   };
 };
-
-

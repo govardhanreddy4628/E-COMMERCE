@@ -34,19 +34,14 @@ export const navItems: NavItem[] = [
     href: '/dashboard',
   },
   {
-    title: 'Markets',
-    icon: VscGraph,
-    href: '/markets',
+    title: 'Orders',
+    icon: IoCubeOutline,
+    href: '/orders',
   },
   {
     title: 'Customers',
     icon: FaRegUserCircle,
     href: '/customers',
-  },
-  {
-    title: 'Orders',
-    icon: IoCubeOutline,
-    href: '/orders',
   },
   {
     title: 'Products',
@@ -121,6 +116,11 @@ export const navItems: NavItem[] = [
     href: '/ai',
   },
   {
+    title: 'Markets',
+    icon: VscGraph,
+    href: '/markets',
+  },
+  {
     title: 'Logout',
     icon: MdLogout,
     href: '/logout',
@@ -161,7 +161,7 @@ const Sidebar = ({ isExpand, toggleExpand, setIsExpand }: SidebarProps) => {
     <aside className={cn(
       `${isExpand ? "w-48 lg:w-[18%]" : "w-16"} 
   flex flex-col bg-white transition-all duration-500 
-  h-full overflow-y-auto overflow-x-hidden sticky top-0 ad-sidebar-scroll dark:bg-gray-950`
+  h-full overflow-y-auto overflow-x-hidden sticky top-0 ad-sidebar-scroll dark:bg-gray-950 border-r border-border`
     )}>
 
       <header className='flex justify-between items-center relative pt-2'>

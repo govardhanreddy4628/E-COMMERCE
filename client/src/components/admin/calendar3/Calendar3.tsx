@@ -29,9 +29,9 @@ const Calendar3 = () => {
     }
 
     // Add the days of the current month
-    for (let day = 1; day <= lastDay.getDate(); day++) {
+    for (let i = 1; i <= lastDay.getDate(); i++) {
       daysInMonth.push(
-        new Date(currentDate.getFullYear(), currentDate.getMonth(), day)
+        new Date(currentDate.getFullYear(), currentDate.getMonth(), i)
       );
     }
 

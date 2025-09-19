@@ -18,6 +18,8 @@ import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
 import { IoBagCheckOutline, IoLocationOutline } from 'react-icons/io5';
 import { FaRegHeart, FaRegUser } from 'react-icons/fa';
+import { useNavigate } from "react-router-dom";
+import { MessageCircle } from "lucide-react"; // chat icon
 
 import { FiLogOut } from 'react-icons/fi';
 
@@ -115,8 +117,6 @@ const categories: Category[] = [
 const Header = () => {
     const [open, setOpen] = useState(false);
     const [anchor, setAnchor] = useState<'left' | 'right'>('left');
-
-
     const [accanchorEl, setAccAnchorEl] = useState<null | HTMLElement>(null);
     const userMenuOpen = Boolean(accanchorEl);
     const handleClick = (event: React.MouseEvent<HTMLElement>) => {
@@ -126,7 +126,8 @@ const Header = () => {
         setAccAnchorEl(null);
     };
 
-
+    const navigate = useNavigate();
+    
     const { isLogin } = useAuth();
 
     const toggleDrawer = (newOpen: boolean, side: 'left' | 'right' = "left") => {
@@ -138,8 +139,8 @@ const Header = () => {
         <Box
             sx={{ width: anchor === "left" ? 250 : 380 }}
             role="presentation"
-            {...(anchor === "left" ? { onClick: () => toggleDrawer(false, anchor) } : {})}
-            onKeyDown={() => toggleDrawer(false, anchor)}
+            // {...(anchor === "left" ? { onClick: () => toggleDrawer(false, anchor) } : {})}
+            // onKeyDown={() => toggleDrawer(false, anchor)}
         >
             {anchor === "left" ? <LeftMenu /> : <CartSidebar setOpen={setOpen} />}
         </Box>
@@ -151,7 +152,7 @@ const Header = () => {
 
 
     return (
-        <div className='!overflow-y-auto h-screen overflow-x-hidden'>
+        <div className='!overflow-y-auto h-screen overflow-x-hidden relative'>
             {/* Top Bar */}
             <section className="row1 max-w-8xl bg-foreground text-muted px-4 py-3 flex border-b border-border border-solid">
                 <div className='flex flex-col sm:flex-row items-center justify-between lg:w-[95%] w-full mx-auto'>
@@ -412,6 +413,19 @@ const Header = () => {
 
             <Hero2></Hero2>
             <Footer />
+            <button
+      onClick={() => navigate("/customersupport")}
+      className="
+        fixed bottom-6 right-6 
+        bg-blue-600 text-white 
+        p-4 rounded-lg shadow-lg 
+        hover:bg-blue-700 transition 
+        flex items-center justify-center z-50
+      "
+      aria-label="Chat with us"
+    >
+      <MessageCircle size={24} />
+    </button>
         </div>
     )
 }

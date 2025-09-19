@@ -2,6 +2,7 @@ import { MdDeleteOutline, MdOutlineEdit } from "react-icons/md";
 import { LuEye } from "react-icons/lu";
 import { Customer } from "./customersData"; // ✅ Adjust path as needed
 import React from "react";
+import DeleteDialog from "../table/DeleteDialog";
 
 interface ActionsProps {
   cust: Customer;
@@ -28,9 +29,7 @@ const Actions: React.FC<ActionsProps> = ({
     setShowModal(true);
   };
 
-  const handleDeleteProfile = () => {
-    alert(`Delete customer ${cust.id}`);
-  };
+  
 
   return (
     <div className="flex space-x-3 items-center">
@@ -52,14 +51,21 @@ const Actions: React.FC<ActionsProps> = ({
         <MdOutlineEdit className="h-5 w-5" />
       </button>
 
-      <button
-        onClick={handleDeleteProfile}
-        title="Delete"
-        className="text-red-600 hover:text-red-800 pb-2"
-        aria-label={`Delete customer ${cust.name}`}
-      >
-        <MdDeleteOutline className="h-5 w-5" />
-      </button>
+
+      <DeleteDialog
+        selectedIds={[cust.id]}
+        deleteUrl="/api/customers/delete"
+        resourceName="customer"
+        trigger={
+          <button
+            title="Delete"
+            className="text-red-600 hover:text-red-800 pb-2"
+            aria-label={`Delete customer ${cust.name}`}
+          >
+            <MdDeleteOutline className="h-5 w-5" />
+          </button>
+        }
+      />
     </div>
   );
 };

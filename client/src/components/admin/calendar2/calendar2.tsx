@@ -86,7 +86,7 @@
 
 
 
-import React, { useContext } from "react";
+import React, { useContext, useState } from "react";
 import { calendarContext } from "./calendarContext";
 import CalendarHeader from "./CalendarHeader";
 import Sidebar from "./Sidebar";
@@ -132,11 +132,71 @@ interface DayProps {
   rowIdx: number;
 }
 
-const Day: React.FC<DayProps> = ({ day, rowIdx }) => {
+
+
+
+// AddEventModal.tsx
+interface AddEventModalProps {
+  date: Date;
+  onClose: () => void;
+}
+
+const AddEventModal: React.FC<AddEventModalProps> = ({ date, onClose }) => {
   const ctx = useContext(calendarContext);
   if (!ctx) return null;
 
-  const { monthIndex, year } = ctx;
+  const { addEvent } = ctx;
+  const [title, setTitle] = useState("");
+
+  const handleSubmit = () => {
+    if (title.trim()) {
+      addEvent({ id: Date.now(), title, date });
+      setTitle("");
+      onClose();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+      <div className="bg-white p-4 rounded-md shadow-md w-80">
+        <h2 className="text-lg font-semibold mb-2">Add Event</h2>
+        <p className="text-sm text-gray-500 mb-2">{date.toDateString()}</p>
+        <input
+          className="border rounded w-full p-2 mb-3"
+          placeholder="Event title"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+        <div className="flex justify-end gap-2">
+          <button
+            className="px-3 py-1 text-sm rounded bg-gray-200"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            className="px-3 py-1 text-sm rounded bg-blue-600 text-white"
+            onClick={handleSubmit}
+          >
+            Add
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+
+
+
+
+const Day: React.FC<DayProps> = ({ day, rowIdx }) => {
+  const [showModal, setShowModal] = useState(false)
+  const ctx = useContext(calendarContext);
+  if (!ctx) return null;
+
+  const { monthIndex, year, events } = ctx;
   const today = new Date();
 
   const isToday =
@@ -145,14 +205,21 @@ const Day: React.FC<DayProps> = ({ day, rowIdx }) => {
     day.getFullYear() === today.getFullYear();
 
   const isCurrentMonth = day.getMonth() === monthIndex && day.getFullYear() === year;
-
   const isSunday = day.getDay() === 0; // Sunday = 0
-
   const weekdayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
   const weekday = weekdayNames[day.getDay()];
 
+  // Filter events for this day
+  const dayEvents = events.filter(
+    (e) =>
+      e.date.getDate() === day.getDate() &&
+      e.date.getMonth() === day.getMonth() &&
+      e.date.getFullYear() === day.getFullYear()
+  );
+
   return (
-    <div className={`border border-gray-200 flex flex-col ${isCurrentMonth ? "bg-white" : "bg-transparent"}`}>
+    <div className={`border border-gray-200 flex flex-col hover:bg-blue-100 ${isCurrentMonth ? "bg-white" : "bg-transparent"}`}
+    onClick={() => setShowModal(true)}>
       <header className="flex flex-col items-center">
         {rowIdx === 0 && (
           <div className="bg-gray-400 w-full flex items-center justify-center h-6">
@@ -168,6 +235,22 @@ const Day: React.FC<DayProps> = ({ day, rowIdx }) => {
           {day.getDate()}
         </p>
       </header>
+
+      {/* Events */}
+      <div className="flex flex-col items-start px-1">
+        {dayEvents.map((event) => (
+          <span
+            key={event.id}
+            className="bg-blue-100 text-blue-800 text-xs px-1 rounded truncate w-full"
+          >
+            {event.title}
+          </span>
+        ))}
+      </div>
+
+      {showModal && (
+        <AddEventModal date={day} onClose={() => setShowModal(false)} />
+      )}
     </div>
   );
 };

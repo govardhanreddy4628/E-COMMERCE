@@ -3,6 +3,7 @@ import io from 'socket.io-client';
 import { useState } from "react";
 import { ChatSidebar } from './ChatSidebar';
 import { ChatArea } from './ChatArea';
+import { toast } from "../../../hooks/use-toast";
 import "./chat.css"
 
 
@@ -113,9 +114,11 @@ const Chat = () => {
 
   const [selectedChatId, setSelectedChatId] = useState<string>();
   const [messages, setMessages] = useState<Record<string, Message[]>>(mockMessages);
+  const [isConnected, setIsConnected] = useState(false);
 
   const selectedChat = mockChats.find(chat => chat.id === selectedChatId) || null;
   const currentMessages = selectedChatId ? messages[selectedChatId] || [] : [];
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const handleSendMessage = (content: string) => {
     if (!selectedChatId) return;
@@ -135,6 +138,7 @@ const Chat = () => {
   };
 
   useEffect(() => {
+    console.log(import.meta.env.VITE_BACKEND_URL)
     const backendUrl = import.meta.env.VITE_BACKEND_URL as string;
 
     if (!backendUrl) {
@@ -149,15 +153,37 @@ const Chat = () => {
       reconnectionDelayMax: 5000,
     });
 
+    socketRef.current.on("connect", () => setIsConnected(true));
+    socketRef.current.on("disconnect", () => setIsConnected(false));
+
+    // Listen for icoming messages
+    // socketRef.current.on("recieveMessage", (msg: ChatMessage) => {
+    //   setSelectedChatId((prev) => [...prev, msg])
+    // })
+    socketRef.current.on("disconnect", () => setIsConnected(false));
+
     return () => {
       socketRef.current?.disconnect();
     };
   }, []);
 
+  // useEffect(() => {
+  //   //Auto scroll to bottom when new message arrives
+  //   messagesEndRef.current?.scrollIntoView({ behavior: "smooth"})
+  // },[chat])
+
+  const handleNewChat = () => {
+    toast({
+      title: "New Chat",
+      description: "Create a new conversation or contact list here",
+    })
+  }
+
   return <div className="h-[calc(100vh-4rem)] flex bg-background">
     <ChatSidebar
       selectedChatId={selectedChatId}
       onChatSelect={setSelectedChatId}
+      onNewChat={handleNewChat}
     />
     <ChatArea
       selectedChat={selectedChat}

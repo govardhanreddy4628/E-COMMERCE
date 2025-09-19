@@ -2,6 +2,15 @@ import { Request, Response } from "express";
 import CartModel from "../models/cartModel";
 import UserModel from "../models/userModel";
 
+// Extend Express Request interface to include 'user'
+// declare global {
+//     namespace Express {
+//         interface Request {
+//             user?: string; // or the correct type of user id
+//         }
+//     }
+// }
+
 export const addToCartController = async (req:Request, res:Response) => {
     try {
         const userId = req.user; // Assuming user ID is stored in req.user

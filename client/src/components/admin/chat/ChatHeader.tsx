@@ -1,7 +1,8 @@
-
-import { Phone, Video, MoreVertical, Users } from "lucide-react";
+import { Phone, Video, MoreVertical, Users, UserMinus, Volume2, Search, Archive } from "lucide-react";
+import { toast } from "../../../hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "../../../ui/avatar";
 import { Button } from "../../../ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "../../../ui/dropdown-menu";
 
 interface ChatHeaderProps {
   chatName: string;
@@ -12,6 +13,48 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ chatName, isOnline, isGroup, memberCount, avatar }: ChatHeaderProps) {
+  const handleCall = () => {
+    toast({
+      title: "Voice Call",
+      description: `Starting voice call with ${chatName}...`
+    });
+  };
+
+  const handleVideoCall = () => {
+    toast({
+      title: "Video Call", 
+      description: `Starting video call with ${chatName}...`
+    });
+  };
+
+  const handleSearch = () => {
+    toast({
+      title: "Search Chat",
+      description: "Opening search in conversation..."
+    });
+  };
+
+  const handleMute = () => {
+    toast({
+      title: "Notifications Muted",
+      description: `Muted notifications for ${chatName}`
+    });
+  };
+
+  const handleBlock = () => {
+    toast({
+      title: "User Blocked",
+      description: `Blocked ${chatName}`
+    });
+  };
+
+  const handleArchive = () => {
+    toast({
+      title: "Chat Archived",
+      description: `Archived conversation with ${chatName}`
+    });
+  };
+
   return (
     <div className="flex items-center justify-between p-4 border-b border-border bg-card">
       <div className="flex items-center gap-3">
@@ -27,7 +70,7 @@ export function ChatHeader({ chatName, isOnline, isGroup, memberCount, avatar }:
             </AvatarFallback>
           </Avatar>
           {isOnline && !isGroup && (
-            <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-online-indicator rounded-full border-2 border-card"></div>
+            <div className="absolute -bottom-0 -right-0 w-3 h-3 bg-green-600 rounded-full border-2 border-chat-sidebar"></div>
           )}
         </div>
         
@@ -44,15 +87,40 @@ export function ChatHeader({ chatName, isOnline, isGroup, memberCount, avatar }:
       </div>
       
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm">
+        <Button variant="ghost" size="sm" onClick={handleCall}>
           <Phone className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="sm">
+        <Button variant="ghost" size="sm" onClick={handleVideoCall}>
           <Video className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="sm">
-          <MoreVertical className="h-4 w-4" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleSearch}>
+              <Search className="h-4 w-4 mr-2" />
+              Search in chat
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleMute}>
+              <Volume2 className="h-4 w-4 mr-2" />
+              Mute notifications
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleArchive}>
+              <Archive className="h-4 w-4 mr-2" />
+              Archive chat
+            </DropdownMenuItem>
+            {!isGroup && (
+              <DropdownMenuItem onClick={handleBlock} className="text-destructive">
+                <UserMinus className="h-4 w-4 mr-2" />
+                Block user
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

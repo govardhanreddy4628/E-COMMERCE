@@ -3,19 +3,21 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "../../../ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../ui/card";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "../../../ui/form";
+import { Textarea } from "../../../ui/textarea";
+//import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../ui/select";
+import { Switch } from "../../../ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
-import { useToast } from "@/hooks/use-toast";
-import { useCategories } from "@/contexts/CategoryContext";
-import { CreateCategory } from "@/components/categories/CreateCategory";
-import { Upload, X, Plus, Package, DollarSign, Image as ImageIcon, Tag, Settings } from "lucide-react";
+import { Separator } from "../../../ui/separator";
+//import { useCategories } from "@/contexts/CategoryContext";
+//import { CreateCategory } from "@/components/categories/CreateCategory";
+import { X, Plus, Package, DollarSign, Image as ImageIcon, Tag, Settings } from "lucide-react";
+import Media from "./CreateProduct/Media";
+import BasicInfo from "./CreateProduct/BasicInfo";
+import { useToast } from "../../../hooks/use-toast";
+import { Badge } from "../../../ui/badge";
+import { Input } from "../../../ui/input";
 
 const productSchema = z.object({
     name: z.string().min(2, "Product name must be at least 2 characters").max(100, "Product name must be less than 100 characters"),
@@ -51,8 +53,8 @@ type ProductFormData = z.infer<typeof productSchema>;
 export function CreateProduct2() {
     const [uploadedImages, setUploadedImages] = useState<File[]>([]);
     const [tagInput, setTagInput] = useState("");
-    const [selectedCategory, setSelectedCategory] = useState("");
-    const { categories } = useCategories();
+    //const [selectedCategory, setSelectedCategory] = useState("");
+    //const { categories } = useCategories();
     const { toast } = useToast();
 
     const form = useForm<ProductFormData>({
@@ -142,7 +144,7 @@ export function CreateProduct2() {
             }
             return true;
         });
-
+        
         setUploadedImages(prev => [...prev, ...validFiles].slice(0, 10)); // Max 10 images
     };
 
@@ -223,7 +225,7 @@ export function CreateProduct2() {
                             </TabsList>
 
                             <TabsContent value="basic" className="space-y-6">
-                                <Card>
+                                {/* <Card>
                                     <CardHeader>
                                         <CardTitle>Product Information</CardTitle>
                                         <CardDescription>
@@ -400,7 +402,7 @@ export function CreateProduct2() {
                                             )}
                                         />
                                     </CardContent>
-                                </Card>
+                                </Card> */}
                             </TabsContent>
 
                             <TabsContent value="pricing" className="space-y-6">
@@ -676,74 +678,7 @@ export function CreateProduct2() {
                             </TabsContent>
 
                             <TabsContent value="media" className="space-y-6">
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>Product Images</CardTitle>
-                                        <CardDescription>
-                                            Upload high-quality images of your product (max 10 images, 5MB each)
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-6">
-                                        <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center">
-                                            <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                                            <div className="space-y-2">
-                                                <h4 className="text-lg font-medium">Upload Images</h4>
-                                                <p className="text-muted-foreground">
-                                                    Drag and drop your images here, or click to browse
-                                                </p>
-                                                <input
-                                                    type="file"
-                                                    multiple
-                                                    accept="image/jpeg,image/png,image/webp"
-                                                    onChange={handleImageUpload}
-                                                    className="hidden"
-                                                    id="image-upload"
-                                                />
-                                                <label htmlFor="image-upload">
-                                                    <Button variant="outline" asChild>
-                                                        <span>Choose Files</span>
-                                                    </Button>
-                                                </label>
-                                            </div>
-                                        </div>
-
-                                        {uploadedImages.length > 0 && (
-                                            <div className="space-y-4">
-                                                <h4 className="font-medium">Uploaded Images ({uploadedImages.length}/10)</h4>
-                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                    {uploadedImages.map((file, index) => (
-                                                        <div key={index} className="relative group">
-                                                            <div className="aspect-square rounded-lg overflow-hidden bg-muted border">
-                                                                <img
-                                                                    src={URL.createObjectURL(file)}
-                                                                    alt={`Product image ${index + 1}`}
-                                                                    className="w-full h-full object-cover"
-                                                                />
-                                                            </div>
-                                                            <Button
-                                                                type="button"
-                                                                variant="destructive"
-                                                                size="icon"
-                                                                className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                                onClick={() => removeImage(index)}
-                                                            >
-                                                                <X className="h-3 w-3" />
-                                                            </Button>
-                                                            {index === 0 && (
-                                                                <Badge className="absolute bottom-2 left-2 text-xs">
-                                                                    Main
-                                                                </Badge>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                                <p className="text-sm text-muted-foreground">
-                                                    The first image will be used as the main product image
-                                                </p>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
+                                <Media handleImageUpload={handleImageUpload} uploadedImages={uploadedImages} removeImage={removeImage}/>
                             </TabsContent>
 
                             <TabsContent value="seo" className="space-y-6">
