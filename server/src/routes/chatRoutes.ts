@@ -1,14 +1,25 @@
 import express from "express";
 import { auth } from "../middleware/auth";
-import { accessChat } from "../controllers/chatController";
+import { accessChat, createGroupChat, } from "../controllers/chatController";
+//import upload from "../middleware/multer";
 
 const chatRouter = express.Router();
 
-chatRouter.route("/").post(auth, accessChat);
-chatRouter.route("/").get(auth, fetchChat);
-chatRouter.route("/newgroup").post(auth, createGroupChat);
-chatRouter.route("/rename").put(auth, renameGroup);
-chatRouter.route("/groupremove").put(auth, removeFromGroup);
-chatRouter.route("/groupadd").put(auth, addToGroup);
+const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
+chatRouter.use(auth(["user"]));
+
+chatRouter.route("/").post(accessChat);
+// chatRouter.route("/").get(fetchChats);
+chatRouter.route("/newgroup").post(createGroupChat);
+// chatRouter.route("/rename").put(renameGroup);
+// chatRouter.route("/groupremove").put(removeFromGroup);
+// chatRouter.route("/groupadd").put(addToGroup);
+
+
+// Send Attachments
+//chatRouter.post("/message", upload.array(), sendAttachmentsValidator(), validateHandler, sendAttachments);
 
 export default chatRouter;

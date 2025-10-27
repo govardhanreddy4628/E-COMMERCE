@@ -1,7 +1,6 @@
 import 'react-inner-image-zoom/lib/styles.min.css';
 import InnerImageZoom from 'react-inner-image-zoom'
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Swiper as SwiperType } from 'swiper';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { FreeMode, Navigation, Thumbs } from 'swiper/modules';
@@ -18,6 +17,37 @@ import ProductQA from './productQA';
 import ReviewList from './productReview2';
 import ProductDetails2 from './productDetails2';
 
+
+interface Specification {
+    key: string;
+    value: string;
+    unit?: string;
+    group?: string;
+}
+
+interface Variant {
+    color: string;
+    size?: string;
+    price: number;
+    stock: number;
+    sku: string;
+    images: string[];
+    specifications?: Specification[];
+}
+
+interface IProduct {
+    _id: string;
+    name: string;
+    listedPrice: number;
+    finalPrice: number;
+    rating: number;
+    brand: string;
+    shortDescription: string;
+    category: string;
+    images: string[];
+    specifications: Specification[];
+    variants: Variant[];
+}
 
 const imageUrls = [
     'https://swiperjs.com/demos/images/nature-1.jpg',
@@ -38,29 +68,98 @@ const imageUrls2 = [
     'https://i5.walmartimages.com/seo/VIZIO-50-Class-4K-UHD-LED-HDR-Smart-TV-New-V4K50M-08_5f0d49fd-372f-41f3-96d9-f0566f682c44.6e5a7abe265b6a0764ab4ceade89d476.jpeg?odnHeight=2000&odnWidth=2000&odnBg=FFFFFF'
 ];
 
-const product = {
-    title: 'Wireless Noise Cancelling Headphones',
-    image: 'https://th.bing.com/th/id/OIP.OctJq06i6wIxTXsGBFIx9AHaHa?w=177&h=180&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3',
-    price: 199.99,
+
+const productData: IProduct = {
+    _id: "1",
+    name: " Men Comfort Cuban Collar Solid Polycotton Casual Shirt",
+    listedPrice: 199.99,
+    finalPrice: 149.99,
     rating: 4.5,
-    description:
-        'Experience immersive sound with our wireless noise cancelling headphones. With up to 30 hours of battery life and superior comfort, it’s perfect for work or travel.',
+    brand: "Campus Sutra",
+    shortDescription: "Premium quality cotton T-shirt designed for everyday comfort. Soft, breathable fabric with a regular fit, available in multiple colors and sizes to match your style.",
+    category: "Clothing",
+    images: [
+        "https://example.com/images/tshirt-main.jpg"
+    ],
+    specifications: [
+        { key: "Material", value: "Cotton" },
+        { key: "Brand", value: "FashionCo" },
+        { key: "Fit", value: "Regular" }
+    ],
+    variants: [
+        {
+            color: "Red",
+            size: "M",
+            price: 499,
+            stock: 10,
+            sku: "TSHIRT-RED-M",
+            images: ["https://example.com/images/tshirt-red-m.jpg"],
+            specifications: [
+                { key: "Weight", value: "200", unit: "g" }
+            ]
+        },
+        {
+            color: "Red",
+            size: "L",
+            price: 549,
+            stock: 5,
+            sku: "TSHIRT-RED-L",
+            images: ["https://example.com/images/tshirt-red-l.jpg"],
+            specifications: [
+                { key: "Weight", value: "250", unit: "g" }
+            ]
+        },
+        {
+            color: "Blue",
+            size: "M",
+            price: 499,
+            stock: 8,
+            sku: "TSHIRT-BLUE-M",
+            images: ["https://example.com/images/tshirt-blue-m.jpg"],
+            specifications: [
+                { key: "Weight", value: "200", unit: "g" }
+            ]
+        }
+    ]
 };
 
-const ProductDetails = () => {
 
+const ProductDetails = () => {
+    const [product, setProduct] = useState<IProduct | null>(null);
+    const [selectedColor, setSelectedColor] = useState("");
+    const [selectedSize, setSelectedSize] = useState<undefined | string>("");
+    const [currentVariant, setCurrentVariant] = useState<Variant | null>(null);
 
     const [thumbsSwiper, setThumbsSwiper] = useState<SwiperType | null>(null);
-    const [size, setSize] = useState<string | number>("");
+
+    useEffect(() => {
+        setProduct(productData)
+    }, [])
+
+
+    useEffect(() => {
+
+        if (product) {
+            const variant = product.variants.find(
+                (v) =>
+                    v.color === selectedColor && (selectedSize ? v.size === selectedSize : true)
+            );
+            setCurrentVariant(variant || null);
+        }
+    }, [selectedColor, selectedSize, product]);
+
+    if (!product) return <div>Loading...</div>;
+
+    const colors = Array.from(new Set(product.variants.map((v) => v.color))) as string[];
+    const sizes = Array.from(new Set(product.variants.map((v) => v.size).filter(Boolean)));
+
+    const specsToShow = currentVariant?.specifications?.length ? currentVariant.specifications : product.specifications || [];
 
     const handleIncrease = () => { };
     const handleDecrease = () => { };
 
-
-
-
     return (
-        <section className="max-w-9xl rounded-lg shadow-lg h-screen py-8 overflow-auto bg-gray-200 dark:bg-gray-800">
+        <section className="max-w-9xl rounded-lg shadow-lg bg-gray-200 dark:bg-gray-800">
             <div className="flex w-[95%] mx-auto bg-gray-50 dark:bg-gray-900 pl-5">
 
                 <div className='flex items-center gap-4 w-[45%]'>
@@ -92,7 +191,7 @@ const ProductDetails = () => {
                         </Swiper>
                     </div>
 
-                    {/* horizontal or main swiper */}
+                    {/*  main swiper */}
                     <div className='col12 w-[72%] h-[95%] flex items-center justify-center ml-4'>
                         <Swiper
                             spaceBetween={0}
@@ -104,14 +203,6 @@ const ProductDetails = () => {
                         >
                             {imageUrls2.map((src) => (
                                 <>
-                                    {/* <SwiperSlide className='rounded-lg overflow-hidden' key={src}>
-                                    < InnerImageZoom
-                                        src={src}
-                                        zoomType="hover"
-                                        zoomPreload={true}
-                                        className="w-full h-full object-contain"
-                                    />
-                                </SwiperSlide> */}
 
                                     <SwiperSlide key={src} className="!flex items-center justify-center ">
                                         <InnerImageZoom
@@ -133,53 +224,13 @@ const ProductDetails = () => {
 
 
                 {/* Product Info */}
-                {/* <div className='flex items-center justify-center mr-auto pr-10'>
-                    <div className="flex flex-col justify-between gap-4">
-                        <div>
-                            <h1 className="text-2xl font-bold text-gray-800 mb-4">
-                                {product.title}
-                            </h1>
-                            <div className='flex gap-4 items-center'>
-                                <p className="text-xl text-gray-400 font-bold line-through">${product.price.toFixed(2)}</p>
-                                <p className="text-xl text-red-400 font-bold">${product.price.toFixed(2)}</p>
-                                <p className='text-md text-gray-600 ml-5 pb-1'>Available in Stock: <span className='text-lg text-green-500 font-bold'>8085 Items</span></p>
-                            </div>
-                            <div className="flex items-center my-5">
-                                <div className="text-yellow-400">
-                                    {'★'.repeat(Math.floor(product.rating))}{'☆'.repeat(5 - Math.floor(product.rating))}
-                                </div>
-                                <span className="text-sm text-gray-500 ml-2">({product.rating} / 5)</span>
-                                <p className='text-gray-900 ml-10'>Reviews(10)</p>
-                            </div>
-                            <p className="text-gray-700">{product.description}</p>
-                        </div>
-
-                        <div className='flex items-center gap-2'>
-                            <span className="text-xl text-gray-700">SIZES: </span>
-                            <div className='flex gap-2'>
-                                <Button variant='outlined' onClick={() => setSelectedSize("s")} className={selectedSize === "s" ? "!text-red-500  !bg-black" : "!min-w-0"}>S</Button>
-                                <Button variant='outlined' onClick={() => setSelectedSize("m")} className={selectedSize === "m" ? "!text-red-500 !bg-black" : "!min-w-0"}>M</Button>
-                                <Button variant='outlined' onClick={() => setSelectedSize("l")} className={selectedSize === "l" ? "!text-red-500 !bg-black" : "!min-w-0"}>L</Button>
-
-                            </div>
-                        </div>
-
-                    
-                        <button className="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded transition duration-200 md:max-w-64 w-full self-center">
-                            Add to Cart
-                        </button>
-                        <Button className='flex !w-[180px] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 gap-3 !my-2 hover:!text-white hover:!bg-black hover:!border-black'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                    </div>
-                </div> */}
-
-
                 <div className="product-content w-full lg:w-[45%] px-4 lg:pr-10 lg:pl-0 text-black flex items-center">
                     <div>
                         <h1 className="text-xl sm:text-2xl font-semibold mb-2">
-                            Men Comfort Cuban Collar Solid Polycotton Casual Shirt
+                            {product.name}
                         </h1>
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 text-sm text-gray-600">
-                            <span>Brand: <strong className="text-black">Campus Sutra</strong></span>
+                            <span>Brand: <strong className="text-black">{product.brand}</strong></span>
                             <div className="flex items-center text-yellow-500" aria-label="Rating: 5 out of 5">
                                 <div className="text-yellow-400 text-[16px]">
                                     {'★'.repeat(Math.floor(product.rating))}{'☆'.repeat(5 - Math.floor(product.rating))}
@@ -190,25 +241,65 @@ const ProductDetails = () => {
                         </div>
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 mt-4">
                             <div className="flex items-center gap-2">
-                                <span className="text-gray-400 line-through text-lg">₹1850</span>
-                                <span className="text-red-600 text-lg font-bold">₹2200</span>
+                                <span className="text-gray-400 line-through text-lg">₹{product.listedPrice}</span>
+                                <span className="text-red-600 text-lg font-bold">₹{product.finalPrice}</span>
                             </div>
                             <div>
                                 <span>In Stock: <span className="text-green-600 font-bold">8518 Items</span></span>
                             </div>
                         </div>
                         <p className="mt-4 text-gray-700">
-                            Lorem Ipsum is simply dummy text of the printing and typesetting industry. It has been the industry's standard since the 1500s, when an unknown printer scrambled type to make a specimen book.
+                            {product.shortDescription}
                         </p>
-                        <div className="flex items-center gap-4 mt-5">
+                        <div className="my-4 flex items-center mb-2 gap-4">
+                            <h3 className="font-semibold">Select Color:</h3>
+                            <div className="flex gap-2">
+                                {colors.map((color) => (
+                                    <button
+                                        key={color}
+                                        onClick={() => setSelectedColor(color)}
+                                        className={`w-5 h-5 rounded-md border-2 transition 
+          ${selectedColor === color ? 'border-gray-300 scale-110' : 'border-white'}`}
+                                        style={{ backgroundColor: color }}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Size Selection */}
+                        {(sizes.length > 0 && <div className="flex items-center gap-4 mt-5">
                             <span className="text-base font-medium">Size:</span>
                             <div className="flex gap-2">
                                 {
-                                    ["S", "M", "L"].map((button, idx) => (
-                                        <button key={button} className={`px-3 py-1 border rounded hover:bg-gray-100 ${size === idx ? "!bg-red-400 text-white" : ""}`} onClick={() => setSize(idx)}>{button}</button>
+                                    sizes.map((size) => (
+                                        <button key={size} onClick={() => setSelectedSize(size)} className={`px-3 py-1 border rounded hover:bg-gray-100 ${selectedSize === size ? "!bg-red-500 text-white" : ""}`} >{size}</button>
                                     ))}
                             </div>
+                        </div>)}
+
+                        {/* {currentVariant && (
+                            <div className="my-4">
+                                <h3>Price: ₹{currentVariant.price}</h3>
+                                <p>Stock: {currentVariant.stock}</p>
+                                <img src={currentVariant.image} alt="" className="w-48 h-48 object-cover" />
+                            </div>
+                        )} */}
+
+                        <div className="my-4">
+                            <h3>Specifications</h3>
+                            <table className="border-collapse border border-gray-300">
+                                <tbody>
+                                    {specsToShow.map((spec, idx) => (
+                                        <tr key={idx} className="border-b border-gray-200">
+                                            <td className="px-4 py-2 font-semibold">{spec.key}</td>
+                                            <td className="px-4 py-2">{spec.value} {spec.unit || ''}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
+
+
                         <p className="text-md text-gray-800 mt-5 mb-2 flex items-center gap-2">
                             <LiaShippingFastSolid className='text-lg' /> <span>Free Shipping (Est. Delivery: 2-3 Days)</span>
                         </p>
@@ -238,7 +329,7 @@ const ProductDetails = () => {
                 </div>
             </div>
             <section className='w-[95%] mx-auto'>
-                <ProductDetails2/>
+                <ProductDetails2 />
                 <div className='flex bg-white w-full flex-col lg:flex-row '>
                     <RatingStats
                         average={4.1}
@@ -255,9 +346,9 @@ const ProductDetails = () => {
                         <ReviewList />
                     </div>
                 </div>
-            <div>
-                <ProductQA />
-            </div>
+                <div>
+                    <ProductQA />
+                </div>
             </section>
 
 

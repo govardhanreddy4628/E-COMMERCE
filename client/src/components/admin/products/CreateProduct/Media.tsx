@@ -322,6 +322,11 @@ const Media: React.FC<MediaProps> = ({ uploadedImages, setUploadedImages, remove
                             </p>
                         </div>
                     )} */}
+
+                    <p className="mt-4 text-sm text-gray-500">
+                    Image formats: <strong>.jpg, .jpeg, .png</strong>, preferred size: 1:1, file size
+                    is restricted to a maximum of 500kb.
+                  </p>
                 </CardContent>
             </Card>
         </div>

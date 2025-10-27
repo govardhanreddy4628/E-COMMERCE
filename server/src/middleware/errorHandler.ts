@@ -1,8 +1,7 @@
-// --- src/middleware/errorHandler.ts ---
+// middleware/errorHandler.ts
 import { Request, Response, NextFunction } from "express";
-import { ApiError } from "../utils/ApiError.js";
-import { ApiResponse } from "../utils/ApiResponse.js";
-
+import { ApiResponse } from "../utils/ApiResponse";
+import { ApiError } from "../utils/ApiError";
 
 export const errorHandler = (
   err: Error | ApiError,
@@ -12,14 +11,11 @@ export const errorHandler = (
 ) => {
   const statusCode = err instanceof ApiError ? err.statusCode : 500;
   const message = err.message || "Internal Server Error";
-  const errors = err instanceof ApiError && err.errors ? err.errors : null;
+  const errors = err instanceof ApiError ? err.errors : [];
 
-  console.error("Error:", err);
+  if (process.env.NODE_ENV === "DEVELOPMENT") console.error(err);
 
-  const response = new ApiResponse(statusCode, message, { errors });
-  return res.status(statusCode).json(response);
-  
+  res
+    .status(statusCode)
+    .json(new ApiResponse(statusCode, message, null, errors));
 };
-
-
-

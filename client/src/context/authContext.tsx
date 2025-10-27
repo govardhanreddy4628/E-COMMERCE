@@ -36,7 +36,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchUser = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:8080/api/v1/user/current-user", {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL as string;
+
+      if (!backendUrl) {
+        console.error('Backend URL is not defined.');
+        return;
+      }
+      const res = await fetch(backendUrl+"/api/v1/user/me", {
         credentials: "include", // required to send cookies
       });
 

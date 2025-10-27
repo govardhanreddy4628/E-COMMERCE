@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "../../../ui/dialog";
 import { toast } from "../../../hooks/use-toast";
 import { Search, Plus, Settings, Users, MessageCircle, UserPlus, Users2 } from "lucide-react";
@@ -27,6 +27,23 @@ interface ChatSidebarProps {
   onChatSelect: (chatId: string) => void;
   onNewChat?: () => void;
 }
+
+interface User {
+  id: string;
+  name: string;
+  avatar?: string;
+  isOnline?: boolean;
+}
+
+const mockUsers: User[] = [
+  { id: "u1", name: "Alice Johnson" },
+  { id: "u2", name: "Bob Wilson" },
+  { id: "u3", name: "Sarah Tech Lead" },
+  { id: "u4", name: "Mike Developer" },
+  { id: "u2", name: "Bob Wilson" },
+  { id: "u3", name: "Sarah Tech Lead" },
+  { id: "u4", name: "Mike Developer" },
+];
 
 const mockChats: Chat[] = [
   {
@@ -74,7 +91,14 @@ export function ChatSidebar({ selectedChatId, onChatSelect, onNewChat }: ChatSid
   const [notifications, setNotifications] = useState(true);
   const [readReceipts, setReadReceipts] = useState(true);
   const [lastSeen, setLastSeen] = useState(false);
-  
+
+  const [allUsers, setAllUsers] = useState<User[]>(mockUsers);
+  const [chatMode, setChatMode] = useState<"individual" | "group">("individual");
+  const [showUsersModal, setShowUsersModal] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [groupName, setGroupName] = useState("");
+
+
   const filteredChats = mockChats.filter(chat =>
     chat.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     chat.lastMessage.toLowerCase().includes(searchQuery.toLowerCase())
@@ -86,6 +110,8 @@ export function ChatSidebar({ selectedChatId, onChatSelect, onNewChat }: ChatSid
 
   const handleCreateIndividualChat = () => {
     setNewChatOpen(false);
+    setShowUsersModal(true);
+    setChatMode("individual")
     toast({
       title: "New Individual Chat",
       description: "Creating a new individual conversation..."
@@ -95,12 +121,38 @@ export function ChatSidebar({ selectedChatId, onChatSelect, onNewChat }: ChatSid
 
   const handleCreateGroupChat = () => {
     setNewChatOpen(false);
+    setShowUsersModal(true);
+    setChatMode("group")
     toast({
       title: "New Group Chat",
       description: "Creating a new group conversation..."
     });
     onNewChat?.();
   };
+
+  // 🔍 Filtered users based on search
+  const filteredUsers = useMemo(() => {
+    return allUsers.filter((user) =>
+      user.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [searchQuery, allUsers]);
+
+  // ✅ Select/unselect logic
+  const toggleUser = (id: string) => {
+    if (chatMode === "individual") {
+      setSelectedUsers([id]);
+    } else {
+      if (selectedUsers.includes(id)) {
+        setSelectedUsers(selectedUsers.filter((u) => u !== id));
+      } else {
+        setSelectedUsers([...selectedUsers, id]);
+      }
+    }
+  };
+
+  const onCreateChat = ()  => {setShowUsersModal(false)};
+
+
   return (
     <div className="w-80 bg-chat-sidebar border-r border-border flex flex-col h-full">
       {/* Header */}
@@ -126,9 +178,9 @@ export function ChatSidebar({ selectedChatId, onChatSelect, onNewChat }: ChatSid
                     <h4 className="text-sm font-medium">Notifications</h4>
                     <div className="flex items-center justify-between">
                       <Label htmlFor="notifications" className="text-sm">Enable notifications</Label>
-                      <Switch 
-                        id="notifications" 
-                        checked={notifications} 
+                      <Switch
+                        id="notifications"
+                        checked={notifications}
                         onCheckedChange={(checked) => {
                           setNotifications(checked);
                           toast({
@@ -145,9 +197,9 @@ export function ChatSidebar({ selectedChatId, onChatSelect, onNewChat }: ChatSid
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="read-receipts" className="text-sm">Read receipts</Label>
-                        <Switch 
-                          id="read-receipts" 
-                          checked={readReceipts} 
+                        <Switch
+                          id="read-receipts"
+                          checked={readReceipts}
                           onCheckedChange={(checked) => {
                             setReadReceipts(checked);
                             toast({
@@ -159,9 +211,9 @@ export function ChatSidebar({ selectedChatId, onChatSelect, onNewChat }: ChatSid
                       </div>
                       <div className="flex items-center justify-between">
                         <Label htmlFor="last-seen" className="text-sm">Show last seen</Label>
-                        <Switch 
-                          id="last-seen" 
-                          checked={lastSeen} 
+                        <Switch
+                          id="last-seen"
+                          checked={lastSeen}
                           onCheckedChange={(checked) => {
                             setLastSeen(checked);
                             toast({
@@ -178,12 +230,12 @@ export function ChatSidebar({ selectedChatId, onChatSelect, onNewChat }: ChatSid
             </Dialog>
           </div>
         </div>
-        
+
         {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search conversations..." 
+          <Input
+            placeholder="Search conversations..."
             className="pl-10 bg-chat-input border-border"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -203,54 +255,53 @@ export function ChatSidebar({ selectedChatId, onChatSelect, onNewChat }: ChatSid
             </div>
           ) : (
             filteredChats.map((chat) => (
-            <div
-              key={chat.id}
-              onClick={() => onChatSelect(chat.id)}
-              className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors hover:bg-accent/50 ${
-                selectedChatId === chat.id ? 'bg-accent' : ''
-              }`}
-            >
-              <div className="relative">
-                <Avatar className="h-9 w-9">
-                  <AvatarImage src={chat.avatar} />
-                  <AvatarFallback className="bg-primary text-primary-foreground">
-                    {chat.isGroup ? (
-                      <Users className="h-6 w-6" />
-                    ) : (
-                      chat.name.split(' ').map(n => n[0]).join('')
-                    )}
-                  </AvatarFallback>
-                </Avatar>
-                {chat.isOnline && !chat.isGroup && (
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-600 rounded-full border-2 border-chat-sidebar"></div>
+              <div
+                key={chat.id}
+                onClick={() => onChatSelect(chat.id)}
+                className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors hover:bg-accent/50 ${selectedChatId === chat.id ? 'bg-accent' : ''
+                  }`}
+              >
+                <div className="relative">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={chat.avatar} />
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      {chat.isGroup ? (
+                        <Users className="h-6 w-6" />
+                      ) : (
+                        chat.name.split(' ').map(n => n[0]).join('')
+                      )}
+                    </AvatarFallback>
+                  </Avatar>
+                  {chat.isOnline && !chat.isGroup && (
+                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-600 rounded-full border-2 border-chat-sidebar"></div>
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0 max-w-48">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium text-foreground truncate">
+                      {chat.name}
+                    </h3>
+                    <span className="text-xs text-muted-foreground">
+                      {chat.timestamp}
+                    </span>
+                  </div>
+                  {/* for truncate to make work it's nearest parent should contrain its child width thats why i given max-w-48 for its parent. */}
+                  <p className="text-sm text-muted-foreground truncate">
+                    {chat.lastMessage}
+                  </p>
+                </div>
+
+                {chat.unreadCount > 0 && (
+                  <Badge variant="default" className="bg-primary text-primary-foreground">
+                    {chat.unreadCount}
+                  </Badge>
                 )}
               </div>
-              
-              <div className="flex-1 min-w-0 max-w-48">           
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium text-foreground truncate">
-                    {chat.name}
-                  </h3>
-                  <span className="text-xs text-muted-foreground">
-                    {chat.timestamp}
-                  </span>
-                </div>
-                {/* for truncate to make work it's nearest parent should contrain its child width thats why i given max-w-48 for its parent. */}
-                <p className="text-sm text-muted-foreground truncate">     
-                  {chat.lastMessage}
-                </p>
-              </div>
-              
-              {chat.unreadCount > 0 && (
-                <Badge variant="default" className="bg-primary text-primary-foreground">
-                  {chat.unreadCount}
-                </Badge>
-              )}
-            </div>
-          )))}
+            )))}
         </div>
       </ScrollArea>
-      
+
       {/* New Chat Dialog */}
       <Dialog open={newChatOpen} onOpenChange={setNewChatOpen}>
         <DialogContent>
@@ -258,7 +309,7 @@ export function ChatSidebar({ selectedChatId, onChatSelect, onNewChat }: ChatSid
             <DialogTitle>Start New Chat</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <Button 
+            <Button
               onClick={handleCreateIndividualChat}
               className="w-full justify-start"
               variant="outline"
@@ -266,7 +317,7 @@ export function ChatSidebar({ selectedChatId, onChatSelect, onNewChat }: ChatSid
               <UserPlus className="h-4 w-4 mr-2" />
               Start Individual Chat
             </Button>
-            <Button 
+            <Button
               onClick={handleCreateGroupChat}
               className="w-full justify-start"
               variant="outline"
@@ -277,6 +328,94 @@ export function ChatSidebar({ selectedChatId, onChatSelect, onNewChat }: ChatSid
           </div>
         </DialogContent>
       </Dialog>
+
+
+      {/* New Chat Dialog */}
+      <Dialog open={showUsersModal} onOpenChange={setShowUsersModal}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <DialogTitle>
+              {chatMode === "individual" ? "Start New Chat" : "Create Group Chat"}
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* 🧠 Group name input */}
+          {chatMode === "group" && (
+            <div className="mb-3">
+              <Input
+                placeholder="Enter group name"
+                value={groupName}
+                onChange={(e) => setGroupName(e.target.value)}
+              />
+            </div>
+          )}
+
+          {/* 🔍 Search bar */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search users..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          {/* 👥 User list */}
+          <ScrollArea className="h-64 border rounded-lg">
+            <div className="divide-y divide-border">
+              {filteredUsers.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-64 text-muted-foreground text-sm">
+                  No users found
+                </div>
+              ) : (
+                filteredUsers.map((user) => {
+                  const isSelected = selectedUsers.includes(user.id);
+                  return (
+                    <div
+                      key={user.id}
+                      className={`flex items-center gap-3 p-3 cursor-pointer transition-all ${isSelected
+                          ? "bg-primary/10 hover:bg-primary/20"
+                          : "hover:bg-accent"
+                        }`}
+                      onClick={() => toggleUser(user.id)}
+                    >
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={user.avatar} alt={user.name} />
+                        <AvatarFallback>
+                          {user.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-foreground truncate">
+                          {user.name}
+                        </p>
+                      </div>
+                      {isSelected && (
+                        <span className="text-primary font-semibold text-xs">
+                          ✓
+                        </span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </ScrollArea>
+
+          <Button className="w-full mt-4" onClick={onCreateChat}>
+            {chatMode === "individual" ? "Start Chat" : "Create Group"}
+          </Button>
+
+        </DialogContent>
+
+      </Dialog>
+
     </div>
   );
 }

@@ -1,17 +1,19 @@
 import { z } from "zod";
+import { Types } from "mongoose";
 
 export const productSchema = z.object({
-  name: z.string().min(2).max(200),
+  name: z.string().min(2, "Product name must be at least 2 characters long").max(200),
+  slug: z.string().optional(), // auto-generated in Mongoose
   shortDescription: z.string().min(5).max(500),
-  description: z.string().min(10),
-  category: z.string(), // ObjectId as string
-  subcategory: z.string(), // ObjectId as string
-  price: z.number().min(1).max(200000),
-  discountPercentage: z.number().min(1).max(99).optional(),
-  discountedPrice: z.number().min(1).max(100000).optional(),
+  description: z.string().min(10).max(5000),
+  category: z.string().refine((val) => Types.ObjectId.isValid(val), "Invalid category ID"),
+  subcategoty: z.string().regex(/^[a-f\d]{24}$/i, "Invalid subcategory ID").optional(),
+  price: z.number().min(1).max(200000, "price must be less than 200000"),
+  discountPercentage: z.number().min(0, "Discount cannot be negative").max(100, "Discount cannot exceed 100").optional().default(0),
+  discountedPrice: z.number().min(0).max(100000).optional(),
   brand: z.string().min(2).max(100),
-  thumbnails: z.array(z.string()).min(1),
-  images: z.array(z.string()).min(1),
+  thumbnails: z.array(z.string()).min(1, "At least one thumbnail is required"),
+  images: z.array(z.string()).min(1, "At least one image is required"),
   sku: z.string().optional(), // optional → backend generates if missing
   isFeatured: z.boolean().optional(),
   productRam: z.array(z.string()).optional(),
@@ -33,4 +35,7 @@ export const productSchema = z.object({
   productSeoTags: z.array(z.string()).optional(),
   seoTitle: z.string().optional(),
   seoDescription: z.string().optional(),
+  createdBy: z.string().regex(/^[a-f\d]{24}$/i).optional(),
+  updatedBy: z.string().regex(/^[a-f\d]{24}$/i).optional(),
+  createdAt: z.date().optional(),
 });

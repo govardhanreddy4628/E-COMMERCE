@@ -1,6 +1,7 @@
 import express from "express";
 import {
   checkoutController,
+  createProduct,
   createProductController,
   deleteProductController,
   getAllProductController,
@@ -19,6 +20,7 @@ const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
 
 //productRouter.post('/uploadImages', auth, upload.array('images'), uploadImages);
 productRouter.post("/create", createProductController);
+productRouter.post("/createproduct", asyncHandler(createProduct));
 //productRouter.get("/getAllproduct", getAllProductController);
 //productRouter.get("/getAllproductsByCatId/:id", getAllProductsByCatIdController);
 //productRouter.get("/getAllproductsByCatName", getAllProductsByCatIdController);

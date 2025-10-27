@@ -5,8 +5,11 @@
   "scripts": {
     "client": "npm run dev --prefix ./client",
     "server": "npm run dev --prefix ./server",
-    "dev": "concurrently \"npm run server\" \"npm run client\""
+    "inngest": "npx inngest-cli@latest dev -u http://localhost:8080/api/inngest",
+    "start": "concurrently \"npm run server\" \"npm run client\" ",
+    "dev": "concurrently \"npm run server\" \"npm run client\" \"npm run inngest\" "
   },
+ 
   "devDependencies": {
     "@vitejs/plugin-react": "^4.7.0",
     "concurrently": "^8.0.1"

@@ -4,15 +4,6 @@ import { RequestHandler } from "express";
 //import { Request, Response, NextFunction } from "express";
 import { ApiError } from "../utils/ApiError";
 
-// Extend Express Request interface to include 'user'
-declare global {
-  namespace Express {
-    interface Request {
-      userId?: string;
-      userRole?: string;
-    }
-  }
-}
 
 interface DecodedToken {
   id: string;
@@ -40,10 +31,7 @@ export const auth = (roles?: string[]): RequestHandler => {
         );
       }
 
-      const decoded = jwt.verify(
-        accessToken,
-        process.env.JWT_ACCESS_SECRET!
-      ) as DecodedToken;
+      const decoded = jwt.verify(accessToken, process.env.JWT_ACCESS_SECRET!) as DecodedToken;
       console.log("Decoded Token:", decoded);
       if (!decoded?.id) {
         res.status(401).json({

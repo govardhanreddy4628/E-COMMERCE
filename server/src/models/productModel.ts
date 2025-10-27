@@ -1,24 +1,50 @@
 import mongoose, { Schema, Document } from "mongoose";
 import slugify from "slugify";
+import { IReview } from "./reviewsModel";
 
-interface IReview {
-  user: mongoose.Types.ObjectId;
-  rating: number;
-  comment: string;
-  createdAt?: Date;
+export interface IEmbeddedOffer {
+  type: string;
+  description: string;
+  offerId?: mongoose.Types.ObjectId;
 }
 
-interface IQuestion {
-  user: mongoose.Types.ObjectId;
-  question: string;
-  answer?: string;
-  createdAt?: Date;
+interface ISpecifications {
+  key: string; // e.g. "Fabric", "Processor"
+  value: string; // e.g. "Cotton", "Intel i7"
+  unit?: string; // e.g. "GB", "cm"
+  group?: string; // e.g. "Technical Specs", "Material Info"
 }
 
-interface IOffer {
-  title: string;
-  discountPercentage: number;
-  validUntil: Date;
+interface IVariant {
+  sku: string;
+  color?: string;
+  size?: string;
+  stock: number;
+  price?: number;
+  images?: string[];
+  active?: boolean;
+  specifications?: [ISpecifications];
+}
+
+export interface IShipping extends Document {
+  isShippable: boolean;
+  shippingCost?: number;
+  shippingMethods?: {
+    carrier: string;
+    type: "standard" | "express" | "same-day" | "pickup";
+    cost: number;
+    estimatedDelivery: {
+      minDays: number;
+      maxDays: number;
+    };
+    regions?: string[];
+  }[];
+  restrictions?: {
+    notDeliverableTo?: string[];
+    fragile?: boolean;
+    hazardous?: boolean;
+  };
+  handlingTimeInDays?: number;
 }
 
 interface IProduct extends Document {
@@ -26,42 +52,110 @@ interface IProduct extends Document {
   slug: string;
   shortDescription: string;
   description: string;
+  category: mongoose.Types.ObjectId;
   price: number;
   costPerItem?: number;
   discountedPrice?: number;
   discountPercentage?: number;
   isFeatured?: boolean;
-  warranty?: string;
+  isActive?: boolean;
   productRam?: string[];
   productWeight?: string[];
   productColor?: string[];
-  countInStock: number;
-  isAvailable?: boolean;
-  category: mongoose.Types.ObjectId;
+  availableColorsForProduct?: string[];
   brand: string;
+  quantityInStock: number;
   recentQuantity: number;
   rating?: number;
   thumbnails: string[];
   images: string[];
-  colors?: mongoose.Schema.Types.Mixed[];
+  availableColors?: mongoose.Schema.Types.Mixed[];
   productMeasurement?: string[];
   sizes?: any[];
   highlights?: string[];
   status?: "active" | "inactive" | "deleted";
-  createdBy?: mongoose.Types.ObjectId;
-  updatedBy?: mongoose.Types.ObjectId;
-  createdAt?: Date;
-  shipping?: boolean;
-  sku?: string;
   barcode?: string;
-  tags?: string[];
+  sku?: string;
+  shipping?: IShipping;
+  availabilityOfShipping?: boolean;
+  specifications: ISpecifications[];
+  //variants: IVariant[];
+  seoTags?: string[];
   seoTitle?: string;
   seoDescription?: string;
   returnPolicy?: string;
-  offers?: IOffer[];
+  offerIds?: mongoose.Types.ObjectId[]; // references to Offer
+  embeddedOffers?: IEmbeddedOffer[]; // lightweight offers for fast reads
+  warranty?: string;
   reviews?: IReview[];
-  questions?: IQuestion[];
+  createdAt?: Date;
+  createdBy?: mongoose.Types.ObjectId;
+  updatedBy?: mongoose.Types.ObjectId;
 }
+
+
+//==============schema=======================
+const EmbeddedOfferSchema = new Schema<IEmbeddedOffer>(
+  {
+    type: { type: String, required: true },
+    description: { type: String, required: true },
+    offerId: { type: Schema.Types.ObjectId, ref: "Offer" },
+  },
+  { _id: false }
+);
+
+const SpecificationsSchema = new Schema<ISpecifications>({
+  key: { type: String, required: true },
+  value: { type: String, required: true },
+  unit: { type: String },
+  group: { type: String },
+});
+
+const VariantSchema: Schema = new Schema(
+  {
+    sku: { type: String, required: true,},
+    color: { type: String },
+    size: { type: String },
+    stock: { type: Number, required: true, min: 0 },
+    price: { type: Number, min: 0 },
+    images: [{ type: String }],
+    active: { type: Boolean, default: true },
+    specifications: [SpecificationsSchema],
+  },
+  { _id: false }
+);
+
+export const ShippingSchema: Schema = new Schema(
+  {
+    isShippable: { type: Boolean, required: true, default: true },
+    shippingCost: { type: Number, min: 0 },
+    shippingMethods: [
+      {
+        carrier: { type: String, required: true },
+        type: {
+          type: String,
+          enum: ["standard", "express", "same-day", "pickup"],
+          default: "standard",
+        },
+        cost: { type: Number, min: 0, default: 0 },
+        estimatedDelivery: {
+          minDays: { type: Number, min: 0 },
+          maxDays: { type: Number, min: 0 },
+        },
+        regions: [{ type: String }], // ISO country codes
+      },
+    ],
+
+    restrictions: {
+      notDeliverableTo: [{ type: String }],
+      fragile: { type: Boolean, default: false },
+      hazardous: { type: Boolean, default: false },
+    },
+
+    handlingTimeInDays: { type: Number, min: 0, default: 0 },
+  },
+  { _id: false } // ✅ prevents separate _id for sub-doc
+);
 
 const productSchema = new mongoose.Schema<IProduct>(
   {
@@ -80,7 +174,7 @@ const productSchema = new mongoose.Schema<IProduct>(
     },
     shortDescription: { type: String, required: true },
     description: { type: String, required: true },
-
+    category: { type: Schema.Types.ObjectId, ref: "Category" },
     price: {
       type: Number,
       required: true,
@@ -106,10 +200,9 @@ const productSchema = new mongoose.Schema<IProduct>(
 
     brand: {
       type: String,
-      required: true,
       trim: true,
       lowercase: true,
-      minlength: [2, "Brand name must be at least 2 characters long"],
+      //minlength: [2, "Brand name must be at least 2 characters long"],
     },
 
     warranty: { type: String },
@@ -119,49 +212,54 @@ const productSchema = new mongoose.Schema<IProduct>(
       max: [5, "wrong max rating"],
       default: 0,
     },
+
+    specifications: [SpecificationsSchema],
+    //variants: { type: [VariantSchema], default: [] },
     isFeatured: { type: Boolean, default: false },
     productRam: { type: [String], default: [] },
     productMeasurement: { type: [String], default: [] },
     productWeight: { type: [String], default: [] },
     productColor: { type: [String], default: [] },
 
-    category: { type: Schema.Types.ObjectId, ref: "Category", required: true },
+    //category: { type: Schema.Types.ObjectId, ref: "Category", required: true },
 
     recentQuantity: { type: Number, min: 0, default: 0 },
-    countInStock: { type: Number, min: 0, default: 0 },
+    quantityInStock: { type: Number, min: 0, default: 0 },
 
     thumbnails: {
       type: [String],
-      required: true,
-      validate: [(val: string[]) => val.length > 0, "At least one thumbnail required"],
+      // validate: [
+      //   (val: string[]) => val.length > 0,
+      //   "At least one thumbnail required",
+      // ],
     },
     images: {
       type: [String],
       required: true,
-      validate: [(val: string[]) => val.length > 0, "At least one image required"],
+      validate: [
+        (val: string[]) => val.length > 0,
+        "At least one image required",
+      ],
     },
-    sizes: { 
-      type: [Schema.Types.Mixed],       //Schema.Types.Mixed (or just mongoose.Schema.Types.Mixed) defines a Mongoose schema field that holds an array of arbitrary values — in other words, it's an array where each element can be any type (object, string, number, etc.).
-      default: []
-     },
+    sizes: {
+      type: [Schema.Types.Mixed], //Schema.Types.Mixed (or just mongoose.Schema.Types.Mixed) defines a Mongoose schema field that holds an array of arbitrary values — in other words, it's an array where each element can be any type (object, string, number, etc.).
+      default: [],
+    },
     highlights: { type: [String], default: [] },
-    shipping: { type: Boolean, default: false },
+
+    // ✅ Embed ShippingSchema
+    //shipping: { type: ShippingSchema, default: { isShippable: true } },
 
     sku: { type: String, unique: true, index: true },
     barcode: { type: String, unique: true, sparse: true },
-    tags: { type: [String], default: [] },
+    seoTags: { type: [String], default: [] },
 
     seoTitle: { type: String, maxlength: 60 },
     seoDescription: { type: String, maxlength: 160 },
     returnPolicy: { type: String },
 
-    offers: [
-      {
-        title: String,
-        discountPercentage: Number,
-        validUntil: Date,
-      },
-    ],
+    offerIds: [{ type: Schema.Types.ObjectId, ref: "Offer" }],
+    embeddedOffers: [EmbeddedOfferSchema],
 
     reviews: [
       {
@@ -172,16 +270,11 @@ const productSchema = new mongoose.Schema<IProduct>(
       },
     ],
 
-    questions: [
-      {
-        user: { type: Schema.Types.ObjectId, ref: "User" },
-        question: String,
-        answer: String,
-        createdAt: { type: Date, default: Date.now },
-      },
-    ],
-
-    status: { type: String, enum: ["active", "inactive", "deleted"], default: "active" },
+    status: {
+      type: String,
+      enum: ["active", "inactive", "deleted"],
+      default: "active",
+    },
 
     createdBy: { type: Schema.Types.ObjectId, ref: "User" },
     updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
@@ -209,11 +302,7 @@ productSchema.pre("save", async function (next) {
 });
 
 
-// productSchema.index({ slug: 1 });
-// productSchema.index({ category: 1 });
-// productSchema.index({ deleted: 1 });
-// productSchema.index({ isFeatured: 1 });
-
+//======================== Virtuals & Indexes ========================//
 
 // ✅ Virtual field for final price
 productSchema.virtual("finalPrice").get(function () {
@@ -221,17 +310,15 @@ productSchema.virtual("finalPrice").get(function () {
   return Math.round(this.price * (1 - discount / 100));
 });
 
+
+// productSchema.index({ slug: 1 });
+// productSchema.index({ category: 1 });
+// productSchema.index({ deleted: 1 });
+// productSchema.index({ isFeatured: 1 });
+
+
 const productModel = mongoose.model<IProduct>("Product", productSchema);
 export default productModel;
-
-
-
-
-    
-   
-
-
-
 
 // const productSchema = new Schema({
 //     colors:{ type : [Schema.Types.Mixed] },

@@ -2,16 +2,16 @@ import { Router } from "express";
 import {
   createCategoryController,
   getAllCategoryController,
+  getCategoryTree,
   getSingleCategoryByIdController,
+  updateCategoryController,
 } from "../controllers/categoryController";
 import { auth } from "../middleware/auth";
-import upload from "../middleware/multer";
+import { uploadSingle } from "../middleware/multer";
 import { uploadLimiter } from "../middleware/rateLimiter";
 import { Roles } from "../constants";
 
 const categoryRouter = Router();
-
-
 
 
 // Helper to wrap async controllers
@@ -19,8 +19,10 @@ const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-categoryRouter.post('/create-category', auth([Roles.USER]), upload.array('image'), asyncHandler(createCategoryController));
+categoryRouter.post('/create-category', uploadSingle, asyncHandler(createCategoryController));
+categoryRouter.post('/update-category', uploadSingle, asyncHandler(updateCategoryController));
 //categoryRouter.post('/category', auth, uploadLimiter, createCategoryController);
+categoryRouter.get("/tree", (getCategoryTree));
 categoryRouter.get("/getAllCategory", asyncHandler(getAllCategoryController));
 categoryRouter.get("/getSingleCategoryById/:id", asyncHandler(getSingleCategoryByIdController));
 

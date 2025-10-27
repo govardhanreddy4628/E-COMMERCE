@@ -1,26 +1,16 @@
-import { Outlet } from "react-router-dom";
-import Navbar from "./navbar";
 import Footer from "./footer";
-import { Box, Typography } from "@mui/material";
-import Sidebar from "./sidebar";
+import Header from "./header";
 
-const Layout = () => {
-  
+const Layout = ({children}) => {
 
   return (
-    <>
-      <Navbar />
-      <Box className="w-full adjust">
-        <Typography>hello world</Typography>
-        <main className="flex w-full bg-gray-500">
-          <Sidebar/>
-          <div className="flex-1">
-            <Outlet />
-          </div>
-        </main>
-      </Box>
+    <div className='h-screen overflow-y-auto overflow-x-hidden'>
+      <Header />
+      <div style={{ minHeight: "80vh" }}>
+        {children}
+      </div>   
       <Footer />
-    </>
+    </div>
   );
 };
 

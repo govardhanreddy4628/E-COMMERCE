@@ -29,74 +29,75 @@ export const createProductController = async (
     const allowedFields = [
       'name',
       'price',
-      // 'category',
-      // 'discountPercentage',
+      'category',
+      'discountPercentage',
       'quantity',
-      // 'description',
-      // 'images'
+      'description',
+      'images'
     ];
 
-    // Sanitize input
-    // const filteredBody: Record<string, any> = {};
-    // for (const field of allowedFields) {
-    //   if (req.body[field] !== undefined) {
-    //     filteredBody[field] = req.body[field];
-    //   }
-    // }
+    //Sanitize input
+    const filteredBody: Record<string, any> = {};
+    
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        filteredBody[field] = req.body[field];
+      }
+    }
 
-    // Validate category
-    // if (filteredBody.category) {
-    //   if (!Types.ObjectId.isValid(filteredBody.category)) {
-    //     res.status(400).json({
-    //       message: 'Invalid category ID format',
-    //       success: false,
-    //       error: true,
-    //     });
-    //     return;
-    //   }
-    //   filteredBody.category = new Types.ObjectId(filteredBody.category);
-    // }
+    //Validate category
+    if (filteredBody.category) {
+      if (!Types.ObjectId.isValid(filteredBody.category)) {
+        res.status(400).json({
+          message: 'Invalid category ID format',
+          success: false,
+          error: true,
+        });
+        return;
+      }
+      filteredBody.category = new Types.ObjectId(filteredBody.category);
+    }
 
-    // //Validate price
-    // const price = Number(filteredBody.price);
-    // if (isNaN(price) || price <= 0 || price > 100000) {
-    //   res.status(400).json({
-    //     message: 'Invalid price: must be a number between 1 and 100000',
-    //     success: false,
-    //     error: true,
-    //   });
-    //   return;
-    // }
-    // filteredBody.price = price;
+    //Validate price
+    const price = Number(filteredBody.price);
+    if (isNaN(price) || price <= 0 || price > 100000) {
+      res.status(400).json({
+        message: 'Invalid price: must be a number between 1 and 100000',
+        success: false,
+        error: true,
+      });
+      return;
+    }
+    filteredBody.price = price;
 
-    // // Handle optional discount
-    // const discountPercentage = Number(filteredBody.discountPercentage ?? 0);
-    // if (isNaN(discountPercentage) || discountPercentage < 0 || discountPercentage > 100) {
-    //   res.status(400).json({
-    //     message: 'Invalid discountPercentage: must be between 0 and 100',
-    //     success: false,
-    //     error: true,
-    //   });
-    //   return;
-    // }
-    // filteredBody.discountPercentage = discountPercentage;
+    // Handle optional discount
+    const discountPercentage = Number(filteredBody.discountPercentage ?? 0);
+    if (isNaN(discountPercentage) || discountPercentage < 0 || discountPercentage > 100) {
+      res.status(400).json({
+        message: 'Invalid discountPercentage: must be between 0 and 100',
+        success: false,
+        error: true,
+      });
+      return;
+    }
+    filteredBody.discountPercentage = discountPercentage;
 
-    // // Calculate discount price
-    // filteredBody.discountPrice = Math.round(
-    //   price * (1 - discountPercentage / 100)
-    // );
+    // Calculate discount price
+    filteredBody.discountPrice = Math.round(
+      price * (1 - discountPercentage / 100)
+    );
 
-    // // Validate quantity
-    // const quantity = Number(filteredBody.quantity);
-    // if (isNaN(quantity) || quantity < 0) {
-    //   res.status(400).json({
-    //     message: 'Quantity must be a non-negative number',
-    //     success: false,
-    //     error: true,
-    //   });
-    //   return;
-    // }
-    // filteredBody.quantity = quantity;
+    // Validate quantity
+    const quantity = Number(filteredBody.quantity);
+    if (isNaN(quantity) || quantity < 0) {
+      res.status(400).json({
+        message: 'Quantity must be a non-negative number',
+        success: false,
+        error: true,
+      });
+      return;
+    }
+    filteredBody.quantity = quantity;
 
     // Create product
     const product = new productModel(req.body);
@@ -112,6 +113,72 @@ export const createProductController = async (
     next(error); // Delegates to centralized error handler
   }
 };
+
+
+
+
+
+export const createProduct = async (req: Request, res: Response): Promise<void> => {
+  try {
+    console.log("🟢 Incoming product body:", req.body);
+
+    const {
+      name,
+      description,
+      shortDescription,
+      category,
+      finalPrice,
+      quantityInStock,
+      images,
+      brand,
+    } = req.body;
+
+    if (!name || !description || !shortDescription || !category || !finalPrice) {
+      res.status(400).json({ message: "Missing required fields" });
+      return;
+    }
+
+    if (!Array.isArray(images) || images.length === 0) {
+      res.status(400).json({ message: "At least one image is required" });
+      return;
+    }
+
+    // if (!Types.ObjectId.isValid(category)) {
+    //   res.status(400).json({ message: "Invalid category ID format" });
+    //   return;
+    // }
+
+    const newProduct = new productModel({
+      ...req.body,
+      price: finalPrice,
+      quantity: quantityInStock,
+    });
+
+    // ✅ Auto-generate SKUs if missing
+    // if (Array.isArray(newProduct.variants)) {
+    //   newProduct.variants = newProduct.variants.map((variant: any, idx: number) => ({
+    //     ...variant,
+    //     sku: variant.sku || `${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}`
+    //   }));
+    // }
+
+    await newProduct.save();
+
+    console.log("✅ Product created successfully:", newProduct._id);
+
+    res.status(201).json({
+      message: "Product created successfully",
+      product: newProduct,
+    });
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error("💥 Error in createProduct:", errMsg);
+    res.status(500).json({ message: "Server error", error: errMsg });
+  }
+};
+
+
+
 
 
 

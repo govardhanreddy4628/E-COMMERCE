@@ -1,16 +1,19 @@
-// models/Category.js
-import mongoose from 'mongoose';
-import slugify from 'slugify';
-import { Document, Schema, Types } from 'mongoose';
+// models/Category.ts
+import mongoose, { Document, Schema, Types } from "mongoose";
+import slugify from "slugify";
 
 export interface ICategory extends Document {
   name: string;
   slug: string;
-  images: string[];
-  parentCategoryName?: string;
+  image?: string | null;
+  description?: string | null;
+  parentCategoryName?: string | null;
   parentCategoryId?: Types.ObjectId | null;
-  createdBy: Types.ObjectId;
+  children?: Types.ObjectId[];
+  level: number;
   isActive: boolean;
+  isFeatured: boolean;
+  createdBy?: Types.ObjectId | null;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -19,10 +22,10 @@ const categorySchema = new Schema<ICategory>(
   {
     name: {
       type: String,
-      required: [true, 'Category name is required'],
+      required: [true, "Category name is required"],
       unique: true,
       trim: true,
-      maxlength: [100, 'Name cannot be more than 100 characters'],
+      maxlength: [100, "Name cannot be more than 100 characters"],
     },
     slug: {
       type: String,
@@ -30,60 +33,86 @@ const categorySchema = new Schema<ICategory>(
       lowercase: true,
       index: true,
     },
-    images: [
-      {
-        type: String,
-        validate: {
-          validator: (v: string) => /^https?:\/\/.*\.(jpeg|jpg|png|webp|svg)$/.test(v),
-          message: 'Image URL must be valid and end with an image extension',
-        },
+    image: {
+      type: String,
+      validate: {
+        validator: (v: string) =>
+          !v || /^https?:\/\/.*\.(jpeg|jpg|png|webp|svg|gif)$/.test(v),
+        message: "Invalid Image URL",
       },
-    ],
-    parentCategoryName: {
+      default: null,
+    },
+    description: {
       type: String,
       trim: true,
-      maxlength: 100,
+      maxlength: [500, "Description cannot exceed 500 characters"],
+      default: null,
     },
+    parentCategoryName: { type: String, default: null },
     parentCategoryId: {
       type: Schema.Types.ObjectId,
-      ref: 'Category',
+      ref: "Category",
       default: null,
       validate: {
+        // Use a non-arrow function to access `this` if necessary
         validator: async function (value: Types.ObjectId | null) {
-          if (value) {
-            const exists = await mongoose.model('Category').findById(value);
-            return !!exists;
-          }
-          return true;
+          if (!value) return true;
+          // Use models lookup to avoid issues during model compilation
+          const Category = mongoose.models.Category ?? mongoose.model("Category");
+          const exists = await Category.findById(value).lean().exec();
+          return !!exists;
         },
-        message: 'Parent category does not exist',
+        message: "Parent category does not exist",
       },
     },
+    children: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Category",
+      },
+    ],
+    level: { type: Number, default: 0 },
     createdBy: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
+      ref: "User",
+      default: null,
     },
     isActive: {
       type: Boolean,
       default: true,
     },
+    isFeatured: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
 
-// Pre-save hook to auto-generate slug from name
-categorySchema.pre('save', function (next) {
-  if (this.isModified('name')) {
-    this.slug = slugify(this.name, { lower: true, strict: true });
+// Ensure unique slug generation and handle conflicts
+categorySchema.pre<ICategory>("save", async function (next) {
+  if (!this.isModified("name")) {
+    return next();
   }
+  const baseSlug = slugify(this.name, { lower: true, strict: true }) || "category";
+  let slugCandidate = baseSlug;
+  const Category = mongoose.models.Category ?? mongoose.model("Category");
+
+  // If slug exists, append a counter
+  let i = 0;
+  while (await Category.exists({ slug: slugCandidate })) {
+    i += 1;
+    slugCandidate = `${baseSlug}-${i}`;
+  }
+  this.slug = slugCandidate;
   next();
 });
 
-// Indexing for performance on frequent queries
-// categorySchema.index({ slug: 1 });
-// categorySchema.index({ name: 1 });
-// categorySchema.index({ parentCategoryId: 1 });
+// Indexes
+categorySchema.index({ name: 1 });
+categorySchema.index({ slug: 1 });
+categorySchema.index({ parentCategoryId: 1 });
+
 
 
 // categorySchema.virtual('subcategories', {
@@ -94,5 +123,6 @@ categorySchema.pre('save', function (next) {
 // categorySchema.set('toObject', { virtuals: true });
 // categorySchema.set('toJSON', { virtuals: true });
 
-const CategoryModel = mongoose.model('Category', categorySchema);
+const CategoryModel = mongoose.models.Category || mongoose.model<ICategory>("Category", categorySchema);
 export default CategoryModel;
+

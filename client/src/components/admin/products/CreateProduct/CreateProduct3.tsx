@@ -19,7 +19,7 @@ import { Form } from "../../../../ui/form"
 //import BasicInfo from "./BasicInfo";
 import { sideBarContext } from "../../../../context/sidebarContext";
 import { Button } from "../../../../ui/button";
-import { useCategories } from "../../../../context/CategoryContext";
+import { useCategories } from "../../context/categoryContext";
 import Offers from "./Offers";
 
 const tabComponents: Record<string, React.ComponentType<any>> = {
@@ -41,31 +41,64 @@ const TABS = [
 ];
 
 
+
+const offerSchema = z.object({
+    type: z.enum(["Bank Offer", "Special Price", "Coupon", "Cashback"]),
+    description: z.string().min(1, "Offer description is required"),
+    discountValue: z.number().min(0).optional(),
+    discountType: z.enum(["PERCENTAGE", "FLAT"]).optional(),
+    maxDiscount: z.number().min(0).optional(),
+    minOrderValue: z.number().min(0).optional(),
+    applicableBanks: z.array(z.string()).optional(),
+    paymentMethods: z.array(z.string()).optional(),
+    applicableCategories: z.array(z.string()).optional(),
+    applicableProducts: z.array(z.string()).optional(),
+    couponCode: z.string().optional(),
+    validFrom: z.string().optional(), // "2025-09-22"
+    validTill: z.string().optional(), // "2025-09-30"
+    usageLimit: z.number().min(1).optional(),
+    isStackable: z.boolean().optional(),
+    priority: z.number().optional()
+});
+
+
+
 const productSchema = z.object({
     name: z.string().min(2, "Product name must be at least 2 characters").max(200, "Product name must be less than 100 characters"),
     shortDescription: z.string().min(5, "Short description must be at least 5 characters").max(160, "Short description must be less than 160 characters"),
     description: z.string().min(10, "Description must be at least 10 characters").max(2000, "Description must be less than 2000 characters"),
     category: z.string().min(1, "Please select a category"),
     subcategory: z.string().optional(),
-    price: z.number().min(1, "Price must be greater than 0").max(200000),
-    compareAtPrice: z.number().optional(),
-    cost: z.number().min(0, "Cost must be 0 or greater").optional(),
-    sku: z.string().min(1, "SKU is required").max(50, "SKU must be less than 50 characters"),
-    trackQuantity: z.boolean().default(true),
-    quantity: z.number().min(0, "Quantity cannot be negative").optional(),
-    weight: z.number().min(0, "Weight cannot be negative").optional(),
-    dimensions: z.object({
-        length: z.number().min(0).optional(),
-        width: z.number().min(0).optional(),
-        height: z.number().min(0).optional(),
-    }).optional(),
+    finalPrice: z.number().min(1, "Price must be greater than 0").max(200000),
+    costPerItem: z.number().min(0, "Cost must be 0 or greater").optional(),
+    listedPrice: z.number().optional(),
+    highlights: z.array(z.string().min(2, "Highlight must be at least 2 characters")).max(10, "Max 10 highlights allowed").optional(), isFeatured: z.boolean().default(false),
     isActive: z.boolean().default(true),
-    isFeatured: z.boolean().default(false),
-    requiresShipping: z.boolean().default(true),
+    //isFeatured: z.boolean().default(false),
+    warranty: z.string(),
+    sku: z.string().min(1, "SKU is required").max(50, "SKU must be less than 50 characters"),
+    productColor: z.string().optional(),
+    availableColorsForProduct: z.array(z.string()).optional(),
+    trackQuantity: z.boolean().default(true),
+    quantityInStock: z.number().min(0, "Quantity In Stock cannot be negative").optional(),
+    recentQuantity: z.number().min(0, "Recent Quantity cannot be negative").optional(),
+    specifications: z.array(
+        z.object({
+            key: z.string().min(1, "Specification key is required"),
+            value: z.string().min(1, "Specification value is required"),
+            unit: z.string().optional(),
+            group: z.string().optional(),
+        })
+    ).optional(),
+
+    shipping: z.boolean().default(true),
     barcode: z.string().optional(),
-    productSeoTags: z.array(z.string()).max(10, "Maximum 10 tags allowed"),
+    seoTags: z.array(z.string()).max(10, "Maximum 10 tags allowed"),
     seoTitle: z.string().max(60, "SEO title must be less than 60 characters").optional(),
     seoDescription: z.string().max(160, "SEO description must be less than 160 characters").optional(),
+    offers: z.array(offerSchema).optional(),
+    returnPolicy: z.string(),
+    brand: z.string()
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -108,47 +141,52 @@ export default function CreateProduct3() {
             shortDescription: "",
             category: "",
             subcategory: "",
-            price: 0,
-            compareAtPrice: 0,
-            cost: 0,
+            finalPrice: 0,
+            listedPrice: 0,
+            costPerItem: 0,
             sku: "",
             barcode: "",
             trackQuantity: true,
-            quantity: 0,
-            weight: 0,
-            dimensions: {
-                length: 0,
-                width: 0,
-                height: 0,
-            },
-            tags: [],
+            quantityInStock: 0,
+            recentQuantity: 0,
+            specifications: [],
+            seoTags: [],
             seoTitle: "",
             seoDescription: "",
             isActive: true,
             isFeatured: false,
-            requiresShipping: true,
+            shipping: true,
+            offers: [],
+            warranty: "",
+            brand: "",
+            returnPolicy: "",
+            highlights: [],
         },
     });
 
-    const watchedTags = form.watch("tags");
+    const watchedTags = form.watch("seoTags");
     const watchedTrackQuantity = form.watch("trackQuantity");
-    const watchedPrice = form.watch("price");
-    const watchedCompareAtPrice = form.watch("compareAtPrice");
+    const watchedFinalPrice = form.watch("finalPrice");
+    const watchedListedPrice = form.watch("listedPrice");
 
     const onSubmit = async (data: ProductFormData) => {
         try {
-            console.log(data)
-            console.log(uploadedImages)
-            const allValid = Object.values(validation).every(Boolean);
-            if (!allValid) return;
+
+            // const allValid = Object.values(validation).every(Boolean);
+            // if (!allValid) return;
 
             // In a real application, you would send this data to your API
             console.log("Product data:", data);
             console.log("Uploaded images:", uploadedImages);
 
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/product/createproduct`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ...data, images: uploadedImages.map(file => file.name) }) // send image names for now,
+            });
 
+            if (!res.ok) throw new Error("Product creation failed");
+            
             toast({
                 title: "Product created successfully!",
                 description: `${data.name} has been added to your catalog.`,
@@ -160,6 +198,7 @@ export default function CreateProduct3() {
             setUploadedImages([]);
             setTagInput("");
             setSelectedCategory("");
+            return res.json();
         } catch (error) {
             toast({
                 title: "Error creating product",
@@ -178,13 +217,13 @@ export default function CreateProduct3() {
 
     const addTag = () => {
         if (tagInput.trim() && !watchedTags.includes(tagInput.trim()) && watchedTags.length < 10) {
-            form.setValue("tags", [...watchedTags, tagInput.trim()]);
+            form.setValue("seoTags", [...watchedTags, tagInput.trim()]);
             setTagInput("");
         }
     };
 
     const removeTag = (tagToRemove: string) => {
-        form.setValue("tags", watchedTags.filter(tag => tag !== tagToRemove));
+        form.setValue("seoTags", watchedTags.filter(tag => tag !== tagToRemove));
     };
 
     const handleCategoryChange = (category: string) => {
@@ -212,7 +251,6 @@ export default function CreateProduct3() {
             (entries) => {
                 entries.forEach((entry) => {
                     if (entry.isIntersecting) {
-                        console.log(entry.target.id);
                         setActiveTab(entry.target.id);
                     }
                 });
@@ -250,7 +288,6 @@ export default function CreateProduct3() {
         if (idx > 0) setCurrentTab(TABS[idx - 1].id);
     };
 
-    console.log(sectionRefs)
 
 
     const tabPropsMap: Record<string, any> = {
@@ -272,8 +309,8 @@ export default function CreateProduct3() {
         pricing: {
             form,
             validateSection,
-            watchedPrice,
-            watchedCompareAtPrice
+            watchedFinalPrice,
+            watchedListedPrice
         },
         inventory: {
             form,
@@ -297,7 +334,7 @@ export default function CreateProduct3() {
                     {/* Breadcrumb */}
                     <div className="p-4 border-b bg-white sticky top-0 z-50 flex justify-between items-center">
                         <div className="flex items-center gap-2 text-sm">
-                            <button onClick={() => navigate(-1)} className="text-gray-500 hover:text-gray-900">← Back</button>
+                            <button type="button" onClick={() => navigate(-1)} className="text-gray-500 hover:text-gray-900">← Back</button>
                             <span>/</span>
                             <span className="font-medium text-gray-800">Create Product</span>
                         </div>
@@ -383,16 +420,17 @@ export default function CreateProduct3() {
 
                     {!wizardMode && (
                         <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2">
-                            <Button type="button" className="px-6 py-3 rounded-md shadow-lg border border-gray-800" variant="outline" onClick={() => form.reset()}>
+                            <Button type="button" className="px-6 py-3 rounded-md shadow-lg border border-gray-800 shadow-gray-500" variant="outline" onClick={() => form.reset()}>
                                 Reset Form
                             </Button>
                             <Button
                                 type="submit"
-                                className="bg-blue-600 text-white px-6 py-3 rounded-md shadow-lg hover:bg-blue-700 transition"
+                                className="bg-blue-600 text-white px-6 py-3 rounded-md shadow-lg shadow-gray-500 hover:bg-blue-700 transition"
                                 disabled={form.formState.isSubmitting}
                             >
                                 {form.formState.isSubmitting ? "Creating Product..." : "Create Product"}
                             </Button>
+
                         </div>
                     )}
 

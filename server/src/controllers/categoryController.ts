@@ -1,8 +1,15 @@
 import { Request, Response } from "express";
 import cloudinary from "../config/cloudinary";
 import CategoryModel from "../models/categoryModel";
+import { Types } from "mongoose";
 import fs from "fs/promises";
 import slugify from "slugify";
+import {
+  deleteTempFile,
+  uploadToCloudinary,
+} from "../services/cloudinaryService";
+import asyncHandler from "express-async-handler";
+import redisClient from "../config/connectRedis";
 
 // Configurable limits
 export const ALLOWED_MIME_TYPES = [
@@ -27,28 +34,28 @@ export async function uploadImages(req: Request, res: Response) {
     }
 
     if (files.length > MAX_FILES) {
-      return res
-        .status(400)
-        .json({
-          message: `Upload limit exceeded. Max ${MAX_FILES} files allowed.`,
-        });
+      return res.status(400).json({
+        message: `Upload limit exceeded. Max ${MAX_FILES} files allowed.`,
+      });
     }
 
-    const validFiles = files.filter((file) => {
+    const skippedFiles: { name: string; reason: string }[] = [];
+    const validFiles: Express.Multer.File[] = [];
+
+    for (const file of files) {
       const isValidType = ALLOWED_MIME_TYPES.includes(file.mimetype);
-      const isValidSize = file.size / (1024 * 1024) <= MAX_FILE_SIZE_MB;
+      const isValidSize = file.size <= MAX_FILE_SIZE_MB * 1024 * 1024;
 
-      return isValidType && isValidSize;
-    });
+      if (!isValidType || !isValidSize) {
+        skippedFiles.push({
+          name: file.originalname,
+          reason: !isValidType ? "Invalid file type" : "File too large",
+        });
+        continue;
+      }
 
-    const skippedFiles = files
-      .filter((f) => !validFiles.includes(f))
-      .map((f) => ({
-        name: f.originalname,
-        reason: !ALLOWED_MIME_TYPES.includes(f.mimetype)
-          ? "Invalid file type"
-          : "File too large",
-      }));
+      validFiles.push(file);
+    }
 
     if (validFiles.length === 0) {
       return res.status(400).json({
@@ -61,9 +68,10 @@ export async function uploadImages(req: Request, res: Response) {
       use_filename: true,
       unique_filename: false,
       overwrite: false,
+      folder: "uploads", // optional
     };
 
-    const uploadResults = await Promise.allSettled(
+    const results = await Promise.allSettled(
       validFiles.map(async (file) => {
         try {
           const result = await cloudinary.uploader.upload(
@@ -72,136 +80,63 @@ export async function uploadImages(req: Request, res: Response) {
           );
           await fs.unlink(file.path);
           return {
-            success: true,
+            status: "fulfilled" as const,
             url: result.secure_url,
             name: file.originalname,
           };
-        } catch (err) {
-          await fs.unlink(file.path); // clean up even on failure
-          return { success: false, error: err, name: file.originalname };
+        } catch (err: any) {
+          await fs.unlink(file.path);
+          return {
+            status: "rejected" as const,
+            name: file.originalname,
+            reason: err.message || "Upload failed",
+          };
         }
       })
     );
 
-    const uploaded = uploadResults
-      .filter((r) => r.status === "fulfilled" && r.value.success)
-      .map((r: any) => ({ url: r.value.url, name: r.value.name }));
+    const uploaded = results
+      .filter(
+        (
+          r
+        ): r is PromiseFulfilledResult<{
+          status: "fulfilled";
+          url: string;
+          name: string;
+        }> => r.status === "fulfilled"
+      )
+      .map((r) => ({ url: r.value.url, name: r.value.name }));
 
-    const failed = uploadResults
-      .filter((r) => r.status === "fulfilled" && !r.value.success)
-      .map((r: any) => ({
-        name: r.value.name,
-        reason: r.value.error?.message || "Upload failed",
+    const failed = results
+      .filter((r): r is PromiseRejectedResult => r.status === "rejected")
+      .map((r) => ({
+        name: (r as any).reason?.name || "Unknown",
+        reason: (r as any).reason || "Upload failed",
       }));
 
-    return res.status(200).json({
-      success: true,
-      uploaded,
-      failed,
-      skippedFiles,
-      avatar: uploaded[0]?.url || null,
-    });
+    return res
+      .status(
+        uploaded.length === 0
+          ? 500
+          : failed.length || skippedFiles.length
+          ? 207
+          : 200
+      )
+      .json({
+        success: uploaded.length > 0,
+        uploaded,
+        failed,
+        skippedFiles,
+        avatar: uploaded[0]?.url || null,
+      });
   } catch (error: any) {
     console.error("Upload error:", error);
     return res.status(500).json({
-      message: error?.message || "Server error",
-      error: true,
       success: false,
+      message: error.message || "Internal server error",
     });
   }
 }
-
-// export async function uploadImages(req: Request, res: Response) {
-//   try {
-//     const files = req.files as Express.Multer.File[];
-
-//     if (!files || files.length === 0) {
-//       return res.status(400).json({ message: 'No files uploaded' });
-//     }
-
-//     if (files.length > MAX_FILES) {
-//       return res.status(400).json({ message: `Upload limit exceeded. Max ${MAX_FILES} files allowed.` });
-//     }
-
-//     const skippedFiles: { name: string; reason: string }[] = [];
-//     const validFiles: Express.Multer.File[] = [];
-
-//     for (const file of files) {
-//       const isValidType = ALLOWED_MIME_TYPES.includes(file.mimetype);
-//       const isValidSize = file.size <= MAX_FILE_SIZE_MB * 1024 * 1024;
-
-//       if (!isValidType || !isValidSize) {
-//         skippedFiles.push({
-//           name: file.originalname,
-//           reason: !isValidType ? 'Invalid file type' : 'File too large',
-//         });
-//         continue;
-//       }
-
-//       validFiles.push(file);
-//     }
-
-//     if (validFiles.length === 0) {
-//       return res.status(400).json({
-//         message: 'All uploaded files are invalid.',
-//         skippedFiles,
-//       });
-//     }
-
-//     const uploadOptions = {
-//       use_filename: true,
-//       unique_filename: false,
-//       overwrite: false,
-//       folder: 'uploads', // optional
-//     };
-
-//     const results = await Promise.allSettled(
-//       validFiles.map(async (file) => {
-//         try {
-//           const result = await cloudinary.uploader.upload(file.path, uploadOptions);
-//           await fs.unlink(file.path);
-//           return {
-//             status: 'fulfilled' as const,
-//             url: result.secure_url,
-//             name: file.originalname,
-//           };
-//         } catch (err: any) {
-//           await fs.unlink(file.path);
-//           return {
-//             status: 'rejected' as const,
-//             name: file.originalname,
-//             reason: err.message || 'Upload failed',
-//           };
-//         }
-//       })
-//     );
-
-//     const uploaded = results
-//       .filter((r): r is { status: 'fulfilled'; url: string; name: string } => r.status === 'fulfilled')
-//       .map((r) => ({ url: r.url, name: r.name }));
-
-//     const failed = results
-//       .filter((r): r is { status: 'rejected'; name: string; reason: string } => r.status === 'rejected')
-//       .map((r) => ({ name: r.name, reason: r.reason }));
-
-//     return res.status(uploaded.length === 0 ? 500 : failed.length || skippedFiles.length ? 207 : 200).json({
-//       success: uploaded.length > 0,
-//       uploaded,
-//       failed,
-//       skippedFiles,
-//       avatar: uploaded[0]?.url || null,
-//     });
-
-//   } catch (error: any) {
-//     console.error('Upload error:', error);
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message || 'Internal server error',
-//     });
-//   }
-// }
-
-
 
 // Helper: Extract single uploaded file path and mimetype
 const extractUploadedFile = (
@@ -238,114 +173,291 @@ const extractUploadedFile = (
 //     }
 //     return null;
 //   };
+
+
+// Cache key for category tree
+const CATEGORY_TREE_KEY = "category_tree";
 export const createCategoryController = async (req: Request, res: Response) => {
-
   try {
-    const { name, parentCategoryId, parentCategoryName } = req.body;
+    const { name, description, parentCategoryId } = req.body;
 
-    // ✅ Validate required fields
-    if (!name || typeof name !== "string") {
-      return res
-        .status(400)
-        .json({ error: "Category name is required and must be a string." });
+    if (!name || typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({ success: false, message: "Category name is required and must be a non-empty string." });
     }
 
-    if (!req.files) {
-      return res.status(400).json({ error: "No image file uploaded." });
+    // Prevent duplicate names (case-insensitive)
+    const existingCategory = await CategoryModel.findOne({ name: { $regex: `^${name.trim()}$`, $options: "i" } }).lean();
+    if (existingCategory) {
+      return res.status(400).json({ success: false, message: "Category name already exists" });
     }
 
-    //  if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
-    //   return res.status(400).json({ error: 'No image file uploaded.' });
-    // }
+    let imageUrl: string | null = null;
 
-    const file = extractUploadedFile(req.files);
-    if (!file?.path || !file.mimetype) {
-      return res.status(400).json({ error: "Invalid or missing image file." });
+    if (req.file) {
+      const file = req.file;
+
+      if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+        await deleteTempFile(file.path);
+        return res.status(400).json({ success: false, message: "Unsupported file type. Only JPG, PNG, WEBP, GIF, and SVG are allowed." });
+      }
+
+      const fileSizeMB = file.size / (1024 * 1024);
+      if (fileSizeMB > MAX_FILE_SIZE_MB) {
+        await deleteTempFile(file.path);
+        return res.status(400).json({ success: false, message: `File size exceeds ${MAX_FILE_SIZE_MB}MB limit.` });
+      }
+
+      try {
+        imageUrl = await uploadToCloudinary(file.path, "categories");
+        // uploadToCloudinary should delete temp file after upload; keep fallback
+        // await deleteTempFile(file.path);
+      } catch (uploadErr: any) {
+        // ensure temp file removed
+        try { await deleteTempFile(file.path); } catch (e) { /* ignore */ }
+        console.error("Cloudinary upload error:", uploadErr);
+        return res.status(500).json({ success: false, message: "Failed to upload image to Cloudinary." });
+      }
     }
 
-    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      await fs.unlink(file.path).catch(() => {});
-      return res
-        .status(400)
-        .json({ error: "Unsupported file type. Use JPG, PNG, or WEBP." });
-    }
-
-    const stats = await fs.stat(file.path);
-    const fileSizeMB = stats.size / (1024 * 1024);
-    if (fileSizeMB > MAX_FILE_SIZE_MB) {
-      await fs.unlink(file.path).catch(() => {});
-      return res
-        .status(400)
-        .json({ error: `File size exceeds ${MAX_FILE_SIZE_MB}MB limit.` });
-    }
-
-    // ✅ Upload to Cloudinary
-    let uploadResult;
-    try {
-      uploadResult = await cloudinary.uploader.upload(file.path, {
-        folder: "categories",
-      });
-    } catch (uploadError) {
-      console.error("Cloudinary upload error:", uploadError);
-      await fs.unlink(file.path).catch(() => {});
-      return res
-        .status(502)
-        .json({ error: "Failed to upload image to Cloudinary." });
-    }
-
-    // ✅ Clean up local file
-    await fs.unlink(file.path).catch((err) => {console.warn(`Failed to delete file ${file.path}:`, err);});
-    // //or
-    // const deleteLocalFile = async (filePath: string) => {
-    //   try {
-    //     await fs.unlink(filePath);
-    //   } catch (err) {
-    //     console.warn(`Failed to delete file ${filePath}:`, err);
-    //   }
-    // };
-    // await deleteLocalFile(file.path);
-
-    const newCategory = new CategoryModel({
+    const categoryData: any = {
       name: name.trim(),
       slug: slugify(name, { lower: true, strict: true }),
-      images: [uploadResult.secure_url],
-      parentCategoryId: parentCategoryId || null,
-      parentCategoryName: parentCategoryName || null,
-      createdBy: req.userId || null, // Optional: Use auth middleware to inject this
-    });
+      description: description || null,
+      image: imageUrl,
+      isActive: true,
+      level: 0,
+      parentCategoryId: null,
+      parentCategoryName: null,
+    };
 
-    // ✅ Save to DB
-    try {
-      const saved = await newCategory.save();
-      return res.status(201).json({
-        success: true,
-        message: "Category created successfully",
-        data: saved,
-      });
-    } catch (dbError) {
-      console.error("Database error:", dbError);
-      return res
-        .status(500)
-        .json({ error: "Failed to save category to database." });
+    // Parent handling
+    let parentId: string | undefined;
+    if (parentCategoryId && parentCategoryId !== "null") {
+      parentId = String(parentCategoryId);
     }
+
+    if (parentId) {
+      const parentCategory = await CategoryModel.findById(parentId);
+      if (!parentCategory) {
+        // If a temp file was uploaded, remove it (if not removed already)
+        return res.status(404).json({ success: false, message: "Parent category not found" });
+      }
+      categoryData.parentCategoryId = parentCategory._id;
+      categoryData.parentCategoryName = parentCategory.name;
+      categoryData.level = parentCategory.level + 1;
+    }
+
+    const newCategory = new CategoryModel(categoryData);
+    await newCategory.save();
+
+    if (parentId) {
+      await CategoryModel.findByIdAndUpdate(parentId, { $addToSet: { children: newCategory._id } });
+    }
+
+    // Invalidate cache
+    try {
+      if (redisClient && redisClient.del) {
+        await redisClient.del(CATEGORY_TREE_KEY);
+      }
+    } catch (redisErr) {
+      console.warn("Redis del error:", redisErr);
+    }
+
+    return res.status(201).json({ success: true, message: "Category created successfully", category: newCategory });
   } catch (err: any) {
     console.error("Unhandled error in category creation:", err);
-    return res.status(500).json({
-      success: false,
-      error: err.message || "Internal server error.",
-    });
+    // If duplicate key on slug or name occurs, respond accordingly
+    if (err?.code === 11000) {
+      return res.status(409).json({ success: false, message: "Duplicate key error, category already exists." });
+    }
+    return res.status(500).json({ success: false, error: err.message || "Internal server error." });
   }
 };
 
 
+/**
+ * @desc    Update a category
+ * @route   PUT /api/v1/category/:id
+ * @access  Admin
+ */
+export const updateCategoryController = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { name, description, parentCategoryId } = req.body;
 
+  if (!id || !Types.ObjectId.isValid(id)) {
+    return res.status(400).json({ message: "Invalid category ID." });
+  }
+
+  const category = await CategoryModel.findById(id);
+  if (!category) {
+    return res.status(404).json({ message: "Category not found." });
+  }
+
+  // Prevent duplicate names
+  if (name && name.trim() !== category.name) {
+    const existing = await CategoryModel.findOne({ name: name.trim() });
+    if (existing) {
+      return res.status(400).json({ message: "Category name already exists." });
+    }
+    category.name = name.trim();
+    category.slug = slugify(name.trim(), { lower: true, strict: true });
+  }
+
+  if (description) category.description = description;
+
+  // Handle image upload if present
+  if (req.file) {
+    const file = req.file;
+
+    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      await deleteTempFile(file.path);
+      return res.status(400).json({ message: "Unsupported file type." });
+    }
+
+    const fileSizeMB = file.size / (1024 * 1024);
+    if (fileSizeMB > MAX_FILE_SIZE_MB) {
+      await deleteTempFile(file.path);
+      return res
+        .status(400)
+        .json({ message: `File exceeds ${MAX_FILE_SIZE_MB}MB limit.` });
+    }
+
+    try {
+      const imageUrl = await uploadToCloudinary(file.path, "categories");
+      category.image = imageUrl;
+      await deleteTempFile(file.path);
+    } catch (err) {
+      await deleteTempFile(file.path);
+      console.error("Cloudinary upload error:", err);
+      return res
+        .status(500)
+        .json({ message: "Failed to upload image to Cloudinary." });
+    }
+  }
+
+  // Handle parent category update
+  if (parentCategoryId !== undefined) {
+    if (parentCategoryId === null || parentCategoryId === "null") {
+      // Remove from old parent's children if exists
+      if (category.parentCategoryId) {
+        await CategoryModel.findByIdAndUpdate(category.parentCategoryId, {
+          $pull: { children: category._id },
+        });
+      }
+      category.parentCategoryId = null;
+      category.parentCategoryName = undefined;
+      category.level = 0;
+    } else {
+      if (!Types.ObjectId.isValid(parentCategoryId)) {
+        return res.status(400).json({ message: "Invalid parentCategoryId." });
+      }
+
+      const parentCategory = await CategoryModel.findById(parentCategoryId);
+      if (!parentCategory) {
+        return res.status(404).json({ message: "Parent category not found." });
+      }
+
+      // Remove from old parent's children if parent changed
+      if (
+        category.parentCategoryId &&
+        category.parentCategoryId.toString() !== parentCategoryId
+      ) {
+        await CategoryModel.findByIdAndUpdate(category.parentCategoryId, {
+          $pull: { children: category._id },
+        });
+      }
+
+      // Add to new parent's children
+      await CategoryModel.findByIdAndUpdate(parentCategoryId, {
+        $addToSet: { children: category._id },
+      });
+
+      category.parentCategoryId = parentCategory._id as Types.ObjectId;
+      category.parentCategoryName = parentCategory.name;
+      category.level = parentCategory.level + 1;
+    }
+  }
+
+  await category.save();
+
+  // Invalidate cache
+  await redisClient.del(CATEGORY_TREE_KEY);
+
+  return res.status(200).json({
+    success: true,
+    message: "Category updated successfully.",
+    category,
+  });
+};
+
+/**
+ * @desc    Get hierarchical category tree (cached)
+ * @route   GET /api/v1/categories/tree
+ * @access  Public/Admin
+ */
+export const getCategoryTree = asyncHandler(
+  async (req: Request, res: Response) => {
+    try {
+      // ✅ Check cache first
+      const cachedTree = await redisClient.get(CATEGORY_TREE_KEY);
+      if (cachedTree) {
+        res.status(200).json({
+          success: true,
+          message: "Category tree fetched from cache",
+          data: JSON.parse(cachedTree),
+        });
+        return;
+      }
+
+      // Fetch all active categories
+      const categories: any[] = await CategoryModel.find({ isActive: true }).lean().sort({ name: 1 }); // optional: sort alphabetically;
+
+      // Build category map
+      const categoryMap: Record<string, any> = {};
+      categories.forEach((cat) => {
+        categoryMap[cat._id.toString()] = { ...cat, children: [] };
+      });
+
+      // Build tree
+      const tree: any[] = [];
+      categories.forEach((cat) => {
+        if (
+          cat.parentCategoryId &&
+          Types.ObjectId.isValid(cat.parentCategoryId)
+        ) {
+          const parent = categoryMap[cat.parentCategoryId.toString()];
+          if (parent) parent.children.push(categoryMap[cat._id.toString()]);
+        } else {
+          tree.push(categoryMap[cat._id.toString()]);
+        }
+      });
+
+      // ✅ Save tree to Redis for 1 hour
+      await redisClient.set(CATEGORY_TREE_KEY, JSON.stringify(tree), {
+        EX: 3600,
+      });
+
+      res.status(200).json({
+        success: true,
+        message: "Category tree fetched successfully",
+        data: tree,
+      });
+    } catch (err: any) {
+      console.error("Error fetching category tree:", err);
+      res.status(500).json({
+        success: false,
+        message: err.message || "Internal server error",
+      });
+    }
+  }
+);
 
 export const getAllCategoryController = async (
   req: Request,
   res: Response
 ): Promise<Response> => {
   try {
-    const categoryList = await CategoryModel.find().lean().exec(); // .lean() is a Mongoose query method that tells Mongoose NOT to create full Mongoose documents, but instead return plain JavaScript objects. Normally, queries like Model.find() return Mongoose documents with lots of extra methods and features (like .save(), getters/setters, virtuals, etc.).
+    const categoryList: any[] = await CategoryModel.find().lean().exec(); // .lean() is a Mongoose query method that tells Mongoose NOT to create full Mongoose documents, but instead return plain JavaScript objects. Normally, queries like Model.find() return Mongoose documents with lots of extra methods and features (like .save(), getters/setters, virtuals, etc.).
 
     // Optional: if no categories at all
     if (!categoryList.length) {
@@ -391,34 +503,6 @@ export const getAllCategoryController = async (
     });
   }
 };
-
-// export const getAllCategoryController = async (req: Request, res: Response): Promise<void | any> => {
-//   try {
-//     const categoryList = await CategoryModel.find({}).exec();
-//     const categoryMap = {};
-
-//     if (!categoryList) {
-//       res.status(500).json({ success: false });
-//     }
-
-//     categoryList.forEach(cat => {
-//       categoryMap[cat._id] = {...cat._doc, children: []};
-//     });
-
-//     const rootCategories = [];
-
-//     categoryList.forEach(cat => {
-//       if(cat.parentCategoryId) {
-//         categoryMap[cat.parentCategoryId].children.push(categoryMap[cat._id])
-//       } else{
-//         rootCategories.push(categoryMap[cat._id])
-//       }
-//     })
-//     res.status(200).send(rootCategories);
-//   } catch (err) {
-//     res.status(500).json(err);
-//   }
-// };
 
 export async function getCategoriesCount(req: Request, res: Response) {
   try {
@@ -529,8 +613,8 @@ export async function deleteCategoryController(req: Request, res: Response) {
     }
 
     // 🧹 Delete images from Cloudinary (individually wrapped)
-    if (category.images && category.images.length > 0) {
-      for (const imgUrl of category.images) {
+    if (category.image && category.image.length > 0) {
+      for (const imgUrl of category.image) {
         try {
           const parts = imgUrl.split("/");
           const imageWithExt = parts[parts.length - 1];

@@ -2,6 +2,7 @@ import { Smile, Paperclip, Mic, Send } from "lucide-react";
 import { useState } from "react";
 import { Input } from "../../../ui/input";
 import { Button } from "../../../ui/button";
+import { useDispatch } from "react-redux";
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -10,6 +11,8 @@ interface ChatInputProps {
 
 export function ChatInput({ onSendMessage, disabled = false }: ChatInputProps) {
   const [message, setMessage] = useState("");
+
+  const dispatch = useDispatch();
 
   const handleSend = () => {
     if (message.trim() && !disabled) {
@@ -25,11 +28,16 @@ export function ChatInput({ onSendMessage, disabled = false }: ChatInputProps) {
     }
   };
 
+  const handleFileOpen = (e) => {
+    dispatch(setIsFileMenu(true));
+    setFileMenuAnchor(e.currentTarget);
+  };
+
   return (
     <div className="p-4 border-t border-border bg-chat-input">
       <div className="flex items-end gap-3">
         {/* Attachment button */}
-        <Button variant="ghost" size="sm" disabled={disabled}>
+        <Button variant="ghost" size="sm" disabled={disabled} onClick={handleFileOpen}>
           <Paperclip className="h-4 w-4" />
         </Button>
         

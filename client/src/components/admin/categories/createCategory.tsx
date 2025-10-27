@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { Plus } from 'lucide-react';
-import { Button } from '../../../ui/button';
+// components/CreateCategory.tsx
+import React, { useEffect, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { Plus, Upload, X } from "lucide-react";
+import { Button } from "../../../ui/button";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '../../../ui/dialog';
+} from "../../../ui/dialog";
 import {
   Form,
   FormControl,
@@ -19,184 +20,214 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '../../../ui/form';
-import { Input } from '../../../ui/input';
-import { Textarea } from '../../../ui/textarea';
+} from "../../../ui/form";
+import { Input } from "../../../ui/input";
+import { Textarea } from "../../../ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../../ui/select';
-import { useCategories } from '../../../context/CategoryContext';
-import { useToast } from '../../../hooks/use-toast';
+} from "../../../ui/select";
+import { getCategoryId, useCategories } from "../context/categoryContext";
+import { useToast } from "../../../hooks/use-toast";
 
 const categorySchema = z.object({
-  name: z.string().min(1, 'Category name is required').max(50, 'Name too long'),
+  name: z.string().min(1, "Category name is required").max(50, "Name too long"),
   description: z.string().optional(),
-  parentId: z.string().optional(),
+  parentCategoryId: z.string().optional(),
+  imageFile: z.instanceof(File).optional(),
 });
 
-type CategoryFormData = z.infer<typeof categorySchema>;
+type CategoryFormSchema = z.infer<typeof categorySchema>;
 
 interface CreateCategoryProps {
-  mode?: 'category' | 'subcategory';
   parentCategoryId?: string;
   trigger?: React.ReactNode;
 }
 
-export function CreateCategory({ mode = 'category', parentCategoryId, trigger }: CreateCategoryProps) {
+export function CreateCategory({ parentCategoryId, trigger }: CreateCategoryProps) {
   const [open, setOpen] = useState(false);
-  const { categories, addCategory, addSubcategory } = useCategories();
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { getAllCategories, addCategory } = useCategories();
   const { toast } = useToast();
 
-  const form = useForm<CategoryFormData>({
+  const form = useForm<CategoryFormSchema>({
     resolver: zodResolver(categorySchema),
     defaultValues: {
-      name: '',
-      description: '',
-      parentId: parentCategoryId || 'none',
+      name: "",
+      description: "",
+      parentCategoryId: parentCategoryId || "none",
+      imageFile: undefined,
     },
   });
 
-  const onSubmit = (data: CategoryFormData) => {
-    try {
-      if (mode === 'subcategory' && parentCategoryId) {
-        addSubcategory(parentCategoryId, {
-          name: data.name,
-          description: data.description,
-        });
-        toast({
-          title: 'Success',
-          description: 'Subcategory created successfully',
-        });
-      } else {
-        // Check for duplicate names
-        const isDuplicate = categories.some(
-          cat => cat.name.toLowerCase() === data.name.toLowerCase()
-        );
-        if (isDuplicate) {
-          form.setError('name', { message: 'Category name already exists' });
-          return;
-        }
+  // track last object url to revoke
+  const [lastObjectUrl, setLastObjectUrl] = useState<string | null>(null);
 
-        addCategory({
-          name: data.name,
-          description: data.description,
-          parentId: data.parentId === 'none' ? undefined : data.parentId,
-        });
-        toast({
-          title: 'Success',
-          description: 'Category created successfully',
-        });
+  useEffect(() => {
+    return () => {
+      if (lastObjectUrl) {
+        URL.revokeObjectURL(lastObjectUrl);
       }
+    };
+  }, [lastObjectUrl]);
 
-      form.reset();
-      setOpen(false);
-    } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to create category',
-        variant: 'destructive',
-      });
-      console.error('Create category error:', error);
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // revoke previous
+      if (lastObjectUrl) {
+        try { URL.revokeObjectURL(lastObjectUrl); } catch {}
+      }
+      const obj = URL.createObjectURL(file);
+      setLastObjectUrl(obj);
+      setImagePreview(obj);
+      form.setValue("imageFile", file, { shouldValidate: true });
     }
   };
 
+  const removeImage = () => {
+    if (lastObjectUrl) {
+      try { URL.revokeObjectURL(lastObjectUrl); } catch {}
+      setLastObjectUrl(null);
+    }
+    setImagePreview(null);
+    form.setValue("imageFile", undefined);
+  };
+
+  const onSubmit = async (data: CategoryFormSchema) => {
+    try {
+      // local duplicate check
+      const allCategories = getAllCategories();
+      const isDuplicate = allCategories.some(cat => (cat.name || "").toLowerCase() === data.name.toLowerCase());
+      if (isDuplicate) {
+        form.setError("name", { message: "Category name already exists" });
+        return;
+      }
+
+      setIsSubmitting(true);
+
+      await addCategory({
+        name: data.name,
+        description: data.description,
+        imageFile: data.imageFile,
+        parentCategoryId: data.parentCategoryId === "none" ? undefined : data.parentCategoryId,
+      });
+
+      toast({ title: "Success", description: "Category created successfully" });
+      form.reset();
+      removeImage();
+      setOpen(false);
+
+    } catch (error: any) {
+      console.error("Failed to create category:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to create category",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const allCategories = getAllCategories();
+
   const defaultTrigger = (
-    <Button size="sm" className="text-primary-foreground shadow-soft">
+    <Button size="sm" className="bg-primary text-white shadow-soft">
       <Plus className="w-4 h-4 mr-2" />
-      Add {mode === 'subcategory' ? 'Subcategory' : 'Category'}
+      Add Category
     </Button>
   );
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || defaultTrigger}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogTrigger asChild>{trigger || defaultTrigger}</DialogTrigger>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>
-            Create New {mode === 'subcategory' ? 'Subcategory' : 'Category'}
-          </DialogTitle>
-          <DialogDescription>
-            Add a new {mode === 'subcategory' ? 'subcategory' : 'category'} to organize your products.
-          </DialogDescription>
+          <DialogTitle>Create New Category</DialogTitle>
+          <DialogDescription>Add a new category to organize your products.</DialogDescription>
         </DialogHeader>
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Name</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Enter category name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <FormField control={form.control} name="name" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Enter category name" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
 
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description (Optional)</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Enter category description"
-                      className="resize-none"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <FormField control={form.control} name="description" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Description (Optional)</FormLabel>
+                <FormControl>
+                  <Textarea placeholder="Enter category description" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
 
-            {mode === 'category' && (
-              <FormField
-                control={form.control}
-                name="parentId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Parent Category (Optional)</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a parent category" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">None (Main Category)</SelectItem>
-                        {categories.map((category) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
+            {/* File input: wired to imageFile */}
+            <FormField control={form.control} name="imageFile" render={() => (
+              <FormItem>
+                <FormLabel>Image (Optional)</FormLabel>
+                <FormControl>
+                  <div className="space-y-3">
+                    {imagePreview ? (
+                      <div className="relative">
+                        <img src={imagePreview} alt="Preview" className="w-full h-48 object-cover rounded-lg border border-border" />
+                        <Button type="button" size="sm" variant="destructive" onClick={removeImage} className="absolute top-2 right-2">
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center w-full">
+                        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <Upload className="w-8 h-8 mb-2 text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground">Click to upload image</p>
+                          </div>
+                          <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+
+            <FormField control={form.control} name="parentCategoryId" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Parent Category (Optional)</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a parent category" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">None (Main Category)</SelectItem>
+                    {allCategories.map(category => (
+                      <SelectItem key={getCategoryId(category)} value={getCategoryId(category)}>{category.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
 
             <div className="flex justify-end space-x-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" className=" text-primary-foreground">
-                Create {mode === 'subcategory' ? 'Subcategory' : 'Category'}
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button type="submit" className="bg-primary text-primary-foreground" disabled={isSubmitting}>
+                {isSubmitting ? "Creating..." : "Create Category"}
               </Button>
             </div>
           </form>

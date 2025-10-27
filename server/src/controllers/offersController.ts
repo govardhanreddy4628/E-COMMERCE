@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { OfferModel } from "../models/offer.model";
-import { OfferSchema } from "../validations/offer.validation";
+import { OfferSchema } from "../validators/offersValidation";
+import { OfferModel } from "../models/offersModel";
+
 
 // ✅ Create Offer
 export const createOffer = async (req: Request, res: Response, next: NextFunction) => {

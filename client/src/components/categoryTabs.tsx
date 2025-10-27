@@ -7,18 +7,6 @@ import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 import ProductsSlider from './productsSlider';
 
-
-const tabs = [
-    { label: "Fashion", content: <div>Fashion Content</div> },
-    { label: "Electronics", content: <div>Electronics Content</div> },
-    { label: "Bags", content: <div>Bags Content</div> },
-    { label: "Footwear", content: <div>Footwear Content</div> },
-    { label: "Groceries", content: <div>Groceries Content</div> },
-    { label: "Beauty", content: <div>Beauty Content</div> },
-    { label: "Wellness", content: <div>Wellness Content</div> },
-    { label: "Jewellery", content: <div>Jewellery Content</div> },
-];
-
 interface TabPanelProps {
     children?: React.ReactNode;
     index: number;
@@ -36,7 +24,7 @@ function CustomTabPanel(props: TabPanelProps) {
             aria-labelledby={`simple-tab-${index}`}
             {...other}
         >
-            {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+            {value === index && <Box>{children}</Box>}
         </div>
     );
 }
@@ -49,7 +37,18 @@ function a11yProps(index: number) {
 }
 
 
-const CategoryTabs = () => {
+const CategoryTabs = ({ handleClickOpen }) => {
+
+    const tabs = [
+        { label: "Fashion", content: <ProductsSlider handleClickOpen={handleClickOpen} /> },
+        { label: "Electronics", content: <ProductsSlider handleClickOpen={handleClickOpen} /> },
+        { label: "Bags", content: <ProductsSlider handleClickOpen={handleClickOpen} /> },
+        { label: "Footwear", content: <ProductsSlider handleClickOpen={handleClickOpen} /> },
+        { label: "Groceries", content: <ProductsSlider handleClickOpen={handleClickOpen} /> },
+        { label: "Beauty", content: <ProductsSlider handleClickOpen={handleClickOpen} /> },
+        { label: "Wellness", content: <ProductsSlider handleClickOpen={handleClickOpen} /> },
+        { label: "Jewellery", content: <ProductsSlider handleClickOpen={handleClickOpen} /> },
+    ];
     const [value, setValue] = useState(0);
 
     const handleChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -58,35 +57,32 @@ const CategoryTabs = () => {
 
     return (
         <>
-            <section className='bg-white w-full pb-4 dark:bg-gray-900'>
-                <div className='w-[95%] mx-auto flex items-center justify-between p-4'>
+            <section className='bg-white w-full dark:bg-gray-900'>
+                <div className=' mx-auto flex items-center justify-between'>
+                    <div className='flex flex-col w-full'>
+                        <Box sx={{ width: '95%' }} className='w-full flex justify-between items-center mx-auto pt-4'>
+                            <div className=' flex flex-col justify-start'>
+                                <h1 className='text-[24px] font-bold'>Popular Products</h1>
+                                <p className='text-[14px] '>Do not miss the current offers until the end of March.</p>
+                            </div>
 
-                    <div className='w-[30%] flex flex-col justify-start'>
-                        <h1 className='text-[24px] font-bold'>Popular Products</h1>
-                        <p className='text-[14px] '>Do not miss the current offers until the end of March.</p>
-                    </div>
+                            <Tabs value={value} onChange={handleChange} aria-label="Category Tabs" variant="scrollable" scrollButtons allowScrollButtonsMobile>
+                                {tabs.map((tab, index) => (
+                                    <Tab key={index} label={tab.label} {...a11yProps(index)} className='dark:!text-gray-300' />
+                                ))}
+                            </Tabs>
 
-                    <div className='w-[70%] flex justify-end'>
-                        <Box sx={{ width: '100%' }}>
-                            <Box>
-                                <Tabs value={value} onChange={handleChange} aria-label="Category Tabs" variant="scrollable" scrollButtons allowScrollButtonsMobile>
-                                    {tabs.map((tab, index) => (
-                                        <Tab key={index} label={tab.label} {...a11yProps(index)} className='dark:!text-gray-300'/>
-                                    ))}
-                                </Tabs>
-                            </Box>
+                        </Box>
+
+                        <Box sx={{ width: '100%' }} >
                             {tabs.map((tab, index) => (
                                 <CustomTabPanel key={index} value={value} index={index}>
                                     {tab.content}
                                 </CustomTabPanel>
                             ))}
-
                         </Box>
                     </div>
                 </div>
-
-                <ProductsSlider/>
-                
             </section>
         </>
     )

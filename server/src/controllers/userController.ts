@@ -1,5 +1,6 @@
+// TODO : initiate background job to delete unverified users after 24 hours of registration.     initiate background job to send successful registration email. initiate background job to notify customer to verify email if not verified within 24 hours of registration.
 import bcrypt from "bcryptjs";
-import crypto from "crypto";
+import crypto, { verify } from "crypto";
 import jwt from "jsonwebtoken";
 import UserModel from "../models/userModel";
 import { ApiError } from "../utils/ApiError";
@@ -14,8 +15,15 @@ import { sendVerificationEmail } from "../utils/sendEmail";
 import fs from "fs";
 import cloudinary from "../config/cloudinary";
 import validator from "validator";
-import redisClient from "../config/redis";
+import redisClient from "../config/connectRedis";
 import logger from "../utils/logger";
+import { success } from "zod"
+
+
+interface AuthRequest extends Request {
+  userId?: string;
+  userRole?: string;
+}
 
 // ===================== registration =======================
 export const registerController = async (
@@ -348,7 +356,7 @@ export const getNewAccessToken = async (req: Request, res: Response) => {
 
 // controllers/authController.ts
 export const getCurrentUserController = async (
-  req: Request,
+  req: AuthRequest,
   res: Response,
   next: NextFunction
 ) => {
@@ -427,7 +435,7 @@ export const getCurrentUserController = async (
 // }
 
 //method2 :
-export const userAvatarController = async (req: Request, res: Response) => {
+export const userAvatarController = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId; // Ensure this comes from your auth middleware
     const files = req.files as Express.Multer.File[];
@@ -570,7 +578,7 @@ export const removeImgFromCloudinary = async (req: Request, res: Response) => {
 };
 
 // PUT /api/user/profile-pic
-export const updateUserProfilePic = async (req: Request, res: Response) => {
+export const updateUserProfilePic = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId; // Assuming you have auth middleware that adds user to req
     const file = req.file;
@@ -601,7 +609,7 @@ export const updateUserProfilePic = async (req: Request, res: Response) => {
 };
 
 //===================update user===================
-export async function updateUserDetails(req: Request, res: Response) {
+export async function updateUserDetails(req: AuthRequest, res: Response) {
   try {
     const userId = req.userId;
     const { name, email, mobile, password } = req.body;
@@ -659,10 +667,7 @@ export async function updateUserDetails(req: Request, res: Response) {
 const getUserSessionKey = (userId: string) => `user_sessions:${userId}`;
 const getBlacklistKey = (token: string) => `bl_refresh:${token}`;
 
-export const logoutController = async (
-  req: Request,
-  res: Response
-): Promise<Response> => {
+export const logoutController = async (req: AuthRequest, res: Response): Promise<Response> => {
   try {
     const userId = req.userId;
     const refreshToken = req.cookies?.refreshToken;

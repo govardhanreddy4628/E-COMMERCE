@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import loginIcons from '../assets/signin.gif';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 import { FcGoogle } from 'react-icons/fc';
 import { Link, useNavigate } from 'react-router-dom';
@@ -8,6 +7,7 @@ import { Formik, Form, Field, } from 'formik';
 import * as Yup from 'yup';
 import { Button } from '@mui/material';
 import { FaSpinner } from 'react-icons/fa';
+import signinGif from "../../assets/signin.gif"
 
 
 interface SignupResponse {
@@ -40,7 +40,7 @@ const SignupSchema = Yup.object().shape({
 
 
 
-const SignUp2 = () => {
+const SignUp = () => {
     const [showPassword, setShowPassword] = useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -109,7 +109,7 @@ const SignUp2 = () => {
                 <div className="mx-auto container p-4 mt-8">
                     <div className="bg-white p-5 w-full max-w-sm mx-auto shadow-lg rounded-lg">
                         <div className="w-20 h-20 mx-auto relative overflow-hidden rounded-full">
-                            <img src={imagePreview || loginIcons} alt="Profile" />
+                            <img src={imagePreview || signinGif } alt="Profile" />
                             <label>
                                 <div className="text-xs bg-opacity-80 bg-slate-200 pb-4 pt-2 cursor-pointer text-center absolute bottom-0 w-full">
                                     Upload Photo
@@ -252,7 +252,7 @@ const SignUp2 = () => {
     );
 }
 
-export default SignUp2;
+export default SignUp;
 
 
 

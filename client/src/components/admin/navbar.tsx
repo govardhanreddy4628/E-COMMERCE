@@ -1,14 +1,20 @@
 import { Search, Bell } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { ThemeToggle } from '../../ui/themeToggle';
-import { Avatar, Badge, IconButton, ListItemIcon, Tooltip } from '@mui/material';
+import { Badge, IconButton, ListItemIcon, Tooltip } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import * as React from 'react';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
-import Divider from '@mui/material/Divider';
-import { FaRegUser } from 'react-icons/fa';
-import { FiLogOut } from 'react-icons/fi';
+//import Menu from '@mui/material/Menu';
+// import MenuItem from '@mui/material/MenuItem';
+// import Divider from '@mui/material/Divider';
+// import { FaRegUser } from 'react-icons/fa';
+// import { FiLogOut } from 'react-icons/fi';
+import { User, Settings, Lock, LogOut } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../../ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '../../ui/avatar';
+import { useNavigate } from 'react-router-dom';
+import { useToast } from '../../hooks/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../ui/alert-dialog';
 
 interface NavbarProps {
     className?: string;
@@ -51,16 +57,30 @@ const StyledBadge = styled(Badge)(({ theme }) => ({
 
 export function Navbar({ className }: NavbarProps) {
 
-    const [accanchorEl, setAccAnchorEl] = React.useState<null | HTMLElement>(null);
-    const adminMenuOpen = Boolean(accanchorEl);
-    const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-        setAccAnchorEl(event.currentTarget);
-    };
-    const handleClose = () => {
-        setAccAnchorEl(null);
+    //const [accanchorEl, setAccAnchorEl] = React.useState<null | HTMLElement>(null);
+    // const adminMenuOpen = Boolean(accanchorEl);
+    // const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+    //     setAccAnchorEl(event.currentTarget);
+    // };
+    // const handleClose = () => {
+    //     setAccAnchorEl(null);
+    // };
+
+
+    const navigate = useNavigate();
+    const { toast } = useToast();
+    const [showLogoutDialog, setShowLogoutDialog] = React.useState(false);
+
+    const handleLogout = () => {
+        toast({
+            title: "Logged Out",
+            description: "You have been successfully logged out.",
+        });
+        navigate("/");
     };
 
     return (
+        <>
         <header className={cn("bg-white/95 backdrop-blur-sm sticky top-0 z-10 border-b dark:bg-gray-950")}>
             <div className="container flex items-center justify-between h-16 px-4">
                 <h1 className="text-lg font-semibold tracking-tight lg:text-xl"><span className='text-green-500'>Go-</span>Board</h1>
@@ -89,7 +109,7 @@ export function Navbar({ className }: NavbarProps) {
                         </IconButton>
                     </Tooltip>
 
-                    <Tooltip title="Account settings">
+                    {/* <Tooltip title="Account settings">
                         <div className="flex items-center gap-4 shadow-xs rounded-md cursor-pointer" onClick={handleClick}>
                             <StyledBadge
                                 overlap="circular"
@@ -102,14 +122,10 @@ export function Navbar({ className }: NavbarProps) {
                             >
                                 <div className="overflow-hidden">
                                     <Avatar alt="Go" src="https://i.pravatar.cc/40"
-                                        className="w-10 h-10 rounded-full"
+                                        className="w-8 h-8 rounded-full"
                                     />
                                 </div>
                             </StyledBadge>
-                            <div>
-                                <p className="text-sm font-semibold text-gray-800">{"john Doe"}</p>
-                                <p className="text-xs text-gray-500">{"johndoe@gmail.com"}</p>
-                            </div>
                         </div>
                     </Tooltip>
 
@@ -173,9 +189,64 @@ export function Navbar({ className }: NavbarProps) {
                             </ListItemIcon>
                             Logout
                         </MenuItem>
-                    </Menu>
+                    </Menu> */}
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger className="focus:outline-none">
+                            <Avatar className="h-10 w-10 cursor-pointer ring-2 ring-transparent transition-all hover:ring-primary/20">
+                                <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=admin" alt="Admin" />
+                                <AvatarFallback className="bg-primary text-primary-foreground">AD</AvatarFallback>
+                            </Avatar>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuLabel>
+                                <div className="flex flex-col space-y-1">
+                                    <p className="text-sm font-medium">Admin User</p>
+                                    <p className="text-xs text-muted-foreground">admin@example.com</p>
+                                </div>
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/adminprofile")}>
+                                <User className="mr-2 h-4 w-4" />
+                                <span>Profile</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/adminsettings")}>
+                                <Settings className="mr-2 h-4 w-4" />
+                                <span>Settings</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate("/adminchangepassword")}>
+                                <Lock className="mr-2 h-4 w-4" />
+                                <span>Change Password</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                className="cursor-pointer text-destructive focus:text-destructive"
+                                onClick={() => setShowLogoutDialog(true)}
+                            >
+                                <LogOut className="mr-2 h-4 w-4" />
+                                <span>Logout</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
         </header>
+
+
+        <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to logout?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will be redirected to the home page.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleLogout}>Logout</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+        </>
     );
 }

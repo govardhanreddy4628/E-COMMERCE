@@ -9,5 +9,6 @@
     "skipLibCheck": true,
      "typeRoots": ["./node_modules/@types", "./src/types"]
   },
-   "include": ["src", "__tests__"]
+   "include": ["src", "src/types", "src/__tests__"],
+   "files": ["src/types/express.d.ts"]
 }

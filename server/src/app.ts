@@ -3,30 +3,42 @@ import cors from "cors";
 import path from "path";
 import cookieParser from "cookie-parser";
 import morgan from "morgan";
-import categoryRoutes from "./routes/categoryRoutes";
-import userRoutes from "./routes/userRoutes";
-import productRoutes from "./routes/productRoutes";
 import uploadRouter from "./routes/upLoad";
 import http from "http";
 import helmet from "helmet";
-import { Server } from "socket.io";
 import { errorHandler } from "./middleware/errorHandler";
 import cartRouter from "./routes/cartRoute";
 import { Message } from "./models/MessageModel";
 import rateLimit from 'express-rate-limit';
 import { customersData } from "./data/customers";
+import * as ai from "./services/aiService";
+import { Server } from "socket.io";
+import { handleQuery } from "./controllers/assistantController";
+
+import userRoutes from "./routes/userRoutes";
+import productRoutes from "./routes/productRoutes";
+import categoryRoutes from "./routes/categoryRoutes";
 import chatRoutes from "./routes/chatRoutes";
 import offersRoutes from "./routes/offersRoutes";
+// import paymentRoutes from "./routes/paymentRoutes";
+// import couponRouter from "./routes/couponRoute";
+// import orderRoutes from "./routes/orderRoute";
+
+import { serve } from "inngest/express";
+import { inngest } from "./inngest/client";
+import { functions } from "./inngest/functions";
+import { initAdminChat } from "./sockets/initAdminChat";
+import { initAssistantChat } from "./sockets/initAssistantChat";
+import { socketAuthenticator } from "./middleware/socketAuthenticator";
 
 const app = express();
+const server = http.createServer(app);
 
 const corsOptions = {
   origin: process.env.CLIENT_URL, // || "https://food-app-yt.onrender.com" for production,
   methods: "GET, POST, PUT, DELETE, PATCH, HEAD",
   credentials: true,          // ✅ Allow cookies/auth headers
 };
-
-const DIRNAME = path.resolve();
 
 // default middleware for any mern project
 app.use(cors(corsOptions)); // refer npm cors site for more info.
@@ -37,37 +49,62 @@ app.use(express.static("public")); //public is a folder name where we can store 
 app.use(cookieParser());
 app.use(helmet({crossOriginResourcePolicy: false}))
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
+app.use(express.static("public"));   // serve static assets
 
-const server = http.createServer(app);
+app.use("/api/inngest", serve({ client: inngest, functions }));
 
+
+
+
+// ---------------------- API ROUTES ----------------------
+app.use("/api/v1/user", userRoutes);
+app.use("/api/v1/product", productRoutes);
+app.use("/api/v1/category", categoryRoutes);
+app.use("/api/v1/chat", chatRoutes)
+app.use("/api/v1/offers", offersRoutes)
+// app.use("/api/v1/upload", uploadRouter);
+// app.use("/api/v1/cart", cartRouter);
+// app.use("/api/v1/coupons", couponRouter);
+// app.use("/api/v1/payments", paymentRoutes);
+// app.use("/api/v1/order", orderRoutes);
+// app.use("/api/v1/address", addressRoutes);
+// app.use("/api/v1/event", eventRoutes);
+
+//app.post("/assistant/query", handleQuery);
+
+app.use("/api/v1/customers",  (req, res) => {
+  res.status(200).json(customersData)
+})
+
+
+app.get("/api/getkey", (req, res) => {
+  res.status(200).json({ key: process.env.RAZORPAY_API_KEY });
+});
+
+// ---------------------- SOCKET.IO ----------------------
 const io = new Server(server, {
-  cors: {
-    origin: process.env.CLIENT_URL,
-    methods: ["GET", "POST"],
-  },
+  cors: { origin: process.env.CLIENT_URL || "http://localhost:5173", methods: ["GET", "POST"] },
 });
 
-io.on("connection", (socket) => {
-  console.log("🟢 A user connected:", socket.id);
+app.set("io", io);
 
-  socket.on("message", (msg) => {
-    console.log("📨 Message received:", msg);
-    io.emit("message", msg); // broadcast to all clients
-  });
+// io.use((socket, next) => {
+//   cookieParser()(
+//     socket.request,
+//     socket.request.res,
+//     async (err) => await socketAuthenticator(err, socket, next)
+//   );
+// });
 
-  socket.on("sendMessage", async (msg) => {
-    const saved = await new Message(msg).save();
-    io.to(msg.receiverId).emit("receiveMessage", saved);
-  });
+// Use separate namespaces
+const adminNamespace = io.of("/admin");
+const assistantNamespace = io.of("/assistant");
 
-  socket.on("join", (userId) => {
-    socket.join(userId); // Use user ID as room
-  });
+// Initialize chat modules
+initAdminChat(adminNamespace);
+initAssistantChat(assistantNamespace);
 
-  socket.on("disconnect", () => {
-    console.log("❌ A user disconnected:", socket.id);
-  });
-});
+
 
 // Optional: Get chat history
 app.get("/api/messages/:userId", async (req, res) => {
@@ -84,35 +121,28 @@ app.get("/", (req, res) => {
   res.send("Socket.IO server is running...");
 });
 
-//api
-app.use("/api/v1/user", userRoutes);
-app.use("/api/v1/product", productRoutes);
-app.use("/api/v1/category", categoryRoutes);
-app.use("/api/v1/chat", chatRoutes)
-app.use("/api/v1/offers", offersRoutes)
-// app.use("/api/v1/upload", uploadRouter);
-// app.use("/api/v1/cart", cartRouter);
-// app.use("/api/v1/coupons", couponRouter);
-app.use("/api/v1/customers",  (req, res) => {
-  res.status(200).json(customersData)
-})
 
-app.use(express.static(path.join(DIRNAME, "/client/dist")));
+// ---------------------- Middleware to log cookies ----------------------
+// res.send is the Express method used to send a response back to the client. This middleware overwrites res.send temporarily to log the Set-Cookie headers every time the server sends a response.so below code logs cookies in dev. remove it in production.
+if (process.env.NODE_ENV !== "production") {
+  app.use((req, res, next) => {
+    const originalSend = res.send;
+    res.send = function (...args) {
+      console.log('Set-Cookie headers:', res.getHeader('Set-Cookie'));
+      return originalSend.apply(this, args);
+    };
+    next();
+  });
+}
+
+const DIRNAME = path.resolve();
+app.use(express.static(path.join(DIRNAME, "/client/dist")));  // React build files
 app.use("*", (_, res) => {
   res.sendFile(path.resolve(DIRNAME, "client", "dist", "index.html"));
 });
 
-app.use((req, res, next) => {
-  const originalSend = res.send;
-  res.send = function (...args) {
-    console.log('Set-Cookie headers:', res.getHeader('Set-Cookie'));
-    return originalSend.apply(this, args);
-  };
-  next();
-});
 
-
-// // Error handler (must be last)
-//app.use(errorHandler);
+// // Error handler (must be at last in code)
+app.use(errorHandler);
 
 export { server as app }; // export the server

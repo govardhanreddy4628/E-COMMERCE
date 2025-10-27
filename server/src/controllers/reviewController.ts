@@ -1,0 +1,141 @@
+import { Request, Response } from "express";
+import mongoose from "mongoose";
+
+import  ProductModel  from "../models/productModel"
+import { z } from "zod";
+import { ReviewModel } from "../models/reviewsModel";
+
+// --- Zod validation schema for adding/updating review ---
+const ReviewValidationSchema = z.object({
+  product: z.string().regex(/^[a-f\d]{24}$/i, "Invalid product ID"),
+  user: z.string().regex(/^[a-f\d]{24}$/i, "Invalid user ID"),
+  rating: z.number().min(1).max(5),
+  title: z.string().max(100).optional(),
+  comment: z.string().min(5),
+  media: z.array(z.string().url()).optional(),
+});
+
+// --- Add a review ---
+export const addReview = async (req: Request, res: Response) => {
+  try {
+    const validated = ReviewValidationSchema.parse(req.body);
+
+    // Prevent duplicate review by same user
+    const existing = await ReviewModel.findOne({
+      product: validated.product,
+      user: validated.user,
+    });
+    if (existing) return res.status(400).json({ error: "User has already reviewed this product" });
+
+    // Optional: check if user purchased the product
+    const verifiedPurchase = true; // Replace with actual logic from Orders collection
+
+    const review = await ReviewModel.create({ ...validated, verifiedPurchase });
+
+    // Update product rating aggregation
+    await updateProductRating(validated.product);
+
+    res.status(201).json(review);
+  } catch (err: any) {
+    res.status(400).json({ error: err.errors || err.message });
+  }
+};
+
+// --- Update Product rating aggregation ---
+const updateProductRating = async (productId: string) => {
+  const agg = await ReviewModel.aggregate([
+    { $match: { product: new mongoose.Types.ObjectId(productId), status: "approved" } },
+    { $group: { _id: "$product", averageRating: { $avg: "$rating" }, totalReviews: { $sum: 1 } } },
+  ]);
+  await ProductModel.findByIdAndUpdate(productId, {
+    rating: agg[0]?.averageRating || 0,
+    recentQuantity: agg[0]?.totalReviews || 0,
+  });
+};
+
+// --- Get reviews for a product with pagination & sorting ---
+export const getProductReviews = async (req: Request, res: Response) => {
+  try {
+    const { productId } = req.params;
+    const { page = 1, limit = 10, sortBy = "recent" } = req.query;
+
+    const sortOptions: any = { createdAt: -1 };
+    if (sortBy === "helpful") sortOptions.upvotes = -1;
+    else if (sortBy === "rating_high") sortOptions.rating = -1;
+    else if (sortBy === "rating_low") sortOptions.rating = 1;
+
+    const reviews = await ReviewModel.find({ product: productId, status: "approved" })
+      .populate("user", "name")
+      .skip((+page - 1) * +limit)
+      .limit(+limit)
+      .sort(sortOptions);
+
+    const stats = await ReviewModel.aggregate([
+      { $match: { product: new mongoose.Types.ObjectId(productId), status: "approved" } },
+      { $group: { _id: "$product", averageRating: { $avg: "$rating" }, totalReviews: { $sum: 1 } } },
+    ]);
+
+    res.json({ reviews, stats: stats[0] || { averageRating: 0, totalReviews: 0 } });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+// --- Vote on review (upvote/downvote) ---
+export const voteReview = async (req: Request, res: Response) => {
+  try {
+    const { reviewId } = req.params;
+    const { userId, vote } = req.body; // vote: "up" or "down"
+
+    if (!["up", "down"].includes(vote)) return res.status(400).json({ error: "Invalid vote type" });
+
+    const review = await ReviewModel.findById(reviewId);
+    if (!review) return res.status(404).json({ error: "Review not found" });
+
+    const existingVote = review.votedUsers?.find(v => v.userId.toString() === userId);
+    if (existingVote) {
+      if (existingVote.vote === vote) return res.json(review); // already voted same way
+      existingVote.vote = vote; // update opposite vote
+    } else {
+      review.votedUsers?.push({ userId: new mongoose.Types.ObjectId(userId), vote });
+    }
+
+    review.upvotes = review.votedUsers?.filter(v => v.vote === "up").length;
+    review.downvotes = review.votedUsers?.filter(v => v.vote === "down").length;
+
+    await review.save();
+    res.json(review);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+// --- Update a review ---
+export const updateReview = async (req: Request, res: Response) => {
+  try {
+    const { reviewId } = req.params;
+    const validated = ReviewValidationSchema.partial().parse(req.body);
+
+    const review = await ReviewModel.findByIdAndUpdate(reviewId, validated, { new: true });
+    if (!review) return res.status(404).json({ error: "Review not found" });
+
+    await updateProductRating(review.product.toString());
+    res.json(review);
+  } catch (err: any) {
+    res.status(400).json({ error: err.errors || err.message });
+  }
+};
+
+// --- Delete a review ---
+export const deleteReview = async (req: Request, res: Response) => {
+  try {
+    const { reviewId } = req.params;
+    const review = await ReviewModel.findByIdAndDelete(reviewId);
+    if (!review) return res.status(404).json({ error: "Review not found" });
+
+    await updateProductRating(review.product.toString());
+    res.json({ message: "Review deleted successfully" });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+};

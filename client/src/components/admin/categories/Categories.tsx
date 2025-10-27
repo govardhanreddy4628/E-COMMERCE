@@ -8,7 +8,7 @@ import {
 } from '../../../ui/breadcrumb';
 import { CategoryList } from './CategoryList';
 
-const Categories = () => {
+const CategoryManager = () => {
   return (
     <>
       <div className="min-h-screen bg-gradient-subtle">
@@ -34,4 +34,4 @@ const Categories = () => {
   );
 };
 
-export default Categories;
+export default CategoryManager;

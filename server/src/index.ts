@@ -2,16 +2,37 @@ import { app } from "./app";
 import dotenv from "dotenv";
 import "colors";
 import connectDB from "./config/connectDB";
+import redisClient from "./config/connectRedis";
+import Razorpay from "razorpay";
 
 dotenv.config();
 
+export const razorpayInstance = new Razorpay({
+  key_id: process.env.RAZORPAY_API_KEY,
+  key_secret: process.env.RAZORPAY_APT_SECRET,
+});
+
+
 const PORT = process.env.PORT || 5000;
 
+const startServer = async () => {
+  try {
+    await connectDB();           // MongoDB connection
+    await redisClient.connect(); // Redis connection
 
-app.listen(PORT, () => {
-  connectDB();
-  console.log(`Server Running on ${process.env.DEV_MODE} mode on port ${PORT}`.bgCyan.white);
-});
+    app.listen(PORT, () => {
+      console.log(
+        `🚀 Server running on ${process.env.NODE_ENV} mode on port ${PORT}`.bgCyan
+          .white
+      );
+    });
+  } catch (error) {
+    console.error("❌ Server startup error:", error);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 
 

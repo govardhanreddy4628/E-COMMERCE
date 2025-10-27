@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { FaAngleDown } from "react-icons/fa6";
-import { IoExpand, IoExpandOutline, IoMenuSharp } from "react-icons/io5";
+import { IoExpand, IoMenuSharp } from "react-icons/io5";
 import { IoGridSharp } from "react-icons/io5";
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
@@ -80,8 +80,8 @@ const Productcategory = () => {
 
 
     const handleRatingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-         const star = parseInt(e.target.value, 10); // value from checkbox is string by default
-  const { checked } = e.target;
+        const star = parseInt(e.target.value, 10); // value from checkbox is string by default
+        const { checked } = e.target;
         setFilters(prev => {
             const newRating = checked
                 ? prev.rating.includes(star)
@@ -132,7 +132,7 @@ const Productcategory = () => {
             }
         });
 
-        console.log(filteredProducts)
+    console.log(filteredProducts)
 
     function valuetext(value: number) {
         return `₹${value}`;
@@ -142,7 +142,7 @@ const Productcategory = () => {
 
         <section className='bg-white'>
             <section className='flex w-[96%] mx-auto bg-white'>
-                
+
                 <aside className='col1 lg:w-[16%] sm:w-[30%] w-full relative'>
 
 
@@ -218,7 +218,7 @@ const Productcategory = () => {
                     <div className="mt-2">
                         <h1 className='text-[16px] font-medium text-gray-700 mb-2'>Filter By Rating</h1>
                         <div>
-                            {[4, 3, 2, 1].map((star, index) => (
+                            {[5, 4, 3, 2, 1].map((star, index) => (
                                 <FormControlLabel
                                     key={index}
                                     control={
@@ -237,26 +237,27 @@ const Productcategory = () => {
                                         />
                                     }
                                     label={"★".repeat(star)}
-                                    className="!block"
+                                    className="!block text-yellow-500 text-lg"
                                 />
                             ))}
                         </div>
                     </div>
 
 
-                <div className='flex items-center justify-center p-4 h-4vh absolute bottom-0 left-0 w-full'>
-                    <Button
-                        onClick={() => setFilters({ rating: [], categories: [], priceRange: [0, 1000] })}
-                        variant="outlined"
-                        color="secondary"
-                        
+                    <div className='flex items-center justify-center p-4 h-4vh absolute bottom-0 left-0 w-full'>
+                        <Button
+                            onClick={() => setFilters({ rating: [], categories: [], priceRange: [0, 1000] })}
+                            variant="outlined"
+                            color="secondary"
+
                         >
-                        Clear Filters
-                    </Button>
-                 </div>
+                            Clear Filters
+                        </Button>
+                    </div>
 
 
                 </aside>
+
 
 
 
@@ -321,7 +322,7 @@ const Productcategory = () => {
                     </div>
 
 
-                    {filteredProducts.map(()=>(<></>))}
+                    {filteredProducts.map(() => (<></>))}
 
 
 
@@ -352,388 +353,6 @@ const Productcategory = () => {
                             </div>
                         </div>
 
-                        <div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className=' opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className=' absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpand /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className='info flex flex-col itms-center justify-center w-full p-3'>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-2 hover:!text-white hover:!bg-black hover:!border-none'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div>
-
-                        <div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className=' opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className=' absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpand /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className={`info flex flex-col itms-center justify-center w-full p-3`}>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-2 hover:!text-white hover:!bg-black hover:!border-none'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div>
-
-                        <div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className=' opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className=' absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpand /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className='info flex flex-col itms-center justify-center w-full p-3'>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-2 hover:!text-white hover:!bg-black hover:!border-none'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div>
-
-
-                        <div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white w-full flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className='w-full opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className='w-full absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpand /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className='info flex flex-col itms-center justify-center w-full p-3'>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !mt-2 hover:!text-white hover:!bg-black'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div>
-
-
-                        <div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white w-full flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className='w-full opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className='w-full absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpand /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className='info flex flex-col itms-center justify-center w-full p-3'>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-4'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div><div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white w-full flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className='w-full opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className='w-full absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpand /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className='info flex flex-col itms-center justify-center w-full p-3'>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-4'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div><div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white w-full flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className='w-full opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className='w-full absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpand /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className='info flex flex-col itms-center justify-center w-full p-3'>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-4'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div><div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white w-full flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className='w-full opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className='w-full absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpand /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className='info flex flex-col itms-center justify-center w-full p-3'>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-4'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div><div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white w-full flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className='w-full opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className='w-full absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpand /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className='info flex flex-col itms-center justify-center w-full p-3'>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-4'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div><div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white w-full flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className='w-full opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className='w-full absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpand /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className='info flex flex-col itms-center justify-center w-full p-3'>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-4'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div><div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white w-full flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className='w-full opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className='w-full absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpand /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className='info flex flex-col itms-center justify-center w-full p-3'>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-4'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div><div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white w-full flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className='w-full opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className='w-full absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpand /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className='info flex flex-col itms-center justify-center w-full p-3'>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-4'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div><div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white w-full flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className='w-full opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className='w-full absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpand /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className='info flex flex-col itms-center justify-center w-full p-3'>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-4'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div><div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white w-full flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className='w-full opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className='w-full absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpand /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className='info flex flex-col itms-center justify-center w-full p-3'>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-4'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div><div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white w-full flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className='w-full opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className='w-full absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpand /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className='info flex flex-col itms-center justify-center w-full p-3'>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-4'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div>
-
-
-                        <div className='bg-white border border-gray-200 shadow-md rounded-md flex flex-col items-center relative overflow-hidden'>
-                            <div className='bg-white w-full flex items-center justify-center border-1 border-gray-200 relative group'>
-                                <Link to="/" className='w-full h-[200px] relative overflow-hidden'>
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg" className='w-full opacity-100 hover:opacity-0 transition duration-500' />
-                                    <img src="https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg" className='w-full absolute top-[0px] left-[0px] opacity-0  group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500' />
-                                </Link>
-                                <div className='bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50'>10%</div>
-                                <div className="absolute right-[10px] top-[10px] flex flex-col gap-[5px] group-hover:bg-white p-1 rounded-md transition z-50 opacity-50">
-                                    <div><IoExpandOutline /></div>
-                                    <div><FaRegHeart /></div>
-                                    <div><FaRegHeart /></div>
-                                </div>
-                            </div>
-
-                            <div className='info flex flex-col itms-center justify-center w-full p-3'>
-                                <h6 className='text-[13px] font-[200] capitalize mt-2'><Link to="/" className='link'>Product Name</Link></h6>
-                                <h3 className='text-[14px] font-[500] text-gray-600 leading-[20px] mt-2 text-[rgba(0,0,0,0.9)] transition-all'><Link to="/" className='link'>Description of the product goes here.</Link></h3>
-                                <div className='flex items-center justify-between w-full p-2'>
-                                    <p className='text-[18px] font-bold line-through'>$99.99</p>
-                                    <p className='text-[18px] font-bold text-red-400'>$99.99</p>
-                                </div>
-                                <Button className='flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-4'><ShoppingCartCheckoutIcon /> ADD TO CART</Button>
-                            </div>
-                        </div>
                     </div>
 
 

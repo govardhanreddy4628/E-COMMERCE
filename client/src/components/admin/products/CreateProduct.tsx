@@ -5,18 +5,17 @@ import * as z from "zod";
 import { Button } from "../../../ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "../../../ui/form";
-import { Textarea } from "../../../ui/textarea";
 //import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../ui/select";
 import { Switch } from "../../../ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../ui/tabs";
 import { Separator } from "../../../ui/separator";
 //import { useCategories } from "@/contexts/CategoryContext";
 //import { CreateCategory } from "@/components/categories/CreateCategory";
-import { X, Plus, Package, DollarSign, Image as ImageIcon, Tag, Settings } from "lucide-react";
+import { Package, DollarSign, Image as ImageIcon, Tag, Settings } from "lucide-react";
 import Media from "./CreateProduct/Media";
-import BasicInfo from "./CreateProduct/BasicInfo";
+
 import { useToast } from "../../../hooks/use-toast";
-import { Badge } from "../../../ui/badge";
+
 import { Input } from "../../../ui/input";
 
 const productSchema = z.object({
@@ -93,32 +92,7 @@ export function CreateProduct2() {
     const watchedCompareAtPrice = form.watch("compareAtPrice");
 
     const onSubmit = async (data: ProductFormData) => {
-        try {
-            // In a real application, you would send this data to your API
-            console.log("Product data:", data);
-            console.log("Uploaded images:", uploadedImages);
-
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            toast({
-                title: "Product created successfully!",
-                description: `${data.name} has been added to your catalog.`,
-                variant: "default",
-            });
-
-            // Reset form
-            form.reset();
-            setUploadedImages([]);
-            setTagInput("");
-            setSelectedCategory("");
-        } catch (error) {
-            toast({
-                title: "Error creating product",
-                description: "Please try again later.",
-                variant: "destructive",
-            });
-        }
+       
     };
 
     const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,32 +125,7 @@ export function CreateProduct2() {
     const removeImage = (index: number) => {
         setUploadedImages(prev => prev.filter((_, i) => i !== index));
     };
-
-    const addTag = () => {
-        if (tagInput.trim() && !watchedTags.includes(tagInput.trim()) && watchedTags.length < 10) {
-            form.setValue("tags", [...watchedTags, tagInput.trim()]);
-            setTagInput("");
-        }
-    };
-
-    const removeTag = (tagToRemove: string) => {
-        form.setValue("tags", watchedTags.filter(tag => tag !== tagToRemove));
-    };
-
-    const handleCategoryChange = (category: string) => {
-        setSelectedCategory(category);
-        form.setValue("category", category);
-        form.setValue("subcategory", ""); // Reset subcategory when category changes
-    };
-
-    const generateSKU = () => {
-        const name = form.getValues("name");
-        const category = form.getValues("category");
-        if (name && category) {
-            const sku = `${category.substring(0, 3).toUpperCase()}-${name.substring(0, 3).toUpperCase()}-${Date.now().toString().slice(-4)}`;
-            form.setValue("sku", sku);
-        }
-    };
+ 
 
     const profit = watchedPrice && watchedPrice > 0 && form.getValues("cost")
         ? ((watchedPrice - (form.getValues("cost") || 0)) / watchedPrice * 100).toFixed(1)
@@ -225,184 +174,11 @@ export function CreateProduct2() {
                             </TabsList>
 
                             <TabsContent value="basic" className="space-y-6">
-                                {/* <Card>
+                                <Card>
                                     <CardHeader>
-                                        <CardTitle>Product Information</CardTitle>
-                                        <CardDescription>
-                                            Enter the basic details about your product
-                                        </CardDescription>
+                                        <CardTitle>Product Information</CardTitle>                                       
                                     </CardHeader>
-                                    <CardContent className="space-y-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <FormField
-                                                control={form.control}
-                                                name="name"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Product Name *</FormLabel>
-                                                        <FormControl>
-                                                            <Input placeholder="Enter product name" {...field} />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-
-                                            <FormField
-                                                control={form.control}
-                                                name="sku"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>SKU *</FormLabel>
-                                                        <div className="flex gap-2">
-                                                            <FormControl>
-                                                                <Input placeholder="Enter SKU" {...field} />
-                                                            </FormControl>
-                                                            <Button type="button" variant="outline" onClick={generateSKU}>
-                                                                Generate
-                                                            </Button>
-                                                        </div>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-
-                                        <FormField
-                                            control={form.control}
-                                            name="shortDescription"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Short Description *</FormLabel>
-                                                    <FormControl>
-                                                        <Textarea
-                                                            placeholder="Brief product description (used in listings)"
-                                                            className="min-h-[60px]"
-                                                            {...field}
-                                                        />
-                                                    </FormControl>
-                                                    <FormDescription>
-                                                        This will appear in product listings and search results
-                                                    </FormDescription>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-
-                                        <FormField
-                                            control={form.control}
-                                            name="description"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Full Description *</FormLabel>
-                                                    <FormControl>
-                                                        <Textarea
-                                                            placeholder="Detailed product description"
-                                                            className="min-h-[120px]"
-                                                            {...field}
-                                                        />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            <FormField
-                                                control={form.control}
-                                                name="category"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Category *</FormLabel>
-                                                        <Select onValueChange={handleCategoryChange} value={field.value}>
-                                                            <FormControl>
-                                                                <SelectTrigger>
-                                                                    <SelectValue placeholder="Select a category" />
-                                                                </SelectTrigger>
-                                                            </FormControl>
-                                                            <SelectContent>
-                                                                {categories.map((category) => (
-                                                                    <SelectItem key={category.id} value={category.name}>
-                                                                        {category.name}
-                                                                    </SelectItem>
-                                                                ))}
-                                                                <div className="border-t mt-2 pt-2">
-                                                                    <CreateCategory
-                                                                        trigger={
-                                                                            <Button variant="ghost" size="sm" className="w-full justify-start">
-                                                                                <Plus className="w-4 h-4 mr-2" />
-                                                                                Add New Category
-                                                                            </Button>
-                                                                        }
-                                                                    />
-                                                                </div>
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-
-                                            <FormField
-                                                control={form.control}
-                                                name="subcategory"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Subcategory</FormLabel>
-                                                        <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCategory}>
-                                                            <FormControl>
-                                                                <SelectTrigger>
-                                                                    <SelectValue placeholder="Select a subcategory" />
-                                                                </SelectTrigger>
-                                                            </FormControl>
-                                                            <SelectContent>
-                                                                {categories
-                                                                    .find(cat => cat.name === selectedCategory)
-                                                                    ?.subcategories.map((subcategory) => (
-                                                                        <SelectItem key={subcategory.id} value={subcategory.name}>
-                                                                            {subcategory.name}
-                                                                        </SelectItem>
-                                                                    ))}
-                                                                {selectedCategory && (
-                                                                    <div className="border-t mt-2 pt-2">
-                                                                        <CreateCategory
-                                                                            mode="subcategory"
-                                                                            parentCategoryId={categories.find(cat => cat.name === selectedCategory)?.id}
-                                                                            trigger={
-                                                                                <Button variant="ghost" size="sm" className="w-full justify-start">
-                                                                                    <Plus className="w-4 h-4 mr-2" />
-                                                                                    Add New Subcategory
-                                                                                </Button>
-                                                                            }
-                                                                        />
-                                                                    </div>
-                                                                )}
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-
-                                        <FormField
-                                            control={form.control}
-                                            name="barcode"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Barcode (UPC/EAN)</FormLabel>
-                                                    <FormControl>
-                                                        <Input placeholder="Enter barcode" {...field} />
-                                                    </FormControl>
-                                                    <FormDescription>
-                                                        Optional: Used for inventory management and POS systems
-                                                    </FormDescription>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                    </CardContent>
-                                </Card> */}
+                                </Card>
                             </TabsContent>
 
                             <TabsContent value="pricing" className="space-y-6">
@@ -685,139 +461,7 @@ export function CreateProduct2() {
                                 <Card>
                                     <CardHeader>
                                         <CardTitle>SEO & Tags</CardTitle>
-                                        <CardDescription>
-                                            Optimize your product for search engines and add relevant tags
-                                        </CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="space-y-6">
-                                        <div className="space-y-4">
-                                            <h4 className="font-medium">Product Tags</h4>
-                                            <div className="flex gap-2">
-                                                <Input
-                                                    placeholder="Add a tag"
-                                                    value={tagInput}
-                                                    onChange={(e) => setTagInput(e.target.value)}
-                                                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
-                                                />
-                                                <Button type="button" variant="outline" onClick={addTag} disabled={!tagInput.trim() || watchedTags.length >= 10}>
-                                                    <Plus className="w-4 h-4" />
-                                                </Button>
-                                            </div>
-                                            {watchedTags.length > 0 && (
-                                                <div className="flex flex-wrap gap-2">
-                                                    {watchedTags.map((tag, index) => (
-                                                        <Badge key={index} variant="secondary" className="flex items-center gap-1">
-                                                            {tag}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => removeTag(tag)}
-                                                                className="ml-1 hover:text-destructive"
-                                                            >
-                                                                <X className="h-3 w-3" />
-                                                            </button>
-                                                        </Badge>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            <p className="text-sm text-muted-foreground">
-                                                Add up to 10 tags to help customers find your product ({watchedTags.length}/10)
-                                            </p>
-                                        </div>
-
-                                        <Separator />
-
-                                        <div className="space-y-4">
-                                            <h4 className="font-medium">Search Engine Optimization</h4>
-
-                                            <FormField
-                                                control={form.control}
-                                                name="seoTitle"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>SEO Title</FormLabel>
-                                                        <FormControl>
-                                                            <Input placeholder="Optimized title for search engines" {...field} />
-                                                        </FormControl>
-                                                        <FormDescription>
-                                                            Leave blank to use the product name. Recommended: 50-60 characters
-                                                        </FormDescription>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-
-                                            <FormField
-                                                control={form.control}
-                                                name="seoDescription"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>SEO Description</FormLabel>
-                                                        <FormControl>
-                                                            <Textarea
-                                                                placeholder="Brief description for search engine results"
-                                                                className="min-h-[80px]"
-                                                                {...field}
-                                                            />
-                                                        </FormControl>
-                                                        <FormDescription>
-                                                            Leave blank to use the short description. Recommended: 150-160 characters
-                                                        </FormDescription>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-
-                                        <Separator />
-
-                                        <div className="space-y-4">
-                                            <h4 className="font-medium">Product Settings</h4>
-
-                                            <div className="space-y-4">
-                                                <FormField
-                                                    control={form.control}
-                                                    name="isActive"
-                                                    render={({ field }) => (
-                                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                                            <FormControl>
-                                                                <Switch
-                                                                    checked={field.value}
-                                                                    onCheckedChange={field.onChange}
-                                                                />
-                                                            </FormControl>
-                                                            <div className="space-y-1 leading-none">
-                                                                <FormLabel>Active Product</FormLabel>
-                                                                <FormDescription>
-                                                                    Product is visible and available for purchase
-                                                                </FormDescription>
-                                                            </div>
-                                                        </FormItem>
-                                                    )}
-                                                />
-
-                                                <FormField
-                                                    control={form.control}
-                                                    name="isFeatured"
-                                                    render={({ field }) => (
-                                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                                            <FormControl>
-                                                                <Switch
-                                                                    checked={field.value}
-                                                                    onCheckedChange={field.onChange}
-                                                                />
-                                                            </FormControl>
-                                                            <div className="space-y-1 leading-none">
-                                                                <FormLabel>Featured Product</FormLabel>
-                                                                <FormDescription>
-                                                                    Display this product in featured sections
-                                                                </FormDescription>
-                                                            </div>
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                            </div>
-                                        </div>
-                                    </CardContent>
+                                    </CardHeader>                               
                                 </Card>
                             </TabsContent>
                         </Tabs>

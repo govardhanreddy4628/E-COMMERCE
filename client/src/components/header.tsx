@@ -1,4 +1,4 @@
-import { Avatar, Badge, Box, Button, Divider, IconButton, ListItemIcon, TextField } from '@mui/material'
+import { Badge, Box, Button, IconButton, TextField } from '@mui/material'
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ShoppingCartCheckoutIcon from '@mui/icons-material/ShoppingCartCheckout';
 import SearchIcon from '@mui/icons-material/Search';
@@ -7,19 +7,16 @@ import RocketLaunchOutlinedIcon from '@mui/icons-material/RocketLaunchOutlined';
 import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined';
 import ExpandMoreOutlinedIcon from '@mui/icons-material/ExpandMoreOutlined';
 import { useState } from 'react';
-import Hero2 from './hero2';
-import Footer from './footer';
 import { ThemeToggle } from '../ui/themeToggle';
 import SideDrawer from '../ui/drawer';
 import LeftMenu from './leftMenu';
 import CartSidebar from './cartSidebar';
 import { useAuth } from '../hooks/useAuth';
 import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
 import { IoBagCheckOutline, IoLocationOutline } from 'react-icons/io5';
 import { FaRegHeart, FaRegUser } from 'react-icons/fa';
 import { useNavigate } from "react-router-dom";
-import { MessageCircle } from "lucide-react"; // chat icon
+
 
 import { FiLogOut } from 'react-icons/fi';
 
@@ -126,8 +123,6 @@ const Header = () => {
         setAccAnchorEl(null);
     };
 
-    const navigate = useNavigate();
-    
     const { isLogin } = useAuth();
 
     const toggleDrawer = (newOpen: boolean, side: 'left' | 'right' = "left") => {
@@ -139,8 +134,8 @@ const Header = () => {
         <Box
             sx={{ width: anchor === "left" ? 250 : 380 }}
             role="presentation"
-            // {...(anchor === "left" ? { onClick: () => toggleDrawer(false, anchor) } : {})}
-            // onKeyDown={() => toggleDrawer(false, anchor)}
+        // {...(anchor === "left" ? { onClick: () => toggleDrawer(false, anchor) } : {})}
+        // onKeyDown={() => toggleDrawer(false, anchor)}
         >
             {anchor === "left" ? <LeftMenu /> : <CartSidebar setOpen={setOpen} />}
         </Box>
@@ -152,7 +147,7 @@ const Header = () => {
 
 
     return (
-        <div className='!overflow-y-auto h-screen overflow-x-hidden relative'>
+        <div className='relative'>
             {/* Top Bar */}
             <section className="row1 max-w-8xl bg-foreground text-muted px-4 py-3 flex border-b border-border border-solid">
                 <div className='flex flex-col sm:flex-row items-center justify-between lg:w-[95%] w-full mx-auto'>
@@ -178,9 +173,9 @@ const Header = () => {
                     </div>
                     <div className='col3 w-[30%] flex justify-center p-4 items-center'>
                         <div className='flex items-center justify-end w-full gap-4'>
-                            {isLogin ? <ul className='flex items-center gap-4'>
-                                <li className='list-none'><Link to="#" className='text-muted hover:text-red-500 text-[16px] font-[500] transition'>Login</Link></li> |
-                                <li className='list-none'><Link to="#" className='text-muted hover:text-red-500 text-[16px] font-[500] transition'>Register</Link></li>
+                            {!isLogin ? <ul className='flex items-center gap-4'>
+                                <li className='list-none'><Link to="/Login" className='text-gray-950 hover:text-red-500 text-[16px] font-[500] transition'>Login</Link></li> |
+                                <li className='list-none'><Link to="/signup" className='text-gray-950 hover:text-red-500 text-[16px] font-[500] transition'>Register</Link></li>
                             </ul>
                                 :
                                 <>
@@ -410,22 +405,7 @@ const Header = () => {
             </section>
 
             <SideDrawer open={open} toggleDrawer={toggleDrawer} anchor={anchor} drawerList={leftDrawerList} />
-
-            <Hero2></Hero2>
-            <Footer />
-            <button
-      onClick={() => navigate("/customersupport")}
-      className="
-        fixed bottom-6 right-6 
-        bg-blue-600 text-white 
-        p-4 rounded-lg shadow-lg 
-        hover:bg-blue-700 transition 
-        flex items-center justify-center z-50
-      "
-      aria-label="Chat with us"
-    >
-      <MessageCircle size={24} />
-    </button>
+           
         </div>
     )
 }
@@ -445,9 +425,6 @@ export default Header
 
 invisible(tailwind css) =====> visibility: hidden;(css)
 hidden(tailwind css) =====> display: none; (css) */}
-
-
-
 
 
 

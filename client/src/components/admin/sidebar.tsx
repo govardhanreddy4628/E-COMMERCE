@@ -58,6 +58,11 @@ export const navItems: NavItem[] = [
         href: '/products/create',
       },
       {
+        title: 'Edit Product',
+        icon: RiProductHuntLine,
+        href: '/products/edit',
+      },
+      {
         title: 'Archived Products',
         icon: RiProductHuntLine,
         href: '/products/archived',
@@ -68,6 +73,11 @@ export const navItems: NavItem[] = [
     title: 'Categories',
     icon: BiCategory,
     subMenu: [
+      {
+        title: 'Manage Categories',
+        icon: BiCategory,
+        href: '/categories/manage',
+      },
       {
         title: 'All Categories',
         icon: BiCategory,
@@ -91,16 +101,6 @@ export const navItems: NavItem[] = [
     ],
   },
   {
-    title: 'Performance',
-    icon: LineChart,
-    href: '/performance',
-  },
-  {
-    title: 'Analysis',
-    icon: PieChart,
-    href: '/analysis',
-  },
-  {
     title: 'Calendar',
     icon: FaRegCalendarAlt,
     href: '/calendar2',
@@ -116,9 +116,19 @@ export const navItems: NavItem[] = [
     href: '/ai',
   },
   {
+    title: 'Performance',
+    icon: LineChart,
+    href: '/underconstruction',
+  },
+  {
+    title: 'Analysis',
+    icon: PieChart,
+    href: '/underconstruction',
+  },
+  {
     title: 'Markets',
     icon: VscGraph,
-    href: '/markets',
+    href: '/underconstruction',
   },
   {
     title: 'Logout',
@@ -128,7 +138,7 @@ export const navItems: NavItem[] = [
   {
     title: 'Settings',
     icon: Settings,
-    href: '/settings',
+    href: '/adminsettings',
   },
 ];
 
@@ -244,18 +254,11 @@ const Sidebar = ({ isExpand, toggleExpand, setIsExpand }: SidebarProps) => {
         })}
       </nav>
 
-      <hr />
-
-      <ul className='flex flex-col gap-2 mx-2 '>
-        <li className='flex items-center gap-4 p-3 cursor-pointer hover:bg-gray-300 rounded-sm'><IoSettingsOutline /> {isExpand ? "Settings" : ""}</li>
-        <li className='flex items-center gap-4 p-3 cursor-pointer hover:bg-gray-300 rounded-sm'><IoIosHelpCircleOutline />{isExpand ? "Help" : ""}</li>
-      </ul>
-
-      <hr />
+      <hr className='mt-2'/>
 
       {/* User Profile Section */}
 
-      <div className='flex justify-between  items-center mb-4'>
+      <div className='flex justify-between  items-center my-4'>
         <div className='flex items-center gap-4 ml-2'>
           <Button sx={{ width: "35px", height: "35px", borderRadius: "50%", border: "solid red", padding: 0, minWidth: 0 }}>Go</Button>
           {isExpand ? <div>

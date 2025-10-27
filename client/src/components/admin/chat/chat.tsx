@@ -108,6 +108,7 @@ const mockMessages: Record<string, Message[]> = {
   ]
 };
 
+
 const Chat = () => {
   // ✅ Infer the correct type from the io() return
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
@@ -146,15 +147,22 @@ const Chat = () => {
       return;
     }
 
-    socketRef.current = io(backendUrl, {
-      transports: ['websocket'],
+    socketRef.current = io(backendUrl+"/admin", {
+      //transports: ['websocket'],
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
     });
 
-    socketRef.current.on("connect", () => setIsConnected(true));
-    socketRef.current.on("disconnect", () => setIsConnected(false));
+
+    socketRef.current.on("connect", () => {
+      console.log("🟢 Connected to socket");
+      setIsConnected(true);
+    });
+    socketRef.current.on("disconnect", () => {
+      console.log("🔴 Disconnected from socket");
+      setIsConnected(false);
+    });
 
     // Listen for icoming messages
     // socketRef.current.on("recieveMessage", (msg: ChatMessage) => {

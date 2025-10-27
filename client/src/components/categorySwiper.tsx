@@ -67,7 +67,7 @@ export default function CategorySwiper() {
                                             alt={item.title}
                                             className="w-20 h-20 object-contain transition-transform duration-300 group-hover:scale-110"
                                         />
-                                        <h3 className="text-sm font-medium text-gray-800 dark:text-white text-center capitalize">
+                                        <h3 className="text-sm font-medium text-gray-600 dark:text-white text-center capitalize">
                                             {item.title}
                                         </h3>
                                     </Link>

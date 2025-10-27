@@ -12,13 +12,16 @@ createRoot(document.getElementById('root')!).render(
 
   // <StrictMode>
   <Provider store={store}>
-    <SidebarContextProvider>
-      <CalendarProvider>
-        <BrowserRouter>
+
+    <BrowserRouter>
+    
+      <SidebarContextProvider>
+        <CalendarProvider>
           <App />
-        </BrowserRouter>
-      </CalendarProvider>
-    </SidebarContextProvider>
+        </CalendarProvider>
+      </SidebarContextProvider>
+    </BrowserRouter>
+
   </Provider>
 
   // </StrictMode>,

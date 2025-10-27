@@ -84,31 +84,31 @@ const Footer = () => {
             <div className='flex flex-col gap-4'>
               <h1 className='text-[24px]'>Products</h1>
               <ul className='flex flex-col gap-2'>
-                <li className='text-gray-600 dark:text-gray-400'>Product 1</li>
-                <li className='text-gray-600 dark:text-gray-400'>Product 2</li>
-                <li className='text-gray-600 dark:text-gray-400'>Product 3</li>
-                <li className='text-gray-600 dark:text-gray-400'>Product 4</li>
-                <li className='text-gray-600 dark:text-gray-400'>Product 5</li>
-                <li className='text-gray-600 dark:text-gray-400'>Product 6</li>
+                <li className='text-gray-600 dark:text-gray-400'>Price drop</li>
+                <li className='text-gray-600 dark:text-gray-400'>New products</li>
+                <li className='text-gray-600 dark:text-gray-400'>Best sales</li>
+                <li className='text-gray-600 dark:text-gray-400'>Contact us</li>
+                <li className='text-gray-600 dark:text-gray-400'>Site map</li>
+                <li className='text-gray-600 dark:text-gray-400'>Stores</li>
 
               </ul>
             </div>
             <div className='flex flex-col gap-4'>
               <h1 className='text-[24px]'>Our Company</h1>
               <ul className='flex gap-2 flex-col'>
-                <li className='text-gray-600 dark:text-gray-400'>Product 1</li>
-                <li className='text-gray-600 dark:text-gray-400'>Product 1</li>
-                <li className='text-gray-600 dark:text-gray-400'>Product 1</li>
-                <li className='text-gray-600 dark:text-gray-400'>Product 1</li>
-                <li className='text-gray-600 dark:text-gray-400'>Product 1</li>
-                <li className='text-gray-600 dark:text-gray-400'>Product 1</li>
+                <li className='text-gray-600 dark:text-gray-400'>Delivery</li>
+                <li className='text-gray-600 dark:text-gray-400'>Legal notice</li>
+                <li className='text-gray-600 dark:text-gray-400'>Terms and conditions</li>
+                <li className='text-gray-600 dark:text-gray-400'>About us</li>
+                <li className='text-gray-600 dark:text-gray-400'>Secure payment</li>
+                <li className='text-gray-600 dark:text-gray-400'>Login</li>
               </ul>
             </div>
             <div className='max-w-96 flex flex-col gap-5'>
               <h1 className='text-[24px]'>Subscribe To Newsletter</h1>
               <p className='text-gray-600'>Subscribe to our latest newsletter to get news about special discounts.</p>
               <TextField variant="outlined" type="text" placeholder="enter your email"></TextField>
-              <Button variant="contained" sx={{ width: 160 }} className='!bg-red-400'>SUBSCRIBE</Button>
+              <Button variant="contained" sx={{ width: 160 }} className='!bg-red-500'>SUBSCRIBE</Button>
               <FormControlLabel
                 control={
                   <Checkbox

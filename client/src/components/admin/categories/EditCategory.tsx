@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { Edit2 } from 'lucide-react';
+import { Edit2, Upload, X } from 'lucide-react';
 import { Button } from '../../../ui/button';
 import {
   Dialog,
@@ -29,14 +29,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../../ui/select';
-import { useCategories } from '../../../context/CategoryContext';
+import { useCategories } from '../context/categoryContext';
+import { Category } from '../types/category';
 import { useToast } from '../../../hooks/use-toast';
-import { Category } from '../../../types/category';
+
+
+
+
 
 const categorySchema = z.object({
   name: z.string().min(1, 'Category name is required').max(50, 'Name too long'),
   description: z.string().optional(),
-  parentId: z.string().optional(),
+  imageUrl: z.string().optional(),
+  parentCategoryId: z.string().optional(),
 });
 
 type CategoryFormData = z.infer<typeof categorySchema>;
@@ -47,7 +52,8 @@ interface EditCategoryProps {
 
 export function EditCategory({ category }: EditCategoryProps) {
   const [open, setOpen] = useState(false);
-  const { categories, updateCategory } = useCategories();
+  const [imagePreview, setImagePreview] = useState<string | null>(category.imageUrl || null);
+  const { getAllCategories, updateCategory } = useCategories();
   const { toast } = useToast();
 
   const form = useForm<CategoryFormData>({
@@ -55,14 +61,37 @@ export function EditCategory({ category }: EditCategoryProps) {
     defaultValues: {
       name: category.name,
       description: category.description || '',
-      parentId: category.parentId || 'none',
+      imageUrl: category.image || '',
+      parentCategoryId: category.parentCategoryId || 'none',
     },
   });
 
+  useEffect(() => {
+    setImagePreview(category.image || null);
+  }, [category.image]);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        setImagePreview(result);
+        form.setValue('imageUrl', result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setImagePreview(null);
+    form.setValue('imageUrl', '');
+  };
+
   const onSubmit = (data: CategoryFormData) => {
     try {
-      // Check for duplicate names (excluding current category)
-      const isDuplicate = categories.some(
+      const allCategories = getAllCategories();
+      const isDuplicate = allCategories.some(
         cat => cat.id !== category.id && cat.name.toLowerCase() === data.name.toLowerCase()
       );
       if (isDuplicate) {
@@ -72,8 +101,9 @@ export function EditCategory({ category }: EditCategoryProps) {
 
       updateCategory(category.id, {
         ...data,
-        parentId: data.parentId === 'none' ? undefined : data.parentId,
+        parentCategoryId: data.parentCategoryId === 'none' ? undefined : data.parentCategoryId,
       });
+      
       toast({
         title: 'Success',
         description: 'Category updated successfully',
@@ -85,9 +115,10 @@ export function EditCategory({ category }: EditCategoryProps) {
         description: 'Failed to update category',
         variant: 'destructive',
       });
-      console.error('Update category error:', error);
     }
   };
+
+  const allCategories = getAllCategories();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -96,7 +127,7 @@ export function EditCategory({ category }: EditCategoryProps) {
           <Edit2 className="w-4 h-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Edit Category</DialogTitle>
           <DialogDescription>
@@ -128,7 +159,6 @@ export function EditCategory({ category }: EditCategoryProps) {
                   <FormControl>
                     <Textarea
                       placeholder="Enter category description"
-                      className="resize-none"
                       {...field}
                     />
                   </FormControl>
@@ -139,7 +169,57 @@ export function EditCategory({ category }: EditCategoryProps) {
 
             <FormField
               control={form.control}
-              name="parentId"
+              name="imageUrl"
+              render={() => (
+                <FormItem>
+                  <FormLabel>Image (Optional)</FormLabel>
+                  <FormControl>
+                    <div className="space-y-3">
+                      {imagePreview ? (
+                        <div className="relative">
+                          <img
+                            src={imagePreview}
+                            alt="Preview"
+                            className="w-full h-48 object-cover rounded-lg border border-border"
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            onClick={removeImage}
+                            className="absolute top-2 right-2"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center w-full">
+                          <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
+                            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                              <Upload className="w-8 h-8 mb-2 text-muted-foreground" />
+                              <p className="text-sm text-muted-foreground">
+                                Click to upload image
+                              </p>
+                            </div>
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="image/*"
+                              onChange={handleImageChange}
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="parentCategoryId"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Parent Category (Optional)</FormLabel>
@@ -151,10 +231,10 @@ export function EditCategory({ category }: EditCategoryProps) {
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="none">None (Main Category)</SelectItem>
-                      {categories
-                        .filter(cat => cat.id !== category.id) // Prevent self-reference
+                      {allCategories
+                        .filter(cat => cat.id !== category.id)
                         .map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
+                          <SelectItem key={cat.id ?? cat._id} value={cat.id ?? cat._id}>
                             {cat.name}
                           </SelectItem>
                         ))}
@@ -183,3 +263,5 @@ export function EditCategory({ category }: EditCategoryProps) {
     </Dialog>
   );
 }
+
+

@@ -67,3 +67,55 @@ const user = await User.findOne({ email: 'example@example.com' }).select('+passw
 // | Automatically sets headers | ❌ Not always | ✅ Yes (`Content-Type: application/json`) |
 // | Clarity for JSON intent    | ❌ Implicit   | ✅ Clear                                  |
 // | Converts object to JSON    | ✅ Yes        | ✅ Yes                                    |
+
+
+
+
+
+
+
+
+Architecture:
+                 ┌──────────────────────────┐
+                 │      FRONTEND (React)     │
+                 │--------------------------│
+                 │ - User sees products      │
+                 │ - Adds to cart            │
+                 │ - Chat interface          │
+                 │ - Sends/receives messages│
+                 └────────────┬─────────────┘
+                              │
+            ┌─────────────────┴─────────────────┐
+            │          SOCKET.IO CLIENT          │
+            │ (runs in browser, connects to io) │
+            └─────────────┬───────────────┬─────┘
+                          │               │
+                "join"   │               │   "sendMessage"
+                          │               │
+                          ▼               ▼
+                 ┌──────────────────────────────┐
+                 │      SERVER (Express + io)   │
+                 │------------------------------│
+                 │ 1. Receives HTTP API calls   │
+                 │    - Products / Users / Cart│
+                 │ 2. Receives Socket.IO events │
+                 │    - message / sendMessage  │
+                 │ 3. Broadcast or private msg │
+                 └─────────────┬────────────────┘
+                               │
+               ┌───────────────┴───────────────┐
+               │                               │
+               ▼                               ▼
+       ┌───────────────┐                ┌───────────────┐
+       │    REDIS      │                │   MONGODB      │
+       │---------------│                │---------------│
+       │ - Stores      │                │ - Persistent  │
+       │   temporary   │                │   data:      │
+       │   data        │                │   - Users    │
+       │   (cart,      │                │   - Messages │
+       │    sessions)  │                │   - Orders   │
+       │ - Fast read   │                │ - Chat msgs  │
+       │   and write   │                │   history    │
+       └───────────────┘                └───────────────┘
+
+

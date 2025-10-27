@@ -1,7 +1,6 @@
 // import { lazy, Suspense } from 'react';
 import "./App.css"
 import { Routes, Route, Navigate } from "react-router-dom";
-import Header from "./components/header";
 // import { ThemeProvider } from '@mui/material';
 // import { theme } from './themes/theme';
 // import DrawCircle from './components/drawCircle';
@@ -41,7 +40,6 @@ import CreateProduct from "./components/admin/products/CreateProduct/createProdu
 import CreateCategory from "./components/admin/categories/createCategory2";
 import Orders from "./components/admin/orders";
 import AdminLayout from "./components/admin/layout";
-import AdminProfile from "./components/admin/adminProfile";
 import CustomersTable from "./components/admin/customers/customersTable";
 import GuestRoute from "./routes/GuestRoutes";
 //import ProtectedRoute from "./routes/ProtectedRoute";
@@ -52,11 +50,18 @@ import Cp from "./components/admin/cp";
 import CreateProduct3 from "./components/admin/products/CreateProduct/CreateProduct3";
 import { CreateProduct2 } from "./components/admin/products/CreateProduct";
 import AdminAgentLayout from "./components/admin/Agents/chatBot";
-import Categories from "./components/admin/categories/categories";
-import { CategoryProvider } from "./context/CategoryContext";
+import { CategoryProvider } from './components/admin/context/categoryContext.tsx'
 import SubCategory from "./components/admin/categories/subCategory";
 import CustomerSupport from "./pages/CustomerSupport";
-
+import SignUp from "./components/auth/signup";
+import AdminProfile from "./components/admin/pages/ADProfile";
+import AdminSettings from "./components/admin/pages/ADSettings";
+import AdminChangePassword from "./components/admin/pages/ADchangePW";
+import CategoryManager from "./components/admin/categories/Categories.tsx";
+import Home from "./pages/home.tsx";
+import ProductDetailsPage from "./pages/ProductDetailsPage.tsx";
+import UnderConstruction from "./components/admin/components/underConstruction.tsx";
+import ProductCategories from "./pages/ProductCategories.tsx";
 
 
 
@@ -69,16 +74,15 @@ const App = () => {
       {/* <Tablewithpagination></Tablewithpagination> */}
       {/* <MultiStepForm></MultiStepForm> */}
       {/* <FormikComponent/> */}
-      {/* <FaqComp></FaqComp> */}
       {/* <ThemeProvider theme={theme}> */}
       <ThemeProvider defaultTheme="system" storageKey="marketpulse-ui-theme">
         <AuthProvider>
           <CategoryProvider>
-          {/* <RegisterForm/> */}
+            {/* <RegisterForm/> */}
 
-          {/* <Suspense fallback={<h1>Loading....</h1>}> */}
-          <Routes>
-            {/* <Route path='/' element={<Layout/>}>
+            {/* <Suspense fallback={<h1>Loading....</h1>}> */}
+            <Routes>
+              {/* <Route path='/' element={<Layout/>}>
         <Route index element={<Hero/>} />
       </Route>
       <Route path='login' element={<Login/>}></Route>
@@ -92,55 +96,60 @@ const App = () => {
       <Route path='drawCircle' element={<DrawCircle/>}></Route>
       <Route path='multipageauth' element={<MultipageAuth/>}></Route>
       <Route path='*' element={<h1>page not found</h1>}></Route> */}
-            {/* <Route element={<ProtectedRoute />}> */}
-            <Route path='/' element={<Header />}></Route>
-            <Route path="/address" element={<AddressForm />}></Route>
-            <Route path='ProductDetails/:id' element={<ProductDetails />}></Route>
-            <Route path="Productcategory" element={<Productcategory />}></Route>
-            <Route path="/blogsection" element={<BlogSection />}></Route>
-            <Route path="/blog/:id" element={<BlogDetail />} />
-            <Route path="cartPage" element={<CartPage />}></Route>
-            <Route path="myaccount" element={<MyAccount />}></Route>
-            <Route path="addaddress" element={<AddressPage />}></Route>
-            <Route path="category-chart" element={<Testh />}></Route>
-            <Route path="customersupport" element={<CustomerSupport/>}></Route>
-            <Route path="rating"></Route>
-            {/* </Route> */}
+              {/* <Route element={<ProtectedRoute />}> */}
+              {/* <Route path='/' element={<Header />}></Route> */}
+              <Route path='/home' element={<Home />}></Route>
+              <Route path="/address" element={<AddressForm />}></Route>
+              <Route path='productdetails/:id' element={<ProductDetailsPage/>}></Route>
+              <Route path="productcategories" element={<ProductCategories/>}></Route>
+              <Route path="/blogsection" element={<BlogSection />}></Route>
+              <Route path="/blog/:id" element={<BlogDetail />} />
+              <Route path="cartPage" element={<CartPage />}></Route>
+              <Route path="myaccount" element={<MyAccount />}></Route>
+              <Route path="addaddress" element={<AddressPage />}></Route>
+              <Route path="category-chart" element={<Testh />}></Route>
+              <Route path="customersupport" element={<CustomerSupport />}></Route>
+              <Route path="rating"></Route>
+              {/* </Route> */}
 
-            <Route path="/" element={<AdminLayout />}>
-              <Route path="dashboard" element={<Dashboard />}></Route>
-              <Route path="categories/create" element={<CreateCategory />} />
-              <Route path="categories" element={<Categories/>} />
-              <Route path="categories/create-subcategory" element={<SubCategory/>} />
-              <Route path="orders" element={<Orders />}></Route>
-              <Route path="/customers" element={<CustomersTable />} />
-              <Route path="admin-profile" element={<AdminProfile />} />
-              <Route path="chat" element={<Chat />} />
-              <Route path="calendar2" element={<Calendar2 />} />
-              <Route path="calendar3" element={<Calendar3 />} />
-              <Route path="products/create" element={<CreateProduct />} />
-              <Route path="createproduct3" element={<CreateProduct3 />} />
-              <Route path="adminagent" element={<AdminAgentLayout />} />
-              {/* <Route path="createproduct" element={<CreateProduct2/>} /> */}
+              <Route path="/" element={<AdminLayout />}>
+                <Route path="dashboard" element={<Dashboard />}></Route>
+                <Route path="adminprofile" element={<AdminProfile />} />
+                <Route path="adminsettings" element={<AdminSettings />} />
+                <Route path="adminchangepassword" element={<AdminChangePassword />} />
+                <Route path="categories/manage" element={<CategoryManager />} />
+                <Route path="categories/create" element={<CreateCategory />} />
+                <Route path="categories/create-subcategory" element={<SubCategory />} />
+                <Route path="orders" element={<Orders />}></Route>
+                <Route path="/customers" element={<CustomersTable />} />
+                <Route path="admin-profile" element={<AdminProfile />} />
+                <Route path="chat" element={<Chat />} />
+                <Route path="calendar2" element={<Calendar2 />} />
+                <Route path="calendar3" element={<Calendar3 />} />
+                <Route path="products/create" element={<CreateProduct />} />
+                <Route path="createproduct3" element={<CreateProduct3 />} />
+                <Route path="adminagent" element={<AdminAgentLayout />} />
+                <Route path="underconstruction" element={<UnderConstruction />} />
+                {/* <Route path="createproduct" element={<CreateProduct2/>} /> */}
 
-            </Route>
+              </Route>
 
-            <Route element={<GuestRoute />}>
-              {/* <Route path="signup" element={<Signup />}></Route> */}
-              <Route path="login" element={<Login />}></Route>
-              <Route path="otpverify" element={<OtpVerify />}></Route>
-              <Route path="forgot-password/:email" element={<ForgotPassword />}></Route>
-              <Route path="reset-password" element={<ResetPassword />}></Route>
-            </Route>
+              <Route element={<GuestRoute />}>
+                <Route path="signup" element={<SignUp />}></Route>
+                <Route path="login" element={<Login />}></Route>
+                <Route path="otpverify" element={<OtpVerify />}></Route>
+                <Route path="forgot-password/:email" element={<ForgotPassword />}></Route>
+                <Route path="reset-password" element={<ResetPassword />}></Route>
+              </Route>
 
-            {/* <Route path='*' element={<NotFound />}></Route>  */}
-            {/* or */}
-            <Route path="*" element={<Navigate to="/" replace />} />
+              {/* <Route path='*' element={<NotFound />}></Route>  */}
+              {/* or */}
+              <Route path="*" element={<Navigate to="/" replace />} />
 
-          </Routes>
-          {/* </Suspense>
+            </Routes>
+            {/* </Suspense>
     </ThemeProvider> */}
-          <Toaster />
+            <Toaster />
           </CategoryProvider>
         </AuthProvider>
       </ThemeProvider>
