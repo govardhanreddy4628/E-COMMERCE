@@ -1,8 +1,9 @@
 // server/controllers/paymentController.js
-import { orderModel } from "../models/orderModel.js";
+
 import { razorpayInstance } from "../index.js";
 import crypto from "crypto";
 import { Request, Response } from "express";
+import orderModel from "../models/orderModel.js";
 
 // Create Razorpay order and save local order
 export const createOrder = async (req:Request, res:Response) => {

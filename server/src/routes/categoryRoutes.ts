@@ -5,10 +5,10 @@ import {
   getCategoryTree,
   getSingleCategoryByIdController,
   updateCategoryController,
-} from "../controllers/categoryController";
-import { auth } from "../middleware/auth";
-import { uploadSingle } from "../middleware/multer";
-import { uploadLimiter } from "../middleware/rateLimiter";
+} from "../controllers/categoryController.js";
+import { auth } from "../middleware/auth.js";
+import { uploadSingle } from "../middleware/multer.js";
+import { uploadLimiter } from "../middleware/rateLimiter.js";
 import { Roles } from "../constants";
 
 const categoryRouter = Router();

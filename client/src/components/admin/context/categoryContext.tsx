@@ -52,13 +52,14 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const parseCategoryDates = (cat: any): Category => ({
+  // 🧩 Convert "children" to "subcategories" recursively and normalize dates recursively
+  const normalizeCategoryTree = (cat: any): Category => ({
     ...cat,
+    subcategories: Array.isArray(cat.children)
+      ? cat.children.map(normalizeCategoryTree)
+      : [],
     createdAt: cat.createdAt ? new Date(cat.createdAt) : new Date(),
     updatedAt: cat.updatedAt ? new Date(cat.updatedAt) : new Date(),
-    subcategories: Array.isArray(cat.subcategories)
-      ? cat.subcategories.map(parseCategoryDates)
-      : [],
   });
 
   // useEffect(() => {
@@ -107,9 +108,9 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
                 ? data.data.categories
                 : [];
 
-          // Normalize dates recursively
-          const categoriesWithDates = rawList.map(parseCategoryDates);
-          setCategories(categoriesWithDates);
+          // 🧩 Convert "children" to "subcategories" recursively and normalize dates recursively
+          const normalizedList = rawList.map(normalizeCategoryTree);
+          setCategories(normalizedList);
         } else {
           console.error("Failed to fetch categories:", data.message);
           setCategories([]);
@@ -149,11 +150,13 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
   };
 
   const addCategory = async (data: CategoryFormData): Promise<Category> => {
+    console.log(data.imageFile)
     const formData = new FormData();
     formData.append("name", data.name.trim());
     if (data.description) formData.append("description", data.description.trim());
     if (data.parentCategoryId) formData.append("parentCategoryId", data.parentCategoryId);
     if (data.imageFile) formData.append("image", data.imageFile);
+
 
     const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/category/create-category`, {
       method: "POST",

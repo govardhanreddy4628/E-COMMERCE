@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
-import * as ai from "../services/aiService";
-import * as prompts from "../services/promptTemplates";
-import Message from "../models/Message";
-import orderModel from "../models/orderModel";
-import productModel from "../models/productModel";
-import CartModel from "../models/cartModel";
+import * as ai from "../services/aiService.js";
+import * as prompts from "../services/promptTemplates.js";
+import orderModel from "../models/orderModel.js";
+import productModel from "../models/productModel.js";
+import CartModel from "../models/cartModel.js";
+import { Message } from "../models/MessageModel.js";
 
 /**
  * POST /assistant/query

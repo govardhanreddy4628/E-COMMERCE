@@ -3,9 +3,10 @@ import React from 'react';
 import Cropper from 'react-easy-crop';
 import { Area } from 'react-easy-crop';
 import { IoMdClose } from "react-icons/io";
+import { UploadedImage } from './Media';
 
 type ImagePreviewModalProps = {
-  image: File;
+  image: UploadedImage;
   onClose: () => void;
   crop: { x: number; y: number };
   zoom: number;
@@ -47,6 +48,11 @@ export const ImgEditModal: React.FC<ImagePreviewModalProps> = ({
   onResetFilters,
   onCropAndSave,
 }) => {
+  // ✅ Handle both File and Cloudinary image URLs
+  const imageUrl = image.file
+    ? URL.createObjectURL(image.file)
+    : image.url;
+
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-80 flex justify-center items-center">
       <div className='h-[95vh] flex items-center justify-center max-w-6xl w-full relative p-8'>
@@ -60,7 +66,7 @@ export const ImgEditModal: React.FC<ImagePreviewModalProps> = ({
         <div className="relative w-full h-full bg-white dark:bg-gray-900 p-4 rounded-lg">
           <div className="relative h-[50vh]">
             <Cropper
-              image={URL.createObjectURL(image)}
+              image={imageUrl}
               crop={crop}
               zoom={zoom}
               rotation={rotate}

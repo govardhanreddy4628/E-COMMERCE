@@ -22,7 +22,7 @@ interface IUser extends Document {
   orderHistory?: mongoose.Types.ObjectId[];
 }
 
-interface IUserDocument extends IUser, Document {
+export interface IUserDocument extends IUser, Document {
     createdAt:Date;
     updatedAt:Date;
 }

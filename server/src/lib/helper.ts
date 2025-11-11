@@ -1,13 +1,46 @@
+// src/utils/chatHelpers.ts
 import { userSocketIDs } from "../sockets/initAdminChat";
+import type { Socket } from "socket.io";
 
-export const getOtherMember = (members, userId) =>
-  members.find((member) => member._id.toString() !== userId.toString());
+// ✅ Define minimal interfaces for clarity
+interface Member {
+  _id: string | { toString(): string };
+}
 
-export const getSockets = (users = []) => {
-  const sockets = users.map((user) => userSocketIDs.get(user.toString()));
+interface FileData {
+  mimetype: string;
+  buffer: Buffer;
+}
 
-  return sockets;
+// Get the "other" member in a two-member chat (excludes the given userId)
+export const getOtherMember = (members: Member[], userId: string): Member | undefined => {
+  return members.find((member) => member._id.toString() !== userId.toString());
 };
 
-export const getBase64 = (file) =>
-  `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+// Get socket IDs (or sockets) of given users from global socket map
+export const getSockets = (users: (string | { toString(): string })[] = []): (string | undefined)[] => {
+  return users.map((user) => userSocketIDs.get(user.toString()));
+};
+
+// Convert uploaded file buffer to base64 data URL
+export const getBase64 = (file: FileData): string => {
+  return `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;
+};
+
+
+
+
+
+// import { userSocketIDs } from "../sockets/initAdminChat";
+
+// export const getOtherMember = (members, userId) =>
+//   members.find((member) => member._id.toString() !== userId.toString());
+
+// export const getSockets = (users = []) => {
+//   const sockets = users.map((user) => userSocketIDs.get(user.toString()));
+
+//   return sockets;
+// };
+
+// export const getBase64 = (file) =>
+//   `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;       

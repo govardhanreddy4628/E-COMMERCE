@@ -26,11 +26,7 @@ api.interceptors.request.use(
 )
 
 // intentApi.ts
-import axios from "axios";
-
-const intentApi = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL || "http://localhost:5000/api",
-});
+const intentApi = axios.create({ baseURL: import.meta.env.VITE_BACKEND_URL || "http://localhost:5000/api"});
 
 intentApi.interceptors.request.use((config) => {
   const intentToken = localStorage.getItem("intentToken");
@@ -41,9 +37,6 @@ intentApi.interceptors.request.use((config) => {
 });
 
 export default intentApi;
-
-
-
 
 
 

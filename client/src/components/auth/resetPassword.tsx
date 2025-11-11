@@ -95,8 +95,6 @@ const ResetPassword = () => {
 
 
 
-    
-
 }
 
 return (

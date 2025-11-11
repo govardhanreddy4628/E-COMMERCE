@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from "mongoose";
 import slugify from "slugify";
-import { IReview } from "./reviewsModel";
+import { IReview } from "./reviewsModel.js";
 
 export interface IEmbeddedOffer {
   type: string;
@@ -67,8 +67,25 @@ interface IProduct extends Document {
   quantityInStock: number;
   recentQuantity: number;
   rating?: number;
+  numReviews: number;
   thumbnails: string[];
-  images: string[];
+  images?: {
+    public_id: string;
+    url: string;
+    width?: number;
+    height?: number;
+    format?: string;
+    size?: number;
+    uploadedAt?: Date;
+    alt?: string;
+  }[];
+  imageAudit?: {
+    public_id?: string;
+    action?: "upload" | "delete" | "replace";
+    userId?: mongoose.Types.ObjectId;
+    timestamp?: Date;
+    meta?: Record<string, any>;
+  }[];
   availableColors?: mongoose.Schema.Types.Mixed[];
   productMeasurement?: string[];
   sizes?: any[];
@@ -93,7 +110,6 @@ interface IProduct extends Document {
   updatedBy?: mongoose.Types.ObjectId;
 }
 
-
 //==============schema=======================
 const EmbeddedOfferSchema = new Schema<IEmbeddedOffer>(
   {
@@ -113,7 +129,7 @@ const SpecificationsSchema = new Schema<ISpecifications>({
 
 const VariantSchema: Schema = new Schema(
   {
-    sku: { type: String, required: true,},
+    sku: { type: String, required: true },
     color: { type: String },
     size: { type: String },
     stock: { type: Number, required: true, min: 0 },
@@ -170,7 +186,7 @@ const productSchema = new mongoose.Schema<IProduct>(
       type: String,
       unique: true,
       lowercase: true,
-      index: true,
+      //index: true,
     },
     shortDescription: { type: String, required: true },
     description: { type: String, required: true },
@@ -206,12 +222,6 @@ const productSchema = new mongoose.Schema<IProduct>(
     },
 
     warranty: { type: String },
-    rating: {
-      type: Number,
-      min: [0, "wrong min rating"],
-      max: [5, "wrong max rating"],
-      default: 0,
-    },
 
     specifications: [SpecificationsSchema],
     //variants: { type: [VariantSchema], default: [] },
@@ -233,14 +243,27 @@ const productSchema = new mongoose.Schema<IProduct>(
       //   "At least one thumbnail required",
       // ],
     },
-    images: {
-      type: [String],
-      required: true,
-      validate: [
-        (val: string[]) => val.length > 0,
-        "At least one image required",
-      ],
-    },
+    images: [
+      {
+        public_id: { type: String, required: true },
+        url: { type: String, required: true },
+        width: Number,
+        height: Number,
+        format: String,
+        size: Number,
+        uploadedAt: { type: Date, default: Date.now },
+        alt: { type: String, default: "" },
+      },
+    ],
+    imageAudit: [
+      {
+        public_id: String,
+        action: { type: String, enum: ["upload", "delete", "replace"] },
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        timestamp: { type: Date, default: Date.now },
+        meta: mongoose.Schema.Types.Mixed,
+      },
+    ],
     sizes: {
       type: [Schema.Types.Mixed], //Schema.Types.Mixed (or just mongoose.Schema.Types.Mixed) defines a Mongoose schema field that holds an array of arbitrary values — in other words, it's an array where each element can be any type (object, string, number, etc.).
       default: [],
@@ -251,7 +274,12 @@ const productSchema = new mongoose.Schema<IProduct>(
     //shipping: { type: ShippingSchema, default: { isShippable: true } },
 
     sku: { type: String, unique: true, index: true },
-    barcode: { type: String, unique: true, sparse: true },
+    barcode: {
+      type: String,
+      //unique: true,
+      sparse: true, // ensures uniqueness only for documents with a barcode
+      default: null,
+    },
     seoTags: { type: [String], default: [] },
 
     seoTitle: { type: String, maxlength: 60 },
@@ -260,11 +288,17 @@ const productSchema = new mongoose.Schema<IProduct>(
 
     offerIds: [{ type: Schema.Types.ObjectId, ref: "Offer" }],
     embeddedOffers: [EmbeddedOfferSchema],
-
+    rating: {
+      type: Number,
+      min: [0, "wrong min rating"],
+      max: [5, "wrong max rating"],
+      default: 0,
+    },
     reviews: [
       {
         user: { type: Schema.Types.ObjectId, ref: "User" },
         rating: { type: Number, min: 1, max: 5 },
+        numReviews: { type: Number, default: 0 },
         comment: String,
         createdAt: { type: Date, default: Date.now },
       },
@@ -301,7 +335,6 @@ productSchema.pre("save", async function (next) {
   next();
 });
 
-
 //======================== Virtuals & Indexes ========================//
 
 // ✅ Virtual field for final price
@@ -310,12 +343,10 @@ productSchema.virtual("finalPrice").get(function () {
   return Math.round(this.price * (1 - discount / 100));
 });
 
-
 // productSchema.index({ slug: 1 });
 // productSchema.index({ category: 1 });
 // productSchema.index({ deleted: 1 });
 // productSchema.index({ isFeatured: 1 });
-
 
 const productModel = mongoose.model<IProduct>("Product", productSchema);
 export default productModel;

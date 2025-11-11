@@ -35,8 +35,6 @@ import { useToast } from '../../../hooks/use-toast';
 
 
 
-
-
 const categorySchema = z.object({
   name: z.string().min(1, 'Category name is required').max(50, 'Name too long'),
   description: z.string().optional(),
@@ -48,9 +46,10 @@ type CategoryFormData = z.infer<typeof categorySchema>;
 
 interface EditCategoryProps {
   category: Category;
+  children?: React.ReactNode;
 }
 
-export function EditCategory({ category }: EditCategoryProps) {
+export function EditCategory({ category, children }: EditCategoryProps) {
   const [open, setOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(category.imageUrl || null);
   const { getAllCategories, updateCategory } = useCategories();
@@ -120,12 +119,17 @@ export function EditCategory({ category }: EditCategoryProps) {
 
   const allCategories = getAllCategories();
 
+  const defaultTrigger = (
+    <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-accent">
+      <Edit2 className="w-4 h-4" />
+    </Button>
+  );
+
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-accent">
-          <Edit2 className="w-4 h-4" />
-        </Button>
+        {children || defaultTrigger}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>

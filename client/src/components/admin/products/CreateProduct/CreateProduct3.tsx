@@ -1,16 +1,15 @@
 import { useRef, useEffect, useState, useContext } from "react";
-import { useNavigate } from "react-router-dom";
-import { MdInfo, MdInventory } from "react-icons/md";
+import { useNavigate, useParams } from "react-router-dom";
+import { MdInfo, MdInventory, MdOutlinePermMedia } from "react-icons/md";
 import { HiOutlineTag } from "react-icons/hi2";
 import { BsCurrencyDollar } from "react-icons/bs";
-import { MdOutlinePermMedia } from "react-icons/md";
 import { BiSolidOffer } from "react-icons/bi";
-import Media from "./Media";
+import Media, { UploadedImage } from "./Media";
 import BasicInfo from "./BasicInfo";
 import Pricing from "./Pricing";
 import Inventory from "./Inventory";
 import SeoTags from "./SeoTags";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useToast } from "../../../../hooks/use-toast";
@@ -22,6 +21,9 @@ import { Button } from "../../../../ui/button";
 import { useCategories } from "../../context/categoryContext";
 import Offers from "./Offers";
 
+// ---------------------------
+// TAB COMPONENT CONFIG
+// ---------------------------
 const tabComponents: Record<string, React.ComponentType<any>> = {
     basic: BasicInfo,
     pricing: Pricing,
@@ -41,7 +43,9 @@ const TABS = [
 ];
 
 
-
+// ---------------------------
+// SCHEMAS
+// ---------------------------
 const offerSchema = z.object({
     type: z.enum(["Bank Offer", "Special Price", "Coupon", "Cashback"]),
     description: z.string().min(1, "Offer description is required"),
@@ -72,15 +76,16 @@ const productSchema = z.object({
     finalPrice: z.number().min(1, "Price must be greater than 0").max(200000),
     costPerItem: z.number().min(0, "Cost must be 0 or greater").optional(),
     listedPrice: z.number().optional(),
-    highlights: z.array(z.string().min(2, "Highlight must be at least 2 characters")).max(10, "Max 10 highlights allowed").optional(), isFeatured: z.boolean().default(false),
+    highlights: z.array(z.string().min(2, "Highlight must be at least 2 characters")).max(10, "Max 10 highlights allowed").optional(),
     isActive: z.boolean().default(true),
-    //isFeatured: z.boolean().default(false),
+    isFeatured: z.boolean().default(false),
     warranty: z.string(),
     sku: z.string().min(1, "SKU is required").max(50, "SKU must be less than 50 characters"),
     productColor: z.string().optional(),
     availableColorsForProduct: z.array(z.string()).optional(),
     trackQuantity: z.boolean().default(true),
     quantityInStock: z.number().min(0, "Quantity In Stock cannot be negative").optional(),
+    lowStockThreshold: z.number().min(0, "Quantity In Stock cannot be negative").default(10),
     recentQuantity: z.number().min(0, "Recent Quantity cannot be negative").optional(),
     specifications: z.array(
         z.object({
@@ -90,7 +95,6 @@ const productSchema = z.object({
             group: z.string().optional(),
         })
     ).optional(),
-
     shipping: z.boolean().default(true),
     barcode: z.string().optional(),
     seoTags: z.array(z.string()).max(10, "Maximum 10 tags allowed"),
@@ -103,19 +107,25 @@ const productSchema = z.object({
 
 type ProductFormData = z.infer<typeof productSchema>;
 
-
+// ---------------------------
+// MAIN COMPONENT
+// ---------------------------
 export default function CreateProduct3() {
     const navigate = useNavigate();
+    const { id } = useParams(); // detect edit mode
+    const isEditMode = Boolean(id);
+
     const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
     const [activeTab, setActiveTab] = useState("basic");
     const [wizardMode, setWizardMode] = useState(false);
     const [currentTab, setCurrentTab] = useState("basic");
 
-    const [uploadedImages, setUploadedImages] = useState<File[]>([]);
+    const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
     const [tagInput, setTagInput] = useState("");
 
     const [selectedCategory, setSelectedCategory] = useState("");
     const { categories } = useCategories();
+    const { toast } = useToast();
 
 
     const context = useContext(sideBarContext);
@@ -124,17 +134,11 @@ export default function CreateProduct3() {
 
     useEffect(() => { setIsExpand(false) }, [setIsExpand])
 
-    const [validation, setValidation] = useState<Record<string, boolean>>(
-        TABS.reduce((acc, tab) => ({ ...acc, [tab.id]: false }), {})
-    );
-
-
-    const { toast } = useToast();
 
     const MAX_IMAGES = 10;
 
     const form = useForm<ProductFormData>({
-        resolver: zodResolver(productSchema),
+        resolver: zodResolver(productSchema) as Resolver<ProductFormData, object>,
         defaultValues: {
             name: "",
             description: "",
@@ -148,6 +152,7 @@ export default function CreateProduct3() {
             barcode: "",
             trackQuantity: true,
             quantityInStock: 0,
+            lowStockThreshold: 0,
             recentQuantity: 0,
             specifications: [],
             seoTags: [],
@@ -164,67 +169,120 @@ export default function CreateProduct3() {
         },
     });
 
-    const watchedTags = form.watch("seoTags");
-    const watchedTrackQuantity = form.watch("trackQuantity");
-    const watchedFinalPrice = form.watch("finalPrice");
-    const watchedListedPrice = form.watch("listedPrice");
 
+    // ---------------------------
+    // LOAD PRODUCT DATA IF EDIT MODE
+    // ---------------------------
+    useEffect(() => {
+        if (isEditMode) {
+            (async () => {
+                try {
+                    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/product/${id}`);
+                    if (!res.ok) throw new Error("Failed to fetch product");
+                    const data = await res.json();
+                    if (data?.product) {
+                        form.reset(data.product);
+                        setSelectedCategory(data.product.category || "");
+                        setUploadedImages(data.product.images || []);
+                    }
+                } catch (err) {
+                    console.error("Error loading product:", err);
+                    toast({
+                        title: "Error loading product",
+                        description: "Could not load product details.",
+                        variant: "destructive",
+                    });
+                }
+            })();
+        }
+    }, [isEditMode, id]);
+
+
+    // ---------------------------
+    // FORM SUBMIT HANDLER
+    // ---------------------------
     const onSubmit = async (data: ProductFormData) => {
         try {
 
             // const allValid = Object.values(validation).every(Boolean);
             // if (!allValid) return;
 
-            // In a real application, you would send this data to your API
+            if (uploadedImages.length === 0) {
+                toast({
+                    title: "Missing images",
+                    description: "Please upload at least one image.",
+                    variant: "destructive",
+                });
+                return;
+            }
+
+            const payload = {
+                ...data,
+                images: uploadedImages, // each image has public_id + secure_url
+            };
+
+            const url = isEditMode
+                ? `${import.meta.env.VITE_BACKEND_URL}/api/v1/product/update/${id}`
+                : `${import.meta.env.VITE_BACKEND_URL}/api/v1/product/createproduct`;
+
+            const method = isEditMode ? "PUT" : "POST";
+
             console.log("Product data:", data);
             console.log("Uploaded images:", uploadedImages);
 
-            const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/product/createproduct`, {
-                method: "POST",
+
+            // Send JSON to server (product create endpoint that accepts JSON)
+            const res = await fetch(url, {
+                method,
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ ...data, images: uploadedImages.map(file => file.name) }) // send image names for now,
+                body: JSON.stringify(payload) // send image names for now,
             });
 
-            if (!res.ok) throw new Error("Product creation failed");
-            
+            const respData = await res.json();
+            console.log("Server response:", respData);
+            if (!res.ok) throw new Error(isEditMode ? "Product Update failed" : "Product Creation failed");
+
             toast({
-                title: "Product created successfully!",
-                description: `${data.name} has been added to your catalog.`,
+                title: isEditMode ? "Product updated!" : "Product created!",
+                description: `${data.name} has been ${isEditMode ? "updated" : "added"} successfully.`,
                 variant: "default",
             });
 
             // Reset form
-            form.reset();
-            setUploadedImages([]);
-            setTagInput("");
-            setSelectedCategory("");
-            return res.json();
+            if (isEditMode) navigate("/admin/products");
+            if (!isEditMode) {
+                form.reset();
+                setUploadedImages([]);
+                setTagInput("");
+                setSelectedCategory("");
+            }
+            return respData;
         } catch (error) {
             toast({
                 title: "Error creating product",
-                description: "Please try again later.",
+                description: "Something went wrong. Please try again later.",
                 variant: "destructive",
             });
-            console.error("Error creating product:", error);
+            console.error("submitProduct error:", error);
         }
     };
 
 
 
-    const removeImage = (index: number) => {
-        setUploadedImages(prev => prev.filter((_, i) => i !== index));
-    };
+    // ---------------------------
+    // OTHER UI LOGIC (TABS, VALIDATION, ETC.)
+    // ---------------------------
+    const [validation, setValidation] = useState<Record<string, boolean>>(
+        TABS.reduce((acc, tab) => ({ ...acc, [tab.id]: false }), {})
+    );
 
-    const addTag = () => {
-        if (tagInput.trim() && !watchedTags.includes(tagInput.trim()) && watchedTags.length < 10) {
-            form.setValue("seoTags", [...watchedTags, tagInput.trim()]);
-            setTagInput("");
-        }
-    };
 
-    const removeTag = (tagToRemove: string) => {
-        form.setValue("seoTags", watchedTags.filter(tag => tag !== tagToRemove));
-    };
+    const watchedTags = form.watch("seoTags");
+    const watchedTrackQuantity = form.watch("trackQuantity");
+    const watchedFinalPrice = form.watch("finalPrice");
+    const watchedListedPrice = form.watch("listedPrice");
+
+
 
     const handleCategoryChange = (category: string) => {
         setSelectedCategory(category);
@@ -240,6 +298,39 @@ export default function CreateProduct3() {
             form.setValue("sku", sku);
         }
     };
+
+    const addTag = () => {
+        if (tagInput.trim() && !watchedTags.includes(tagInput.trim()) && watchedTags.length < 10) {
+            form.setValue("seoTags", [...watchedTags, tagInput.trim()]);
+            setTagInput("");
+        }
+    };
+
+    const removeTag = (tagToRemove: string) => {
+        form.setValue("seoTags", watchedTags.filter(tag => tag !== tagToRemove));
+    };
+
+
+    const removeImage = async (index: number) => {
+        const image = uploadedImages[index];
+        if (!image?.public_id) return;
+
+        try {
+            await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/product/delete`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ publicId: image.public_id }),
+            });
+
+            setUploadedImages((prev) => prev.filter((_, i) => i !== index));
+            toast({ title: "Image deleted successfully" });
+        } catch (err: any) {
+            console.error(err);
+            toast({ title: "Failed to delete image", description: err.message, variant: "destructive" });
+        }
+    };
+
+
 
 
 
@@ -274,7 +365,6 @@ export default function CreateProduct3() {
     };
 
 
-
     const validateSection = (id: string, isValid: boolean) => {
         setValidation((prev) => ({ ...prev, [id]: isValid }));
     };
@@ -287,7 +377,6 @@ export default function CreateProduct3() {
         const idx = TABS.findIndex((t) => t.id === currentTab);
         if (idx > 0) setCurrentTab(TABS[idx - 1].id);
     };
-
 
 
     const tabPropsMap: Record<string, any> = {
@@ -336,7 +425,7 @@ export default function CreateProduct3() {
                         <div className="flex items-center gap-2 text-sm">
                             <button type="button" onClick={() => navigate(-1)} className="text-gray-500 hover:text-gray-900">← Back</button>
                             <span>/</span>
-                            <span className="font-medium text-gray-800">Create Product</span>
+                            <span className="font-medium text-gray-800">{isEditMode ? "Edit Product" : "Create Product"}</span>
                         </div>
                         <div className="flex items-center gap-2 text-xs">
                             <label>Wizard Mode</label>
@@ -420,17 +509,24 @@ export default function CreateProduct3() {
 
                     {!wizardMode && (
                         <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2">
-                            <Button type="button" className="px-6 py-3 rounded-md shadow-lg border border-gray-800 shadow-gray-500" variant="outline" onClick={() => form.reset()}>
-                                Reset Form
-                            </Button>
+                            {!isEditMode && (
+                                <Button type="button" className="px-6 py-3 rounded-md shadow-lg border border-gray-800 shadow-gray-500" variant="outline" onClick={() => form.reset()}>
+                                    Reset Form
+                                </Button>
+                            )}
                             <Button
                                 type="submit"
                                 className="bg-blue-600 text-white px-6 py-3 rounded-md shadow-lg shadow-gray-500 hover:bg-blue-700 transition"
                                 disabled={form.formState.isSubmitting}
                             >
-                                {form.formState.isSubmitting ? "Creating Product..." : "Create Product"}
+                                {form.formState.isSubmitting
+                                    ? isEditMode
+                                        ? "Updating..."
+                                        : "Creating..."
+                                    : isEditMode
+                                        ? "Update Product"
+                                        : "Create Product"}
                             </Button>
-
                         </div>
                     )}
 

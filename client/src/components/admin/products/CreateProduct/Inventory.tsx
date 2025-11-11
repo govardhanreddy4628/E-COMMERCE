@@ -47,11 +47,10 @@ const Inventory = ({ form, watchedTrackQuantity }) => {
 
             {watchedTrackQuantity && (
               <FormField
-              
                 control={form.control}
                 name="quantityInStock"
                 render={({ field }) => (
-                  <FormItem className = " w-[40%]">
+                  <FormItem className=" w-[40%]">
                     <FormLabel>Quantity in Stock</FormLabel>
                     <FormControl>
                       <Input
@@ -67,6 +66,26 @@ const Inventory = ({ form, watchedTrackQuantity }) => {
               />
             )}
           </div>
+
+
+          <FormField
+            control={form.control}
+            name="lowStockThreshold"
+            render={({ field }) => (
+              <FormItem className=" w-[40%]">
+                <FormLabel>Low Stock Threshold</FormLabel>
+                <FormControl>
+                  <Input
+                    type="number"
+                    placeholder="10"
+                    {...field}
+                    onChange={(e) => field.onChange(Number(e.target.value))}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           {/* <Separator /> */}
 

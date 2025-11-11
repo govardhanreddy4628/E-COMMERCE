@@ -1,8 +1,8 @@
 import { Server, Socket } from "socket.io";
-import { aiQueue } from "../aiWorker/queue";       // Queue for processing AI messages asynchronously
-import conversation from "../models/conversation";
-import assistantMessageModal from "../models/assistantMessageModal";
-import * as aiService from "../services/aiService"; // Service for AI message streaming
+import { aiQueue } from "../aiWorker/queue.js";       // Queue for processing AI messages asynchronously
+import conversation from "../models/conversation.js";
+import assistantMessageModal from "../models/assistantMessageModal.js";
+import * as aiService from "../services/aiService.js"; // Service for AI message streaming
 
 
 /**

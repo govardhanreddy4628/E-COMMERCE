@@ -1,11 +1,22 @@
 // src/types/category.ts
 
+export interface ImageMetadata {
+  url: string;
+  public_id: string;
+  format?: string;
+  width?: number;
+  height?: number;
+  size?: number;
+  alt?: string;
+  uploadedAt?: string;
+}
+
 export interface Category {
   _id?: string; // MongoDB id
   id?: string;  // Normalized id for frontend
   name: string;
   description?: string;
-  image?: string;
+  image?: ImageMetadata; // ✅ Use the new type here
   parentCategoryId?: string | null;
   subcategories: Category[];
   createdAt: Date;

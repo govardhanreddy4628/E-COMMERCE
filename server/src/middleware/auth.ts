@@ -5,6 +5,12 @@ import { RequestHandler } from "express";
 import { ApiError } from "../utils/ApiError";
 
 
+// Extend Express Request type
+// interface AuthenticatedRequest extends Request {
+//   userId: string;
+//   userRole: string;
+// }
+
 interface DecodedToken {
   id: string;
   role: string;
@@ -46,6 +52,8 @@ export const auth = (roles?: string[]): RequestHandler => {
       }
       req.userId = decoded.id;
       req.userRole = decoded.role;
+      // (req as AuthenticatedRequest).userId = decoded.id;
+      // (req as AuthenticatedRequest).userRole = decoded.role;
       next();
     } catch (error: any) {
       if (error.name === "TokenExpiredError") {

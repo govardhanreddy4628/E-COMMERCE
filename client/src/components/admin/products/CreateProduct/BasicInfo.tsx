@@ -26,6 +26,7 @@ const BasicInfo = ({ validateSection, tab, form, generateSKU, categories, handle
     form.setValue("highlights", highlights.filter((h: string) => h !== hl));
   };
 
+  console.log(categories)
   return (
     <>
       <Card>
@@ -58,7 +59,7 @@ const BasicInfo = ({ validateSection, tab, form, generateSKU, categories, handle
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Category *</FormLabel>
-                  <Select onValueChange={handleCategoryChange} value={field.value}>
+                  <Select onValueChange={(value) => handleCategoryChange(value)} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a category" />
@@ -66,7 +67,7 @@ const BasicInfo = ({ validateSection, tab, form, generateSKU, categories, handle
                     </FormControl>
                     <SelectContent>
                       {categories.map((category) => (
-                        <SelectItem key={category.id} value={category.name}>
+                        <SelectItem key={category._id} value={category._id}>
                           {category.name}
                         </SelectItem>
                       ))}
@@ -103,9 +104,9 @@ const BasicInfo = ({ validateSection, tab, form, generateSKU, categories, handle
                     </FormControl>
                     <SelectContent>
                       {categories
-                        .find(cat => cat.name === selectedCategory)
+                        .find(cat => String(cat._id) === String(selectedCategory))
                         ?.subcategories.map((subcategory) => (
-                          <SelectItem key={subcategory.id} value={subcategory.name}>
+                          <SelectItem key={subcategory._id} value={subcategory._id}>
                             {subcategory.name}
                           </SelectItem>
                         ))}

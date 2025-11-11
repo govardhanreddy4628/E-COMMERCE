@@ -1,6 +1,6 @@
 import express from "express";
-import { auth } from "../middleware/auth";
-import { accessChat, createGroupChat, } from "../controllers/chatController";
+import { auth } from "../middleware/auth.js";
+import { accessChat, createGroupChat, } from "../controllers/chatController.js";
 //import upload from "../middleware/multer";
 
 const chatRouter = express.Router();

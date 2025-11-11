@@ -1,14 +1,16 @@
 {
   "compilerOptions": {
-    "target": "es6",
-    "module": "commonjs",
+    "module": "NodeNext",
     "rootDir": "./src",
     "outDir": "./dist",
     "strict": true,
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "NodeNext", 
+    "target": "es2020", // or "es2022"
     "skipLibCheck": true,
      "typeRoots": ["./node_modules/@types", "./src/types"]
   },
-   "include": ["src", "src/types", "src/__tests__"],
-   "files": ["src/types/express.d.ts"]
+  "include": ["src/**/*", "src/types/**/*.d.ts", "clearRedis.ts"]
+   //"include": ["src", "src/types", "src/__tests__"],
 }

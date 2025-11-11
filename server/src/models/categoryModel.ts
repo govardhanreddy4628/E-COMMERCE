@@ -5,7 +5,23 @@ import slugify from "slugify";
 export interface ICategory extends Document {
   name: string;
   slug: string;
-  image?: string | null;
+  image?: {
+    public_id: string;
+    url: string;
+    width?: number;
+    height?: number;
+    format?: string;
+    size?: number;
+    uploadedAt?: Date;
+    alt?: string;
+  };
+  imageAudit?: {
+    public_id?: string;
+    action?: "upload" | "delete" | "replace";
+    userId?: Types.ObjectId;
+    timestamp?: Date;
+    meta?: Record<string, any>;
+  }[];
   description?: string | null;
   parentCategoryName?: string | null;
   parentCategoryId?: Types.ObjectId | null;
@@ -33,15 +49,35 @@ const categorySchema = new Schema<ICategory>(
       lowercase: true,
       index: true,
     },
+    // ✅ Updated image field — same pattern as Product
     image: {
-      type: String,
-      validate: {
-        validator: (v: string) =>
-          !v || /^https?:\/\/.*\.(jpeg|jpg|png|webp|svg|gif)$/.test(v),
-        message: "Invalid Image URL",
+      public_id: { type: String, },
+      url: {
+        type: String,
+        validate: {
+          validator: (v: string) =>
+            /^https?:\/\/.*\.(jpeg|jpg|png|webp|svg|gif)$/.test(v),
+          message: "Invalid Image URL",
+        },
       },
-      default: null,
+      width: Number,
+      height: Number,
+      format: String,
+      size: Number,
+      uploadedAt: { type: Date, default: Date.now },
+      alt: { type: String, default: "" },
     },
+
+    // ✅ Add audit log if you want it
+    imageAudit: [
+      {
+        public_id: String,
+        action: { type: String, enum: ["upload", "delete", "replace"] },
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        timestamp: { type: Date, default: Date.now },
+        meta: mongoose.Schema.Types.Mixed,
+      },
+    ],
     description: {
       type: String,
       trim: true,
@@ -58,7 +94,8 @@ const categorySchema = new Schema<ICategory>(
         validator: async function (value: Types.ObjectId | null) {
           if (!value) return true;
           // Use models lookup to avoid issues during model compilation
-          const Category = mongoose.models.Category ?? mongoose.model("Category");
+          const Category =
+            mongoose.models.Category ?? mongoose.model("Category");
           const exists = await Category.findById(value).lean().exec();
           return !!exists;
         },
@@ -94,7 +131,8 @@ categorySchema.pre<ICategory>("save", async function (next) {
   if (!this.isModified("name")) {
     return next();
   }
-  const baseSlug = slugify(this.name, { lower: true, strict: true }) || "category";
+  const baseSlug =
+    slugify(this.name, { lower: true, strict: true }) || "category";
   let slugCandidate = baseSlug;
   const Category = mongoose.models.Category ?? mongoose.model("Category");
 
@@ -114,6 +152,11 @@ categorySchema.index({ slug: 1 });
 categorySchema.index({ parentCategoryId: 1 });
 
 
+categorySchema.virtual("imageUrl").get(function () {
+  return this.image?.url || null;
+});
+categorySchema.set("toJSON", { virtuals: true });
+categorySchema.set("toObject", { virtuals: true });
 
 // categorySchema.virtual('subcategories', {
 //   ref: 'Category',
@@ -123,6 +166,7 @@ categorySchema.index({ parentCategoryId: 1 });
 // categorySchema.set('toObject', { virtuals: true });
 // categorySchema.set('toJSON', { virtuals: true });
 
-const CategoryModel = mongoose.models.Category || mongoose.model<ICategory>("Category", categorySchema);
+const CategoryModel =
+  mongoose.models.Category ||
+  mongoose.model<ICategory>("Category", categorySchema);
 export default CategoryModel;
-

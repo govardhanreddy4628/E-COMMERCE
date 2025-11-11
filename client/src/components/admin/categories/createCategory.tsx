@@ -45,9 +45,10 @@ type CategoryFormSchema = z.infer<typeof categorySchema>;
 interface CreateCategoryProps {
   parentCategoryId?: string;
   trigger?: React.ReactNode;
+  children?: React.ReactNode;
 }
 
-export function CreateCategory({ parentCategoryId, trigger }: CreateCategoryProps) {
+export function CreateCategory({ parentCategoryId, trigger, children }: CreateCategoryProps) {
   const [open, setOpen] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -145,7 +146,7 @@ export function CreateCategory({ parentCategoryId, trigger }: CreateCategoryProp
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger || defaultTrigger}</DialogTrigger>
+      <DialogTrigger asChild>{children || trigger || defaultTrigger}</DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Create New Category</DialogTitle>

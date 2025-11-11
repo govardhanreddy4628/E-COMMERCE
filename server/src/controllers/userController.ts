@@ -2,28 +2,28 @@
 import bcrypt from "bcryptjs";
 import crypto, { verify } from "crypto";
 import jwt from "jsonwebtoken";
-import UserModel from "../models/userModel";
-import { ApiError } from "../utils/ApiError";
+import UserModel from "../models/userModel.js";
+import { ApiError } from "../utils/ApiError.js";
 import {
   generateAccessToken,
   generateRefreshToken,
   REFRESH_EXPIRES_SEC,
-} from "../utils/generateToken";
-import { ApiResponse } from "../utils/ApiResponse";
+} from "../utils/generateToken.js";
+import { ApiResponse } from "../utils/ApiResponse.js";
 import { Request, Response, NextFunction } from "express";
-import { sendVerificationEmail } from "../utils/sendEmail";
+import { sendVerificationEmail } from "../utils/sendEmail.js";
 import fs from "fs";
-import cloudinary from "../config/cloudinary";
+import cloudinary from "../config/cloudinary.js";
 import validator from "validator";
-import redisClient from "../config/connectRedis";
-import logger from "../utils/logger";
+import redisClient from "../config/connectRedis.js";
+import logger from "../utils/logger.js";
 import { success } from "zod"
 
 
-interface AuthRequest extends Request {
-  userId?: string;
-  userRole?: string;
-}
+// interface AuthRequest extends Request {
+//   userId?: string;
+//   userRole?: string;
+// }
 
 // ===================== registration =======================
 export const registerController = async (
@@ -356,7 +356,10 @@ export const getNewAccessToken = async (req: Request, res: Response) => {
 
 // controllers/authController.ts
 export const getCurrentUserController = async (
-  req: AuthRequest,
+
+
+
+  req: Request,
   res: Response,
   next: NextFunction
 ) => {
@@ -435,7 +438,7 @@ export const getCurrentUserController = async (
 // }
 
 //method2 :
-export const userAvatarController = async (req: AuthRequest, res: Response) => {
+export const userAvatarController = async (req: Request, res: Response) => {
   try {
     const userId = req.userId; // Ensure this comes from your auth middleware
     const files = req.files as Express.Multer.File[];
@@ -578,7 +581,7 @@ export const removeImgFromCloudinary = async (req: Request, res: Response) => {
 };
 
 // PUT /api/user/profile-pic
-export const updateUserProfilePic = async (req: AuthRequest, res: Response) => {
+export const updateUserProfilePic = async (req: Request, res: Response) => {
   try {
     const userId = req.userId; // Assuming you have auth middleware that adds user to req
     const file = req.file;
@@ -609,7 +612,7 @@ export const updateUserProfilePic = async (req: AuthRequest, res: Response) => {
 };
 
 //===================update user===================
-export async function updateUserDetails(req: AuthRequest, res: Response) {
+export async function updateUserDetails(req: Request, res: Response) {
   try {
     const userId = req.userId;
     const { name, email, mobile, password } = req.body;
@@ -667,7 +670,7 @@ export async function updateUserDetails(req: AuthRequest, res: Response) {
 const getUserSessionKey = (userId: string) => `user_sessions:${userId}`;
 const getBlacklistKey = (token: string) => `bl_refresh:${token}`;
 
-export const logoutController = async (req: AuthRequest, res: Response): Promise<Response> => {
+export const logoutController = async (req: Request, res: Response): Promise<Response> => {
   try {
     const userId = req.userId;
     const refreshToken = req.cookies?.refreshToken;

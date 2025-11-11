@@ -7,9 +7,9 @@ import {
   getAllProductController,
   getSingleProductByIdController,
   //updateProductController,
-} from "../controllers/productController";
-import { auth } from "../middleware/auth";
-import { Roles } from "../constants";
+} from "../controllers/productController.js";
+import { auth } from "../middleware/auth.js";
+import { uploadMultiple } from "../middleware/multer.js";
 
 const productRouter = express.Router();
 
@@ -20,8 +20,15 @@ const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
 
 //productRouter.post('/uploadImages', auth, upload.array('images'), uploadImages);
 productRouter.post("/create", createProductController);
-productRouter.post("/createproduct", asyncHandler(createProduct));
-//productRouter.get("/getAllproduct", getAllProductController);
+
+// Frontend direct upload path (client sends product JSON with images array)
+productRouter.post("/createproduct", createProduct);
+
+// Backend upload path (multipart form -> multer -> createProduct)
+//productRouter.post("/createproduct-server", uploadMultiple, asyncHandler(createProduct));
+
+
+productRouter.get("/getallproducts", getAllProductController);
 //productRouter.get("/getAllproductsByCatId/:id", getAllProductsByCatIdController);
 //productRouter.get("/getAllproductsByCatName", getAllProductsByCatIdController);
 

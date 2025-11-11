@@ -1,7 +1,18 @@
-import cloudinary from "../config/cloudinary";
+import cloudinary from "../config/cloudinary.js";
 import fs from "fs/promises";
 
 // ===== Cloudinary Upload Helper =====
+export interface CloudinaryUploadResult {
+  public_id: string;
+  secure_url: string;
+  width: number;
+  height: number;
+  format: string;
+  bytes: number;
+  created_at: string;
+  resource_type: string;
+}
+
 export async function uploadToCloudinary(localPath: string, folder = "uploads") {
   try {
     const result = await cloudinary.uploader.upload(localPath, {
@@ -11,7 +22,16 @@ export async function uploadToCloudinary(localPath: string, folder = "uploads") 
       overwrite: false,
     });
     await fs.unlink(localPath); // Delete temp file after upload
-    return result.secure_url;
+    return {
+      public_id: result.public_id,
+      secure_url: result.secure_url,
+      width: result.width,
+      height: result.height,
+      format: result.format,
+      bytes: result.bytes,
+      created_at: result.created_at,
+      resource_type: result.resource_type,
+    };
   } catch (err) {
     await fs.unlink(localPath).catch(() => {});
     throw new Error("Cloudinary upload failed");

@@ -1,10 +1,10 @@
 // src/controllers/chatController.ts
 import { Request, Response, RequestHandler } from "express";
 import asyncHandler from "express-async-handler";
-import UserModel from "../models/userModel";
-import Chat from "../models/chatModal";
-import ChatModel from "../models/chatModal";
-import { Message } from "../models/MessageModel";
+import UserModel from "../models/userModel.js";
+import Chat from "../models/chatModal.js";
+import ChatModel from "../models/chatModal.js";
+import { Message } from "../models/MessageModel.js";
 import { ApiError } from "../utils/ApiError";
 
 // ---------------- Access / Create One-to-One Chat ----------------

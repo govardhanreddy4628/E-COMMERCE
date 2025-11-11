@@ -1,11 +1,11 @@
 // validators.ts
-import { z } from "zod";
-import { ErrorHandler } from "../utils/utility.js";
+import { z, ZodError, ZodObject } from "zod";
+import { Request, Response, NextFunction } from "express";
+import { errorHandler } from "../middleware/errorHandler";
+import { ApiError } from "../utils/ApiError";
 
 // ✅ A reusable middleware to validate body/params/query
-export const validate =
-  (schema) =>
-  (req, res, next) => {
+export const validate = (schema: ZodObject) => (req:Request, res:Response, next:NextFunction) => {
     try {
       schema.parse({
         body: req.body,
@@ -14,10 +14,16 @@ export const validate =
       });
       next();
     } catch (error) {
-      const message = error.errors.map((e) => e.message).join(", ");
-      next(new ErrorHandler(message, 400));
+      if (error instanceof ZodError) {
+        const issues = error.issues ?? [];
+        const message =
+          issues.map((e) => e.message).join(", ") || "Validation error";
+        next(new ApiError(400, message)); 
+      } else {
+        next(error);
     }
-  };
+  }
+};
 
   
 // ✅ Schemas
@@ -78,12 +84,14 @@ export const sendRequestSchema = z.object({
 export const acceptRequestSchema = z.object({
   body: z.object({
     requestId: z.string().min(1, "Please Enter Request ID"),
-    accept: z.boolean({
-      required_error: "Please Add Accept",
-      invalid_type_error: "Accept must be a boolean",
-    }),
+    accept: z
+      .boolean()
+      .refine((val) => typeof val === "boolean", {
+        message: "Accept must be a boolean",
+      }),
   }),
 });
+
 
 export const adminLoginSchema = z.object({
   body: z.object({

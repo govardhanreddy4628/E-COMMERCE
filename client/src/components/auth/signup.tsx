@@ -1,261 +1,237 @@
 import { useState } from 'react';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaSpinner } from 'react-icons/fa';
 import { FcGoogle } from 'react-icons/fc';
 import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
-import { Formik, Form, Field, } from 'formik';
+import { Formik, Form, Field } from 'formik';
 import * as Yup from 'yup';
-import { Button } from '@mui/material';
-import { FaSpinner } from 'react-icons/fa';
-import signinGif from "../../assets/signin.gif"
-
+import signinGif from "../../assets/signin.gif";
 
 interface SignupResponse {
-    success?: boolean;
-    error?: boolean;
-    msg: string;
-    intentToken?: string;
+  success?: boolean;
+  error?: boolean;
+  msg: string;
+  intentToken?: string;
 }
 
-
-
-// Validation schema using Yup
 const SignupSchema = Yup.object().shape({
-    name: Yup.string()
-        .min(3, 'name must be at least 3 characters')
-        .max(15, 'name must be less than 15 characters')
-        .required('name is required'),
-    email: Yup.string()
-        .email('Invalid email address')
-        .required('Email is required'),
-    password: Yup.string()
-        .min(6, 'Password must be at least 6 characters')
-        .required('Password is required'),
-    confirmPassword: Yup.string()
-        .oneOf([Yup.ref('password')], 'Passwords must match')
-        .required('Confirm Password is required'),
+  name: Yup.string()
+    .min(3, 'Name must be at least 3 characters')
+    .max(15, 'Name must be less than 15 characters')
+    .required('Name is required'),
+  email: Yup.string()
+    .email('Invalid email address')
+    .required('Email is required'),
+  password: Yup.string()
+    .min(6, 'Password must be at least 6 characters')
+    .required('Password is required'),
+  confirmPassword: Yup.string()
+    .oneOf([Yup.ref('password')], 'Passwords must match')
+    .required('Confirm password is required'),
 });
 
+export default function SignUp() {
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const navigate = useNavigate();
 
+  const imageToBase64 = (file: File) => {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
 
-
-
-const SignUp = () => {
-    const [showPassword, setShowPassword] = useState(false)
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
-    const navigate = useNavigate()
-
-    // const handleOnChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    //     const { name, value } = e.target;
-    //     setData(prev => ({ ...prev, [name]: value }));
-    // };
-
-
-    const imageTobase64 = async (image: File): Promise<string | ArrayBuffer | null> => {
-        const reader = new FileReader();
-        reader.readAsDataURL(image);
-        return new Promise((resolve, reject) => {
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = (error) => reject(error);
-        });
-    };
-
-    const handleUploadPic = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e?.target?.files?.[0]
-        console.log(file);
-        if (file) {
-            const imagePic = await imageTobase64(file);
-            setImagePreview(imagePic as string || null);
-            setSelectedFile(file);
-        }
+  const handleUploadPic = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const imageBase64 = await imageToBase64(file);
+      setImagePreview(imageBase64);
+      setSelectedFile(file);
     }
+  };
 
-    const handleSubmit = async (
-        values: { name: string; email: string; password: string; confirmPassword: string },
-        { setSubmitting }: { setSubmitting: (isSubmitting: boolean) => void }
-    ) => {
-        try {
-            const formData = new FormData();
-            formData.append('fullName', values.name);
-            formData.append('email', values.email);
-            formData.append('password', values.password);
-            if (selectedFile) { formData.append('avatar', selectedFile); }
+  const handleSubmit = async (
+    values: { name: string; email: string; password: string; confirmPassword: string },
+    { setSubmitting }: { setSubmitting: (isSubmitting: boolean) => void }
+  ) => {
+    try {
+      const formData = new FormData();
+      formData.append('fullName', values.name);
+      formData.append('email', values.email);
+      formData.append('password', values.password);
+      if (selectedFile) formData.append('avatar', selectedFile);
 
-            const response = await fetch('http://localhost:8080/api/v1/user/register', { method: 'POST', body: formData });
-            const result: SignupResponse = await response.json();
-            console.log(response)
-            console.log(result)
-            localStorage.setItem('intentToken', result.intentToken || '');
+      const response = await fetch('http://localhost:8080/api/v1/user/register', {
+        method: 'POST',
+        body: formData,
+      });
 
-            if (response?.ok) {
-                toast.success(result.msg);
-                navigate('/otpverify');
-            } else {
-                toast.error(result.msg || 'Signup failed');
-            }
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : 'Something went wrong!');
-        } finally {
-            setSubmitting(false);
-        }
-    };
+      const result: SignupResponse = await response.json();
 
-    return (
-        <>
+      if (!response.ok) throw new Error(result.msg || 'Signup failed');
 
-            <section id="signup">
-                <div className="mx-auto container p-4 mt-8">
-                    <div className="bg-white p-5 w-full max-w-sm mx-auto shadow-lg rounded-lg">
-                        <div className="w-20 h-20 mx-auto relative overflow-hidden rounded-full">
-                            <img src={imagePreview || signinGif } alt="Profile" />
-                            <label>
-                                <div className="text-xs bg-opacity-80 bg-slate-200 pb-4 pt-2 cursor-pointer text-center absolute bottom-0 w-full">
-                                    Upload Photo
-                                </div>
-                                <input type="file" className="hidden" onChange={handleUploadPic} />  {/*add multiple attribute if u want to select to multiple images*/}
-                            </label>
-                        </div>
+      localStorage.setItem('intentToken', result.intentToken || '');
+      toast.success(result.msg);
+      navigate('/otpverify');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Something went wrong');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
+  return (
+    <section className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4 py-10">
+      <div className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md">
+        <div className="flex flex-col items-center mb-6">
+          <div className="relative group">
+            <img
+              src={imagePreview || signinGif}
+              alt="avatar"
+              className="w-24 h-24 rounded-full object-cover border-4 border-gray-200 shadow-sm"
+            />
+            <label className="absolute bottom-0 left-0 w-full text-center bg-black/60 text-white text-xs py-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-b-full">
+              Upload Photo
+              <input type="file" className="hidden" onChange={handleUploadPic} />
+            </label>
+          </div>
+        </div>
 
-                        <Formik
-                            initialValues={{
-                                name: '',
-                                email: '',
-                                password: '',
-                                confirmPassword: '',
-                            }}
-                            validationSchema={SignupSchema}
-                            onSubmit={handleSubmit}
-                        >
-                            {({ isSubmitting, touched, errors, values }) => (
-                                <Form className="pt-6 flex flex-col gap-2">
-                                    {/* Name Field */}
-                                    <div className="grid">
-                                        <label>Name:</label>
-                                        <div className="bg-slate-100 p-2">
-                                            <Field
-                                                type="text"
-                                                name="name"
-                                                placeholder="Enter your name"
-                                                className="w-full h-full outline-none bg-transparent"
-                                            />
-                                        </div>
-                                        {touched.name && errors.name && (
-                                            <div className="text-red-500 text-sm">{errors.name}</div>
-                                        )}
-                                    </div>
+        <Formik
+          initialValues={{
+            name: '',
+            email: '',
+            password: '',
+            confirmPassword: '',
+          }}
+          validationSchema={SignupSchema}
+          onSubmit={handleSubmit}
+        >
+          {({ isSubmitting, errors, touched, values }) => (
+            <Form className="space-y-4">
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                <Field
+                  name="name"
+                  type="text"
+                  placeholder="Enter your name"
+                  className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-red-500 focus:outline-none"
+                />
+                {touched.name && errors.name && (
+                  <div className="text-sm text-red-500 mt-1">{errors.name}</div>
+                )}
+              </div>
 
-                                    {/* Email Field */}
-                                    <div className="grid">
-                                        <label>Email:</label>
-                                        <div className="bg-slate-100 p-2">
-                                            <Field
-                                                type="email"
-                                                name="email"
-                                                placeholder="Enter email"
-                                                className="w-full h-full outline-none bg-transparent"
-                                                required
-                                            />
-                                        </div>
-                                        {touched.email && errors.email && (
-                                            <div className="text-red-500 text-sm">{errors.email}</div>
-                                        )}
-                                    </div>
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Email</label>
+                <Field
+                  name="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-red-500 focus:outline-none"
+                />
+                {touched.email && errors.email && (
+                  <div className="text-sm text-red-500 mt-1">{errors.email}</div>
+                )}
+              </div>
 
-                                    {/* Password Field */}
-                                    <div>
-                                        <label>Password:</label>
-                                        <div className="bg-slate-100 p-2 flex">
-                                            <Field
-                                                type={showPassword ? 'text' : 'password'}
-                                                name="password"
-                                                placeholder="Enter password"
-                                                className="w-full h-full outline-none bg-transparent"
-                                            />
-                                            <div
-                                                className="cursor-pointer text-xl"
-                                                onClick={() => setShowPassword((prev) => !prev)}
-                                            >
-                                                {showPassword ? <FaEyeSlash /> : <FaEye />}
-                                            </div>
-                                        </div>
-                                        {touched.password && errors.password && (
-                                            <div className="text-red-500 text-sm">{errors.password}</div>
-                                        )}
-                                    </div>
-
-                                    {/* Confirm Password Field */}
-                                    <div>
-                                        <label>Confirm Password:</label>
-                                        <div className="bg-slate-100 p-2 flex">
-                                            <Field
-                                                type={showConfirmPassword ? 'text' : 'password'}
-                                                name="confirmPassword"
-                                                placeholder="Confirm password"
-                                                className="w-full h-full outline-none bg-transparent"
-                                            />
-                                            <div
-                                                className="cursor-pointer text-xl"
-                                                onClick={() => setShowConfirmPassword((prev) => !prev)}
-                                            >
-                                                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-                                            </div>
-                                        </div>
-                                        {touched.confirmPassword && errors.confirmPassword && (
-                                            <div className="text-red-500 text-sm">{errors.confirmPassword}</div>
-                                        )}
-                                    </div>
-
-
-                                    <button
-                                        type="submit"
-                                        disabled={isSubmitting || Object.values(values).some(val => !val)}
-                                        className={`${isSubmitting
-                                                ? 'bg-black text-white cursor-wait'
-                                                : 'bg-red-600 hover:bg-red-700 text-white'
-                                            } px-6 py-2 w-full max-w-[180px] rounded-[8px] transition-all mx-auto mt-6 flex items-center justify-center gap-2`}
-                                    >
-                                        {isSubmitting ? (
-                                            <>
-                                                <FaSpinner className="animate-spin text-white !text-[18px]" />
-                                                <span>Submitting...</span>
-                                            </>
-                                        ) : (
-                                            'Sign Up'
-                                        )}
-                                    </button>
-
-
-
-
-                                </Form>
-                            )}
-                        </Formik>
-
-
-                        <p className="my-5">
-                            Already have an account?{' '}
-                            <Link to="/login" className="text-red-600 hover:text-red-700 hover:underline">
-                                Login
-                            </Link>
-                        </p>
-
-                        <Button className='flex gap-3 w-full !bg-[#f1f1f1] btn-lg !text-black'>
-                            <FcGoogle className="!text-[20px]" />Login with Google
-                        </Button>
-                    </div>
+              {/* Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Password</label>
+                <div className="flex items-center border border-gray-300 p-2 rounded-md">
+                  <Field
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Enter password"
+                    className="flex-grow focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-gray-600 hover:text-black"
+                  >
+                    {showPassword ? <FaEyeSlash /> : <FaEye />}
+                  </button>
                 </div>
-            </section>
-        </>
-    );
+                {touched.password && errors.password && (
+                  <div className="text-sm text-red-500 mt-1">{errors.password}</div>
+                )}
+              </div>
+
+              {/* Confirm Password */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Confirm Password</label>
+                <div className="flex items-center border border-gray-300 p-2 rounded-md">
+                  <Field
+                    name="confirmPassword"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    placeholder="Confirm password"
+                    className="flex-grow focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="text-gray-600 hover:text-black"
+                  >
+                    {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                  </button>
+                </div>
+                {touched.confirmPassword && errors.confirmPassword && (
+                  <div className="text-sm text-red-500 mt-1">{errors.confirmPassword}</div>
+                )}
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isSubmitting || Object.values(values).some((v) => !v)}
+                className={`w-full py-2 rounded-md flex items-center justify-center gap-2 transition-all ${
+                  isSubmitting
+                    ? 'bg-black text-white cursor-wait'
+                    : 'bg-red-600 hover:bg-red-700 text-white'
+                }`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <FaSpinner className="animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  'Sign Up'
+                )}
+              </button>
+
+              <div className="flex items-center gap-2 my-4">
+                <hr className="flex-grow border-gray-300" />
+                <span className="text-gray-500 text-sm">OR</span>
+                <hr className="flex-grow border-gray-300" />
+              </div>
+
+              <button
+                type="button"
+                className="flex items-center justify-center gap-3 w-full border border-gray-300 rounded-md py-2 hover:bg-gray-50 transition"
+              >
+                <FcGoogle size={22} />
+                <span>Sign up with Google</span>
+              </button>
+
+              <p className="text-center text-sm text-gray-600 mt-4">
+                Already have an account?{' '}
+                <Link to="/login" className="text-red-600 font-medium hover:underline">
+                  Login
+                </Link>
+              </p>
+            </Form>
+          )}
+        </Formik>
+      </div>
+    </section>
+  );
 }
-
-export default SignUp;
-
-
-
-
-
-

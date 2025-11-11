@@ -4,20 +4,13 @@ import { Routes, Route, Navigate } from "react-router-dom";
 // import { ThemeProvider } from '@mui/material';
 // import { theme } from './themes/theme';
 // import DrawCircle from './components/drawCircle';
-// import MultipageAuth from './components/multipageAuth';
-// import Layout from './components/layout';
-// import Hero from './components/hero';
-// import Tablewithpagination from './pages/muigrid/tablewithpagination';
-// import MultiStepForm from './pages/muigrid/form';
 // import FaqComp from './components/FaqComp';
-// import FormikComponent from './components/formik';
+// import FormikComponent from './move/formik';
 // import RegisterForm from './components/registrationForm';
 // import StarRating from './components/starRating';
 // import Sticky from './components/sticky/sticky';
-// import Calendar2 from './components/calendar2/calendar2';
-// import Calendar3 from './components/calendar3/Calendar3';
 // import FormikFieldArray from './components/formArray';
-// import GridMui from './components/Grid';
+
 import { ThemeProvider } from './context/themeContext';
 import ProductDetails from "./components/productDetails";
 //import NotFound from "./pages/NotFound";
@@ -29,7 +22,6 @@ import { AuthProvider } from "./context/authContext";
 import CartPage from "./components/cartPage";
 import AddressForm from "./components/addressForm";
 import OtpVerify from "./components/otpVerify";
-import Login from "./components/auth/login";
 import MyAccount from "./components/myAccount";
 import AddressPage from "./components/addAddress";
 import Testh from "./components/Testh";
@@ -40,20 +32,21 @@ import CreateProduct from "./components/admin/products/CreateProduct/createProdu
 import CreateCategory from "./components/admin/categories/createCategory2";
 import Orders from "./components/admin/orders";
 import AdminLayout from "./components/admin/layout";
-import CustomersTable from "./components/admin/customers/customersTable";
+import CustomersTable from "./components/admin/customers/index.tsx";
 import GuestRoute from "./routes/GuestRoutes";
 //import ProtectedRoute from "./routes/ProtectedRoute";
 import Chat from "./components/admin/chat/chat";
 import Calendar2 from "./components/admin/calendar2/calendar2";
 import Calendar3 from "./components/admin/calendar3/Calendar3";
-import Cp from "./components/admin/cp";
+//import Cp from "./components/admin/cp";
 import CreateProduct3 from "./components/admin/products/CreateProduct/CreateProduct3";
-import { CreateProduct2 } from "./components/admin/products/CreateProduct";
+//import { CreateProduct2 } from "./components/admin/products/CreateProduct";
 import AdminAgentLayout from "./components/admin/Agents/chatBot";
 import { CategoryProvider } from './components/admin/context/categoryContext.tsx'
 import SubCategory from "./components/admin/categories/subCategory";
 import CustomerSupport from "./pages/CustomerSupport";
-import SignUp from "./components/auth/signup";
+import SignUpPage from "./pages/SignUpPage.tsx";
+import LoginPage from "./pages/LoginPage.tsx";
 import AdminProfile from "./components/admin/pages/ADProfile";
 import AdminSettings from "./components/admin/pages/ADSettings";
 import AdminChangePassword from "./components/admin/pages/ADchangePW";
@@ -62,6 +55,9 @@ import Home from "./pages/home.tsx";
 import ProductDetailsPage from "./pages/ProductDetailsPage.tsx";
 import UnderConstruction from "./components/admin/components/underConstruction.tsx";
 import ProductCategories from "./pages/ProductCategories.tsx";
+import AdminReviewPage from "./components/admin/reviews/ReviewPage.tsx";
+import Products from "./components/admin/products/AllProducts/Products.tsx";
+import Counter from "./move/counter.tsx";
 
 
 
@@ -70,38 +66,33 @@ const App = () => {
 
 
   return (
-    <>
-      {/* <Tablewithpagination></Tablewithpagination> */}
-      {/* <MultiStepForm></MultiStepForm> */}
+    <>      
       {/* <FormikComponent/> */}
       {/* <ThemeProvider theme={theme}> */}
       <ThemeProvider defaultTheme="system" storageKey="marketpulse-ui-theme">
         <AuthProvider>
           <CategoryProvider>
             {/* <RegisterForm/> */}
+            
+            <Counter/>
 
             {/* <Suspense fallback={<h1>Loading....</h1>}> */}
             <Routes>
               {/* <Route path='/' element={<Layout/>}>
         <Route index element={<Hero/>} />
       </Route>
-      <Route path='login' element={<Login/>}></Route>
-      <Route path='signup' element={<Signup/>}></Route>
       <Route path='formikfieldarray' element={<FormikFieldArray/>}></Route>
-      <Route path='gridmui' element={<GridMui/>}></Route>
       <Route path='sticky' element={<Sticky/>}></Route>
       <Route path='calendar2' element={<Calendar2/>}></Route>
       <Route path='calendar3' element={<Calendar3/>}></Route>
-      <Route path='counter' element={<Counter/>}></Route>
       <Route path='drawCircle' element={<DrawCircle/>}></Route>
-      <Route path='multipageauth' element={<MultipageAuth/>}></Route>
-      <Route path='*' element={<h1>page not found</h1>}></Route> */}
+
               {/* <Route element={<ProtectedRoute />}> */}
               {/* <Route path='/' element={<Header />}></Route> */}
               <Route path='/home' element={<Home />}></Route>
               <Route path="/address" element={<AddressForm />}></Route>
-              <Route path='productdetails/:id' element={<ProductDetailsPage/>}></Route>
-              <Route path="productcategories" element={<ProductCategories/>}></Route>
+              <Route path='productdetails/:id' element={<ProductDetailsPage />}></Route>
+              <Route path="productcategories" element={<ProductCategories />}></Route>
               <Route path="/blogsection" element={<BlogSection />}></Route>
               <Route path="/blog/:id" element={<BlogDetail />} />
               <Route path="cartPage" element={<CartPage />}></Route>
@@ -126,17 +117,22 @@ const App = () => {
                 <Route path="chat" element={<Chat />} />
                 <Route path="calendar2" element={<Calendar2 />} />
                 <Route path="calendar3" element={<Calendar3 />} />
-                <Route path="products/create" element={<CreateProduct />} />
-                <Route path="createproduct3" element={<CreateProduct3 />} />
+                <Route path="products/all" element={<Products />} />
+                <Route path="products/create" element={<CreateProduct3 />} />
+                <Route path="products/edit/:id" element={<CreateProduct3 />} />
+                <Route path="createproduct3" element={<CreateProduct />} />
                 <Route path="adminagent" element={<AdminAgentLayout />} />
+                <Route path="/reviews" element={<AdminReviewPage />} />
                 <Route path="underconstruction" element={<UnderConstruction />} />
                 {/* <Route path="createproduct" element={<CreateProduct2/>} /> */}
+
+                
 
               </Route>
 
               <Route element={<GuestRoute />}>
-                <Route path="signup" element={<SignUp />}></Route>
-                <Route path="login" element={<Login />}></Route>
+                <Route path="signup" element={<SignUpPage/>}></Route>
+                <Route path="login" element={<LoginPage />}></Route>
                 <Route path="otpverify" element={<OtpVerify />}></Route>
                 <Route path="forgot-password/:email" element={<ForgotPassword />}></Route>
                 <Route path="reset-password" element={<ResetPassword />}></Route>

@@ -1,7 +1,7 @@
 // --- src/routes/auth.routes.ts ---
 import { Router } from 'express';
 import { auth } from '../middleware/auth';
-import { loginController, logoutController, getNewAccessToken, registerController, verifyEmailController, removeImgFromCloudinary, userAvatarController, forgotPasswordController, getCurrentUserController } from '../controllers/userController';
+import { loginController, logoutController, getNewAccessToken, registerController, verifyEmailController, removeImgFromCloudinary, userAvatarController, forgotPasswordController, getCurrentUserController } from '../controllers/userController.js';
 import  { uploadSingle } from '../middleware/multer'; 
 
 const router = Router();

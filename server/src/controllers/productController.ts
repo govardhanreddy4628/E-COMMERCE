@@ -1,10 +1,12 @@
 import { NextFunction, Request, Response } from "express";
-import productModel from "../models/productModel";
+import productModel from "../models/productModel.js";
 import { z } from "zod";
-import cloudinary from "../config/cloudinary";
+import cloudinary from "../config/cloudinary.js";
 import mongoose from "mongoose";
-import { Types } from 'mongoose';
-import couponModel from "../models/couponModel";
+import { Types } from "mongoose";
+import couponModel from "../models/couponModel.js";
+import { deleteTempFile } from "../services/cloudinaryService.js";
+import { inngest } from "../inngest/client.js"; // optional: only if you’re using inngest
 
 //  or use following validation
 //     const querySchema = z.object({
@@ -18,8 +20,6 @@ import couponModel from "../models/couponModel";
 // }
 // const { page = 1, perPage = 10 } = result.data;
 
-
-
 export const createProductController = async (
   req: Request,
   res: Response,
@@ -27,18 +27,18 @@ export const createProductController = async (
 ): Promise<void> => {
   try {
     const allowedFields = [
-      'name',
-      'price',
-      'category',
-      'discountPercentage',
-      'quantity',
-      'description',
-      'images'
+      "name",
+      "price",
+      "category",
+      "discountPercentage",
+      "quantity",
+      "description",
+      "images",
     ];
 
     //Sanitize input
     const filteredBody: Record<string, any> = {};
-    
+
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
         filteredBody[field] = req.body[field];
@@ -49,7 +49,7 @@ export const createProductController = async (
     if (filteredBody.category) {
       if (!Types.ObjectId.isValid(filteredBody.category)) {
         res.status(400).json({
-          message: 'Invalid category ID format',
+          message: "Invalid category ID format",
           success: false,
           error: true,
         });
@@ -62,7 +62,7 @@ export const createProductController = async (
     const price = Number(filteredBody.price);
     if (isNaN(price) || price <= 0 || price > 100000) {
       res.status(400).json({
-        message: 'Invalid price: must be a number between 1 and 100000',
+        message: "Invalid price: must be a number between 1 and 100000",
         success: false,
         error: true,
       });
@@ -72,9 +72,13 @@ export const createProductController = async (
 
     // Handle optional discount
     const discountPercentage = Number(filteredBody.discountPercentage ?? 0);
-    if (isNaN(discountPercentage) || discountPercentage < 0 || discountPercentage > 100) {
+    if (
+      isNaN(discountPercentage) ||
+      discountPercentage < 0 ||
+      discountPercentage > 100
+    ) {
       res.status(400).json({
-        message: 'Invalid discountPercentage: must be between 0 and 100',
+        message: "Invalid discountPercentage: must be between 0 and 100",
         success: false,
         error: true,
       });
@@ -91,7 +95,7 @@ export const createProductController = async (
     const quantity = Number(filteredBody.quantity);
     if (isNaN(quantity) || quantity < 0) {
       res.status(400).json({
-        message: 'Quantity must be a non-negative number',
+        message: "Quantity must be a non-negative number",
         success: false,
         error: true,
       });
@@ -104,7 +108,7 @@ export const createProductController = async (
     const savedProduct = await product.save();
 
     res.status(201).json({
-      message: 'Product created successfully',
+      message: "Product created successfully",
       success: true,
       error: false,
       data: savedProduct,
@@ -114,11 +118,16 @@ export const createProductController = async (
   }
 };
 
-
-
-
-
-export const createProduct = async (req: Request, res: Response): Promise<void> => {
+/**
+ * Create a new product (direct Cloudinary upload version)
+ * - Frontend uploads images → Cloudinary "temp/products/"
+ * - On submit, backend renames them to "products/"
+ * - Saves product data + image metadata in DB
+ */
+export const createProduct = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     console.log("🟢 Incoming product body:", req.body);
 
@@ -129,40 +138,154 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       category,
       finalPrice,
       quantityInStock,
-      images,
       brand,
+      images: imagesFromClient,
     } = req.body;
 
-    if (!name || !description || !shortDescription || !category || !finalPrice) {
+    // ✅ Basic validation
+    if (
+      !name ||
+      !description ||
+      !shortDescription ||
+      !category ||
+      !finalPrice
+    ) {
       res.status(400).json({ message: "Missing required fields" });
       return;
     }
 
-    if (!Array.isArray(images) || images.length === 0) {
-      res.status(400).json({ message: "At least one image is required" });
+    if (!Types.ObjectId.isValid(category)) {
+      res.status(400).json({ message: "Invalid category ID format" });
       return;
     }
 
-    // if (!Types.ObjectId.isValid(category)) {
-    //   res.status(400).json({ message: "Invalid category ID format" });
-    //   return;
-    // }
+    // 🖼️ Finalize Cloudinary images
+    let finalImages: any[] = [];
+
+    if (
+      imagesFromClient &&
+      Array.isArray(imagesFromClient) &&
+      imagesFromClient.length > 0
+    ) {
+      const movedImages: any[] = [];
+
+      for (const img of imagesFromClient) {
+        const publicId = img.public_id || img.publicId;
+        if (!publicId) continue;
+
+        // If image still in temp folder → move it
+        if (publicId.startsWith("temp/products/")) {
+          const fileName = publicId.split("/").pop(); // e.g., 1699402234_abcd123
+          const newPublicId = `products/${fileName}`;
+
+          try {
+            const renamed = await cloudinary.uploader.rename(
+              publicId,
+              newPublicId
+            );
+
+            movedImages.push({
+              public_id: renamed.public_id,
+              url: renamed.secure_url,
+              width: renamed.width,
+              height: renamed.height,
+              format: renamed.format,
+              size: renamed.bytes,
+              uploadedAt: new Date(),
+              alt: img.alt || "",
+            });
+
+            console.log(`✅ Moved image: ${publicId} → ${newPublicId}`);
+          } catch (err: any) {
+            console.error(
+              `❌ Failed to move ${publicId} → ${newPublicId}:`,
+              err
+            );
+            res.status(500).json({
+              message: `Error finalizing image ${publicId}`,
+              error: err.message,
+            });
+            return;
+          }
+        } else {
+          // Already permanent (e.g., user reuses existing image)
+          movedImages.push({
+            public_id: publicId,
+            url: img.url || img.secure_url,
+            width: img.width,
+            height: img.height,
+            format: img.format,
+            size: img.size,
+            uploadedAt: img.uploadedAt || new Date(),
+            alt: img.alt || "",
+          });
+        }
+      }
+
+      finalImages = movedImages;
+    }
+
+    if (!finalImages || finalImages.length === 0) {
+      res.status(400).json({ message: "At least one image required" });
+      return;
+    }
+
+    //Generate unique SKU
+    let generatedSKU = "";
+    const baseSKU = `${
+      brand?.substring(0, 3)?.toUpperCase() || "GEN"
+    }-${Date.now().toString().slice(-6)}`;
+    let counter = 0;
+    while (true) {
+      const candidate = counter === 0 ? baseSKU : `${baseSKU}-${counter}`;
+      const exists = await productModel.exists({ sku: candidate });
+      if (!exists) {
+        generatedSKU = candidate;
+        break;
+      }
+      counter++;
+    }
+
+    let generatedBarcode = "";
+    while (true) {
+      const candidate = `${Math.floor(
+        100000000000 + Math.random() * 900000000000
+      )}`; // 12-digit random number
+      const exists = await productModel.exists({ barcode: candidate });
+      if (!exists) {
+        generatedBarcode = candidate;
+        break;
+      }
+    }
 
     const newProduct = new productModel({
-      ...req.body,
+      name,
+      description,
+      shortDescription,
+      category,
+      brand,
+      images: finalImages,
       price: finalPrice,
-      quantity: quantityInStock,
+      quantityInStock,
+      sku: generatedSKU,
+      barcode: generatedBarcode,
     });
 
-    // ✅ Auto-generate SKUs if missing
-    // if (Array.isArray(newProduct.variants)) {
-    //   newProduct.variants = newProduct.variants.map((variant: any, idx: number) => ({
-    //     ...variant,
-    //     sku: variant.sku || `${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 8)}`
-    //   }));
-    // }
-
     await newProduct.save();
+
+    // (Optional) Post-processing event
+    try {
+      await inngest.send({
+        name: "product/created",
+        data: {
+          productId: newProduct._id,
+          userId: (req as any).user?._id || null,
+          images: finalImages,
+        },
+      });
+    } catch {
+      console.warn("⚠️ Skipping inngest event (not configured).");
+    }
 
     console.log("✅ Product created successfully:", newProduct._id);
 
@@ -170,17 +293,11 @@ export const createProduct = async (req: Request, res: Response): Promise<void> 
       message: "Product created successfully",
       product: newProduct,
     });
-  } catch (error) {
-    const errMsg = error instanceof Error ? error.message : String(error);
-    console.error("💥 Error in createProduct:", errMsg);
-    res.status(500).json({ message: "Server error", error: errMsg });
+  } catch (error: any) {
+    console.error("💥 Error in createProduct:", error);
+    res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
-
-
-
-
 
 export const getAllProductController = async (
   req: Request,
@@ -241,6 +358,61 @@ export const getAllProductController = async (
     res.status(500).json({ success: false, error: true, message });
   }
 };
+
+
+
+
+/**
+ * @desc    Get single product details by ID (specifically for Men's category)
+ * @route   GET /api/v1/men/products/:productId
+ * @access  Public
+ */
+export const getProductById = async (req:Request, res:Response) => {
+    try {
+        // 1. Extract the product ID from the URL parameters
+        const productId = req.params.productId;
+
+        // 2. Input Validation (optional but recommended)
+        // If using Mongoose, you can check if the ID format is valid
+        if (!mongoose.Types.ObjectId.isValid(productId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid product ID format.' 
+            });
+        }
+
+        // 3. Query the database for the product
+        // We add an extra check: ensure the category is 'men'
+        const product = await productModel.findOne({ 
+            _id: productId,
+            category: 'men' // Ensures only products categorized as 'men' are returned
+        }).select('-__v'); // Exclude the version key from the response
+
+        // 4. Handle Product Not Found
+        if (!product) {
+            return res.status(404).json({ 
+                success: false, 
+                message: `Men's product with ID ${productId} not found.` 
+            });
+        }
+
+        // 5. Successful Response
+        res.status(200).json({ 
+            success: true, 
+            data: product 
+        });
+
+    } catch (error) {
+        // 6. Handle Server Errors (e.g., database connection issues)
+        console.error(`Error fetching product ID ${req.params.productId}:`, error.message);
+        res.status(500).json({ 
+            success: false, 
+            message: 'A server error occurred while fetching the product.' 
+        });
+    }
+};
+
+
 
 export const getAllProductByCatIdController = async (
   req: Request,
@@ -883,9 +1055,6 @@ export const getAllProductByThirdSubCatNameController = async (
 //   }
 // };
 
-
-
-
 export const getAllProductByPriceController = async (
   req: Request,
   res: Response,
@@ -1088,10 +1257,6 @@ export const getSingleProductByIdController = async (
   }
 };
 
-
-
-
-
 //ok
 export const deleteProductController = async (
   req: Request,
@@ -1106,7 +1271,7 @@ export const deleteProductController = async (
       res.status(400).json({
         success: false,
         error: true,
-        message: 'Invalid product ID',
+        message: "Invalid product ID",
       });
       return;
     }
@@ -1117,18 +1282,22 @@ export const deleteProductController = async (
       res.status(404).json({
         success: false,
         error: true,
-        message: 'Product not found',
+        message: "Product not found",
       });
       return;
     }
 
     // Delete images from Cloudinary (if any)
-    if (Array.isArray(product.images)) {
-      for (const imgUrl of product.images) {
-        const segments = imgUrl.split('/');
-        const last = segments[segments.length - 1];      // e.g., "image123.jpg"
-        const publicId = last.split('.')[0];             // e.g., "image123"
-
+    if (
+      product.images &&
+      Array.isArray(product.images) &&
+      product.images.length > 0
+    ) {
+      for (const img of product.images) {
+        const publicId =
+          typeof img === "string"
+            ? img.split("/").pop()?.split(".")[0]
+            : img.public_id;
         if (publicId) {
           try {
             await cloudinary.uploader.destroy(publicId);
@@ -1145,65 +1314,60 @@ export const deleteProductController = async (
     res.status(200).json({
       success: true,
       error: false,
-      message: 'Product deleted successfully',
+      message: "Product deleted successfully",
       data: product,
     });
   } catch (error) {
-    next(error); // Use centralized error handler
+    next(error); // centralized error handler
   }
 };
-
-
-
-
-
-
-
-
-
 
 //ok
 // //DELETE image from cloudinary
 // await axios.delete("/api/cloudinary/remove", {
 //   params: { img: imageUrl },
 // });
-export async function removeImageFromCloudinary(req: Request, res: Response): Promise<void | any> {
+export async function removeImageFromCloudinary(
+  req: Request,
+  res: Response
+): Promise<void> {
   try {
     const imgUrl = req.query.img as string;
+    const publicIdFromBody = req.body.public_id as string;
 
-    if (!imgUrl) {
-      return res.status(400).json({
-        success: false,
-        error: true,
-        message: "Image URL is required",
-      });
+    let publicId: string | undefined;
+
+    // Use public_id if provided
+    if (publicIdFromBody) {
+      publicId = publicIdFromBody;
+    } else if (imgUrl) {
+      // Extract public_id from URL
+      const urlSegments = imgUrl.split("/");
+      const filename = urlSegments[urlSegments.length - 1]; // e.g., 'image123.jpg'
+      publicId = filename.split(".")[0]; // e.g., 'image123'
     }
 
-    // Extract the public ID from the URL
-    const urlSegments = imgUrl.split("/");
-    const filename = urlSegments[urlSegments.length - 1]; // e.g., 'image123.jpg'
-    const publicId = filename.split(".")[0]; // e.g., 'image123'
-
     if (!publicId) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: true,
-        message: "Invalid image name in URL",
+        message: "Image URL or public_id is required",
       });
+      return;
     }
 
     // Delete image from Cloudinary
     const result = await cloudinary.uploader.destroy(publicId);
 
     if (result.result === "ok") {
-      return res.status(200).json({
+      res.status(200).json({
         success: true,
         error: false,
         message: "Image deleted successfully",
         result,
       });
     } else {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
         error: true,
         message: "Failed to delete image",
@@ -1212,19 +1376,20 @@ export async function removeImageFromCloudinary(req: Request, res: Response): Pr
     }
   } catch (error) {
     console.error("Cloudinary delete error:", error);
-    const message =
-      error instanceof Error ? error.message : "Unknown error occurred";
     res.status(500).json({
       success: false,
       error: true,
-      message,
+      message:
+        error instanceof Error ? error.message : "Unknown error occurred",
     });
   }
 }
 
-
 //ok
-export const updateProductController = async (req: Request,  res: Response): Promise<Response> => {
+export const updateProductController = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
   const { id } = req.params;
 
   try {
@@ -1358,32 +1523,42 @@ export const updateProductController = async (req: Request,  res: Response): Pro
 //   }
 // };
 
-
-
-
 export const checkoutController = async (req: Request, res: Response) => {
   try {
     const { productId, quantity = 1, couponCode, userId } = req.body;
 
     const product = await productModel.findById(productId);
     if (!product) {
-      return res.status(404).json({ success: false, message: 'Product not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
     }
 
     let discountPercentage = 0;
 
     if (couponCode) {
-      const coupon = await couponModel.findOne({ code: couponCode.toUpperCase(), isActive: true });
+      const coupon = await couponModel.findOne({
+        code: couponCode.toUpperCase(),
+        isActive: true,
+      });
 
-      if (!coupon || coupon.expiresAt < new Date() || coupon.usedCount >= coupon.usageLimit) {
-        return res.status(400).json({ success: false, message: 'Invalid or expired coupon' });
+      if (
+        !coupon ||
+        coupon.expiresAt < new Date() ||
+        coupon.usedCount >= coupon.usageLimit
+      ) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid or expired coupon" });
       }
 
       if (
         coupon.applicableUsers.length &&
-        !coupon.applicableUsers.some(id => id.toString() === userId)
+        !coupon.applicableUsers.some((id) => id.toString() === userId)
       ) {
-        return res.status(403).json({ success: false, message: 'Coupon not valid for user' });
+        return res
+          .status(403)
+          .json({ success: false, message: "Coupon not valid for user" });
       }
 
       discountPercentage = coupon.discountPercentage;
@@ -1405,7 +1580,6 @@ export const checkoutController = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'Checkout failed' });
+    res.status(500).json({ success: false, message: "Checkout failed" });
   }
 };
-

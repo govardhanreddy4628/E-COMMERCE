@@ -1,9 +1,13 @@
-import { app } from "./app";
+import { app } from "./app.js";
 import dotenv from "dotenv";
 import "colors";
-import connectDB from "./config/connectDB";
-import redisClient from "./config/connectRedis";
+import connectDB from "./config/connectDB.js";
+import redisClient from "./config/connectRedis.js";
 import Razorpay from "razorpay";
+import "./jobs/cleanupJob.js";
+import "./agent/agent.js";
+
+
 
 dotenv.config();
 

@@ -1,5 +1,5 @@
-import { Server, Socket } from "socket.io";
-import { Message } from "../models/MessageModel";
+import { Namespace, Server, Socket } from "socket.io";
+import { Message } from "../models/MessageModel.js";
 import {
   CHAT_JOINED,
   CHAT_LEAVED,
@@ -8,24 +8,39 @@ import {
   ONLINE_USERS,
   START_TYPING,
   STOP_TYPING,
-} from "../constants";
+} from "../constants/index.js";
 import { v4 as uuid } from "uuid";
-import { getSockets } from "../lib/helper";
+import { getSockets } from "../lib/helper.js";
+import { IUserDocument } from "../models/userModel.js";
 
-export const userSocketIDs = new Map();
-export const onlineUsers = new Set();
+interface CustomSocket extends Socket {
+  user: IUserDocument;
+}
 
-export function initAdminChat(io: ReturnType<Server["of"]>) {
+// --- Maps user IDs to socket IDs ---
+export const userSocketIDs = new Map<string, string>();
+export const onlineUsers = new Set<string>();
+
+export function initAdminChat(io: Namespace) {
   io.on("connection", (socket: Socket) => {
+    const customSocket = socket as CustomSocket;
     console.log("🟢 connected successfully", socket.id);
+
+    const user = customSocket.user;
+
+    if (!user || !user?._id) {
+      console.warn("⚠️ Connected socket has no user data");
+      socket.disconnect(true);
+      return;
+    }
+
+    console.log(`🟢 User connected: ${user.fullName} (${socket.id})`);
+    userSocketIDs.set(user._id.toString(), socket.id);
 
     // socket.on("sendMessage", async (msg) => {
     //   const saved = await new Message(msg).save();
     //   io.to(msg.receiverId).emit("receiveMessage", saved);
     // });
-
-    const user = socket.user;
-    userSocketIDs.set(user._id.toString(), socket.id);
 
     // socket.on("message", (msg) => {
     //   console.log("📨 Message received:", msg);
@@ -38,7 +53,7 @@ export function initAdminChat(io: ReturnType<Server["of"]>) {
         _id: uuid(),
         sender: {
           _id: user._id,
-          name: user.name,
+          name: user.fullName,
         },
         chat: chatId,
         createdAt: new Date().toISOString(),
@@ -50,56 +65,52 @@ export function initAdminChat(io: ReturnType<Server["of"]>) {
         chat: chatId,
       };
 
-      const membersSocket = getSockets(members);
-      io.to(membersSocket).emit(NEW_MESSAGE, {
+      const membersSockets = getSockets(members).filter((id): id is string => typeof id === "string");
+      io.to(membersSockets).emit(NEW_MESSAGE, {
         chatId,
         message: messageForRealTime,
       });
-      io.to(membersSocket).emit(NEW_MESSAGE_ALERT, { chatId });
+      io.to(membersSockets).emit(NEW_MESSAGE_ALERT, { chatId });
 
       try {
         await Message.create(messageForDB);
-      } catch (error) {
-        throw new Error(error);
+      } catch (error: any) {
+        console.error("Message saving error:", error);
+        io.to(socket.id).emit("error", { message: "Failed to send message" });
       }
     });
-  
 
-  socket.on(START_TYPING, ({ members, chatId }) => {
-    const membersSockets = getSockets(members);
-    socket.to(membersSockets).emit(START_TYPING, { chatId });
+    socket.on(START_TYPING, ({ members, chatId }) => {
+      const membersSockets = getSockets(members).filter((id): id is string => typeof id === "string");
+      socket.to(membersSockets).emit(START_TYPING, { chatId });
+    });
+
+    socket.on(STOP_TYPING, ({ members, chatId }) => {
+      const membersSockets = getSockets(members).filter((id): id is string => typeof id === "string");
+      socket.to(membersSockets).emit(STOP_TYPING, { chatId });
+    });
+
+    // socket.on("join", (userId) => {
+    //   socket.join(userId);
+    // });
+
+    socket.on(CHAT_JOINED, ({ userId, members }) => {
+      onlineUsers.add(userId.toString());
+      const membersSockets = getSockets(members).filter((id): id is string => typeof id === "string");
+      io.to(membersSockets).emit(ONLINE_USERS, Array.from(onlineUsers));
+    });
+
+    socket.on(CHAT_LEAVED, ({ userId, members }) => {
+      onlineUsers.delete(userId.toString());
+      const membersSockets = getSockets(members).filter((id): id is string => typeof id === "string");
+      io.to(membersSockets).emit(ONLINE_USERS, Array.from(onlineUsers));
+    });
+
+    socket.on("disconnect", () => {
+      console.log("❌ Admin disconnected:", socket.id);
+      userSocketIDs.delete(user.id.toString());
+      onlineUsers.delete(user.id.toString());
+      socket.broadcast.emit(ONLINE_USERS, Array.from(onlineUsers));
+    });
   });
-
-  socket.on(STOP_TYPING, ({ members, chatId }) => {
-    const membersSockets = getSockets(members);
-    socket.to(membersSockets).emit(STOP_TYPING, { chatId });
-  });
-
-  // socket.on("join", (userId) => {
-  //   socket.join(userId);
-  // });
-
-  socket.on(CHAT_JOINED, ({ userId, members }) => {
-    onlineUsers.add(userId.toString());
-
-    const membersSocket = getSockets(members);
-    io.to(membersSocket).emit(ONLINE_USERS, Array.from(onlineUsers));
-  });
-
-  socket.on(CHAT_LEAVED, ({ userId, members }) => {
-    onlineUsers.delete(userId.toString());
-
-    const membersSocket = getSockets(members);
-    io.to(membersSocket).emit(ONLINE_USERS, Array.from(onlineUsers));
-  });
-
-
-  socket.on("disconnect", () => {
-    console.log("❌ Admin disconnected:", socket.id);
-    userSocketIDs.delete(user._id.toString());
-    onlineUsers.delete(user._id.toString());
-    socket.broadcast.emit(ONLINE_USERS, Array.from(onlineUsers));
-  });
-
-})
-};
+}

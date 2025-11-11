@@ -27,7 +27,7 @@ export interface IOrder extends Document {
   delivery_details: mongoose.Schema.Types.ObjectId;
   cartItems: CartItems;
   totalItems: number;
-  payment: paymentSchema;
+  //payment: paymentSchema;
   selectedAddress: any;
   totalAmount: number;
   status:
@@ -69,7 +69,7 @@ const orderSchema = new mongoose.Schema<IOrder>(
       required: [true, "Provide orderId"],
       unique: true,
     },
-    items: [OrderItem],
+    //items: [OrderItem],
     productId: {
       type: mongoose.Schema.ObjectId,
       ref: "Product",
@@ -78,15 +78,15 @@ const orderSchema = new mongoose.Schema<IOrder>(
       name: String,
       image: Array,
     },
-    payment: PaymentSchema,
-    currency: { type: String, default: "INR" },
+    //payment: PaymentSchema,
+    //currency: { type: String, default: "INR" },
     subTotalAmt: {
       type: Number,
       default: 0,
     },
     totalItems: { type: Number, default: 0 },
     totalAmount: { type: Number, default: 0 }, // you can write this like totalAmount:Number, but object typt allows you to configure additional options like:required,default,min / max, validate, enum (for strings) and more...
-    amount: { type: Number, required: true }, // in smallest currency unit (e.g. paise)
+    //amount: { type: Number, required: true }, // in smallest currency unit (e.g. paise)
     status: {
       type: String,
       enum: [
@@ -117,12 +117,12 @@ const orderSchema = new mongoose.Schema<IOrder>(
         quantity: { type: Number, required: true },
       },
     ],
-    shipping: {
-      carrier: String,
-      trackingNumber: String,
-      estimatedDelivery: Date,
-      status: String,
-    },
+    // shipping: {
+    //   carrier: String,
+    //   trackingNumber: String,
+    //   estimatedDelivery: Date,
+    //   status: String,
+    // },
   },
   { timestamps: true }
 );
@@ -139,7 +139,7 @@ orderSchema.set("toJSON", {
   },
 });
 
-export default mongoose.models.Order || mongoose.model("Order", OrderSchema);
+export default mongoose.models.Order || mongoose.model("Order", orderSchema);
 
 // const OrderSchema = new mongoose.Schema({
 //   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },

@@ -24,7 +24,7 @@ import { Category } from "../types/category";
 import { CreateCategory } from "./CreateCategory";
 import { EditCategory } from "./EditCategory";
 import { Trash2, Plus, ChevronRight } from "lucide-react";
-//import { getCloudinaryImage } from "../../../utils/imgTransformation";
+import { getCloudinaryImage } from "../../../utils/imgTransformation";
 
 // ✅ Utility to safely get ID (works for both id and _id)
 const getCategoryId = (cat: Category) => String(cat.id ?? cat._id ?? Math.random().toString(36).substr(2, 9));
@@ -35,8 +35,11 @@ interface CategoryCardProps {
 }
 
 export function CategoryCard({ category, level = 0 }: CategoryCardProps) {
+  console.log(category)
   const { deleteCategory } = useCategories();
   const [showSubcategories, setShowSubcategories] = useState(false);
+
+  //const dispatch = useDispatch<AppDispatch>();
 
   const safeSubcategories = Array.isArray(category.subcategories)
     ? category.subcategories
@@ -44,6 +47,7 @@ export function CategoryCard({ category, level = 0 }: CategoryCardProps) {
 
   const handleDeleteCategory = () => {
     const id = getCategoryId(category);
+    //if (id) dispatch(deleteCategory(id));
     if (id) deleteCategory(id);
   };
 
@@ -62,7 +66,8 @@ export function CategoryCard({ category, level = 0 }: CategoryCardProps) {
             <div className="flex items-center gap-3">
               {category.image && (
                 <img
-                  src={category.image}
+                  src={category.image.url}
+                  //src={getCloudinaryImage(category.image.url, { width: 200, height: 200 })}  
                   alt={category.name || "Category"}
                   className="w-16 h-16 object-cover rounded-lg border border-border shadow-sm"
                 />
@@ -192,7 +197,7 @@ function SubcategoryItem({ category, level }: { category: Category; level: numbe
         <div className="flex-1 flex items-start gap-3">
           {category.image && (
             <img
-              src={category.image}
+              src={category.image?.url}
               //src={getCloudinaryImage(category.image, { width: 200, height: 200 })}             // get image of different transfomations from cloudinary.
               alt={category.name || "Subcategory"}
               className="w-12 h-12 object-cover rounded-md border border-border shadow-sm"

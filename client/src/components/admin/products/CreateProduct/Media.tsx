@@ -6,16 +6,33 @@ import { useState, useCallback } from "react";
 import { ImgEditModal } from './ImgEditModal';
 import { Area } from 'react-easy-crop';
 import { toast } from "../../../../hooks/use-toast";
+import { uploadFileDirect } from "../../utils/cloudinaryUpload";
 
 interface MediaProps {
-  uploadedImages: File[];
-  removeImage: (index: number) => void;
-  MAX_IMAGES: number;
-  setUploadedImages: React.Dispatch<React.SetStateAction<File[]>>;
+    uploadedImages: UploadedImage[];
+    setUploadedImages: React.Dispatch<React.SetStateAction<UploadedImage[]>>;
+    removeImage: (index: number) => void;
+    MAX_IMAGES: number;
 }
 
 
+export interface UploadedImage {
+    public_id: string;
+    url: string;
+    width: number;
+    height: number;
+    format: string;
+    size: number;
+    originalName: string;
+    uploadedAt: Date;
+    file?: File;
+}
+
 const Media: React.FC<MediaProps> = ({ uploadedImages, setUploadedImages, removeImage, MAX_IMAGES }) => {
+
+    // ✅ Add upload state
+    const [uploading, setUploading] = useState(false);
+
 
     const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
@@ -138,8 +155,12 @@ const Media: React.FC<MediaProps> = ({ uploadedImages, setUploadedImages, remove
             return;
         }
 
-        const imageFile = uploadedImages[previewIndex];
-        const imageUrl = URL.createObjectURL(imageFile);
+        const current = uploadedImages[previewIndex];
+
+        // Get a usable image URL — from File or Cloudinary
+        const imageUrl = current.file
+            ? URL.createObjectURL(current.file)
+            : current.url;
 
         const result = await getCroppedImg(imageUrl, croppedAreaPixels, rotate, {
             brightness,
@@ -147,66 +168,156 @@ const Media: React.FC<MediaProps> = ({ uploadedImages, setUploadedImages, remove
             grayscale,
         });
 
-        // Update image state with cropped file
+        // Replace with new cropped file and updated URL
         const newImages = [...uploadedImages];
-        newImages[previewIndex] = result.file;
-        setUploadedImages(newImages);
+        newImages[previewIndex] = {
+            ...current,
+            file: result.file,
+            url: result.url,
+            uploadedAt: new Date(),
+        };
 
-        setPreviewIndex(null); // Close modal
+        setUploadedImages(newImages);
+        setPreviewIndex(null);
     };
 
 
-    const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    const validImageTypes = ["image/jpeg", "image/png", "image/webp"];
 
-    if (!files.length) return;
+    //     const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    //         console.log(event.target.files);
+    //     const files = Array.from(event.target.files || []);
+    //     console.log(files);
+    //     const validImageTypes = ["image/jpeg", "image/png", "image/webp"];
 
-    let validFiles = files.filter((file) => {
-      if (!validImageTypes.includes(file.type)) {
-        toast({
-          title: "Invalid file type",
-          description: "Please upload only JPEG, PNG, or WebP images.",
-          variant: "destructive",
+    //     if (!files.length) return;
+
+    //     let validFiles = files.filter((file) => {
+    //       if (!validImageTypes.includes(file.type)) {
+    //         toast({
+    //           title: "Invalid file type",
+    //           description: "Please upload only JPEG, PNG, or WebP images.",
+    //           variant: "destructive",
+    //         });
+    //         return false;
+    //       }
+    //       if (file.size > 5 * 1024 * 1024) {
+    //         toast({
+    //           title: "File too large",
+    //           description: "Please upload images smaller than 5MB.",
+    //           variant: "destructive",
+    //         });
+    //         return false;
+    //       }
+    //       return true;
+    //     });
+
+    //     // Remove duplicates by name + size
+    //     validFiles = validFiles.filter(
+    //       (file) =>
+    //         !uploadedImages.some(
+    //           (img) => img.name === file.name && img.size === file.size
+    //         )
+    //     );
+
+    //     // Enforce max limit
+    //     if (uploadedImages.length + validFiles.length > MAX_IMAGES) {
+    //       toast({
+    //         title: "Image limit reached",
+    //         description: `You can only upload up to ${MAX_IMAGES} images.`,
+    //         variant: "destructive",
+    //       });
+    //       validFiles = validFiles.slice(0, MAX_IMAGES - uploadedImages.length);
+    //     }
+
+    //     if (validFiles.length) {
+    //       setUploadedImages((prev) => [...prev, ...validFiles]);
+    //     }
+
+    //     // Reset input so same file can be selected again
+    //     event.target.value = "";
+    //   };
+
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+        const MAX_UPLOAD_COUNT = 6;
+
+        let validFiles = Array.from(files);
+
+        if (uploadedImages.length + validFiles.length > MAX_UPLOAD_COUNT) {
+            toast({
+                title: "Image limit reached",
+                description: `You can only upload up to ${MAX_UPLOAD_COUNT} images.`,
+                variant: "destructive",
+            });
+            validFiles = validFiles.slice(0, MAX_UPLOAD_COUNT - uploadedImages.length);
+        }
+
+        validFiles = validFiles.filter((file) => {
+            if (file.size > MAX_FILE_SIZE) {
+                toast({
+                    title: "File too large",
+                    description: "Please upload images smaller than 5MB.",
+                    variant: "destructive",
+                });
+                return false;
+            }
+            return true;
         });
-        return false;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please upload images smaller than 5MB.",
-          variant: "destructive",
-        });
-        return false;
-      }
-      return true;
-    });
 
-    // Remove duplicates by name + size
-    validFiles = validFiles.filter(
-      (file) =>
-        !uploadedImages.some(
-          (img) => img.name === file.name && img.size === file.size
-        )
-    );
+        validFiles = validFiles.filter(
+            (file) =>
+                !uploadedImages.some(
+                    (img) => img.originalName === file.name && img.size === file.size
+                )
+        );
 
-    // Enforce max limit
-    if (uploadedImages.length + validFiles.length > MAX_IMAGES) {
-      toast({
-        title: "Image limit reached",
-        description: `You can only upload up to ${MAX_IMAGES} images.`,
-        variant: "destructive",
-      });
-      validFiles = validFiles.slice(0, MAX_IMAGES - uploadedImages.length);
-    }
+        if (validFiles.length === 0) return;
 
-    if (validFiles.length) {
-      setUploadedImages((prev) => [...prev, ...validFiles]);
-    }
+        try {
+            setUploading(true);
 
-    // Reset input so same file can be selected again
-    event.target.value = "";
-  };
+            const uploadPromises = validFiles.map(async (file) => {
+                const res = await uploadFileDirect(file); // Cloudinary upload
+                return {
+                    ...res,
+                    file, // ✅ Keep a reference to local File for cropping later
+                    originalName: file.name,
+                    size: file.size,
+                    uploadedAt: new Date(),
+                } as UploadedImage;
+            });
+
+            const uploadedResults = await Promise.all(uploadPromises);
+
+            setUploadedImages((prev) => [
+                ...prev,
+                ...uploadedResults.filter(
+                    (u) => !prev.some((p) => p.public_id === u.public_id)
+                ),
+            ]);
+
+            toast({
+                title: "Upload successful",
+                description: `${uploadedResults.length} image(s) uploaded.`,
+            });
+        } catch (err) {
+            console.error("Upload error:", err);
+            toast({
+                title: "Upload failed",
+                description: "Something went wrong while uploading images.",
+                variant: "destructive",
+            });
+        } finally {
+            setUploading(false);
+        }
+    };
+
+
+
 
 
     return (
@@ -226,8 +337,8 @@ const Media: React.FC<MediaProps> = ({ uploadedImages, setUploadedImages, remove
                                 className="group relative rounded-xl border border-gray-200 dark:border-gray-600 p-2 flex grid-cols-1"
                             >
                                 <img
-                                    src={URL.createObjectURL(img)}
-                                    alt={img.name}
+                                    src={img.url || URL.createObjectURL(new File([], img.originalName))}
+                                    alt={img.originalName}
                                     className="rounded-lg max-h-[140px] mx-auto max-w-full dark:bg-transparent"
                                 />
 
@@ -324,9 +435,9 @@ const Media: React.FC<MediaProps> = ({ uploadedImages, setUploadedImages, remove
                     )} */}
 
                     <p className="mt-4 text-sm text-gray-500">
-                    Image formats: <strong>.jpg, .jpeg, .png</strong>, preferred size: 1:1, file size
-                    is restricted to a maximum of 500kb.
-                  </p>
+                        Image formats: <strong>.jpg, .jpeg, .png</strong>, preferred size: 1:1, file size
+                        is restricted to a maximum of 500kb.
+                    </p>
                 </CardContent>
             </Card>
         </div>

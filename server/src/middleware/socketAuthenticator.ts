@@ -1,25 +1,57 @@
-export const socketAuthenticator = async (err, socket, next) => {
+// --- src/middleware/socketAuthenticator.ts ---
+import jwt from "jsonwebtoken";
+import { Socket, ExtendedError } from "socket.io";
+import cookie from "cookie";
+import UserModel from "../models/userModel";
+import { ApiError } from "../utils/ApiError";
+
+interface DecodedToken {
+  id: string;
+  role?: string;
+}
+
+export const socketAuthenticator = async (
+  socket: Socket,
+  next: (err?: ExtendedError) => void
+) => {
   try {
-    if (err) return next(err);
-    const user = {}
+    // Parse cookies from the WebSocket handshake headers
+    const cookieHeader = socket.request.headers.cookie || "";
+    const cookies = cookie.parse(cookieHeader);
 
-    // const authToken = socket.request.cookies[CHATTU_TOKEN];
+    // ✅ Use same cookie name as your HTTP middleware
+    const accessToken = cookies?.accessToken;
 
-    // if (!authToken)
-    //   return next(new ErrorHandler("Please login to access this route", 401));
+    if (!accessToken) {
+      return next(new ApiError(401, "Please login to access this route"));
+    }
 
-    // const decodedData = jwt.verify(authToken, process.env.JWT_SECRET);
+    if (!process.env.JWT_ACCESS_SECRET) {
+      throw new Error("JWT_ACCESS_SECRET not defined");
+    }
 
-    // const user = await User.findById(decodedData._id);
+    // Verify JWT
+    const decoded = jwt.verify(accessToken, process.env.JWT_ACCESS_SECRET!) as DecodedToken;
 
-    // if (!user)
-    //   return next(new ErrorHandler("Please login to access this route", 401));
+    if (!decoded?.id) {
+      return next(new ApiError(401, "Invalid or expired token"));
+    }
 
-    // socket.user = user;
+    // Fetch user from DB
+    const user = await UserModel.findById(decoded.id).select("-password");
+    if (!user) {
+      return next(new ApiError(401, "User not found"));
+    }
 
-    return next();
-  } catch (error) {
-    console.log(error);
-    //return next(new errorHandler("Please login to access this route", 401));
+    // Attach user to socket for later use
+    (socket as any).user = user;
+
+    next();
+  } catch (error: any) {
+    console.error("Socket auth error:", error.message || error);
+    if (error.name === "TokenExpiredError") {
+      return next(new ApiError(401, "Access token expired"));
+    }
+    next(new ApiError(401, "Please login to access this route"));
   }
 };

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Filter, Grid, List } from 'lucide-react';
+import { Search, Filter, Grid, List, Table } from 'lucide-react';
 import { Input } from '../../../ui/input';
 import { Button } from '../../../ui/button';
 import {
@@ -12,6 +12,8 @@ import {
 import { useCategories } from '../context/categoryContext';
 import { CreateCategory } from './CreateCategory';
 import { CategoryCard } from './CategoryCard';
+import { Category } from '../types/category';
+import { CategoryTable } from './CategoryTable';
 
 
 
@@ -21,7 +23,18 @@ export function CategoryList() {
   const { categories, loading } = useCategories();
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('name');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'table'>('grid');
+
+
+  // const dispatch = useDispatch<AppDispatch>();
+  // const { items, loading, error } = useSelector(
+  //   (state: RootState) => state.categories
+  // );
+
+  // useEffect(() => {
+  //   dispatch(fetchCategories());
+  // }, [dispatch]);
+
 
   const filteredCategories = categories.filter(category =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -53,6 +66,8 @@ export function CategoryList() {
       </div>
     );
   }
+
+  //if (error) return <p>Error: {error}</p>;
 
   return (
     <div className="space-y-6">
@@ -110,6 +125,14 @@ export function CategoryList() {
             >
               <List className="w-4 h-4" />
             </Button>
+            <Button
+              size="sm"
+              variant={viewMode === 'table' ? 'default' : 'ghost'}
+              onClick={() => setViewMode('table')}
+              className="rounded-l-none"
+            >
+              <Table className="w-4 h-4" />
+            </Button>
           </div>
         </div>
       </div>
@@ -132,7 +155,7 @@ export function CategoryList() {
         </div>
       </div>
 
-      {/* Categories Grid/List */}
+      {/* Categories Grid/List/Table */}
       {sortedCategories.length === 0 ? (
         <div className="text-center py-12">
           <div className="text-muted-foreground mb-4">
@@ -140,6 +163,8 @@ export function CategoryList() {
           </div>
           {!searchTerm && <CreateCategory />}
         </div>
+      ) : viewMode === 'table' ? (
+        <CategoryTable categories={sortedCategories} />
       ) : (
         <div
           className={

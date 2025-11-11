@@ -15,7 +15,7 @@ import RatingStats from './rating';
 import FeedbackRating from './rating2';
 import ProductQA from './productQA';
 import ReviewList from './productReview2';
-import ProductDetails2 from './productDetails2';
+import ProductInfo from './productInfo';
 
 
 interface Specification {
@@ -329,7 +329,7 @@ const ProductDetails = () => {
                 </div>
             </div>
             <section className='w-[95%] mx-auto'>
-                <ProductDetails2 />
+                <ProductInfo />
                 <div className='flex bg-white w-full flex-col lg:flex-row '>
                     <RatingStats
                         average={4.1}
@@ -358,10 +358,6 @@ const ProductDetails = () => {
 }
 
 export default ProductDetails;
-
-
-
-
 
 
 

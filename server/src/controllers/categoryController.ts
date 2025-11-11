@@ -1,15 +1,15 @@
 import { Request, Response } from "express";
-import cloudinary from "../config/cloudinary";
-import CategoryModel from "../models/categoryModel";
 import { Types } from "mongoose";
 import fs from "fs/promises";
 import slugify from "slugify";
+import asyncHandler from "express-async-handler";
+import cloudinary from "../config/cloudinary.js";
+import CategoryModel from "../models/categoryModel.js";
 import {
   deleteTempFile,
   uploadToCloudinary,
-} from "../services/cloudinaryService";
-import asyncHandler from "express-async-handler";
-import redisClient from "../config/connectRedis";
+} from "../services/cloudinaryService.js";
+import redisClient from "../config/connectRedis.js";
 
 // Configurable limits
 export const ALLOWED_MIME_TYPES = [
@@ -174,87 +174,128 @@ const extractUploadedFile = (
 //     return null;
 //   };
 
-
-// Cache key for category tree
 const CATEGORY_TREE_KEY = "category_tree";
+
 export const createCategoryController = async (req: Request, res: Response) => {
   try {
+    console.log("incoming data:", req.body);
     const { name, description, parentCategoryId } = req.body;
 
+    // ===== Validation =====
     if (!name || typeof name !== "string" || !name.trim()) {
-      return res.status(400).json({ success: false, message: "Category name is required and must be a non-empty string." });
+      return res.status(400).json({
+        success: false,
+        message: "Category name is required and must be a non-empty string.",
+      });
     }
 
     // Prevent duplicate names (case-insensitive)
-    const existingCategory = await CategoryModel.findOne({ name: { $regex: `^${name.trim()}$`, $options: "i" } }).lean();
+    const existingCategory = await CategoryModel.findOne({
+      name: { $regex: `^${name.trim()}$`, $options: "i" },
+    }).lean();
+
     if (existingCategory) {
-      return res.status(400).json({ success: false, message: "Category name already exists" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Category name already exists." });
     }
 
-    let imageUrl: string | null = null;
+    // ===== Image Upload (optional) =====
+    let imageData: any = undefined;
 
     if (req.file) {
+      console.log(req.file);
       const file = req.file;
 
+      // Validate file type
       if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
         await deleteTempFile(file.path);
-        return res.status(400).json({ success: false, message: "Unsupported file type. Only JPG, PNG, WEBP, GIF, and SVG are allowed." });
+        return res.status(400).json({
+          success: false,
+          message:
+            "Unsupported file type. Only JPG, PNG, WEBP, GIF, and SVG are allowed.",
+        });
       }
 
+      // Validate file size
       const fileSizeMB = file.size / (1024 * 1024);
       if (fileSizeMB > MAX_FILE_SIZE_MB) {
         await deleteTempFile(file.path);
-        return res.status(400).json({ success: false, message: `File size exceeds ${MAX_FILE_SIZE_MB}MB limit.` });
+        return res.status(400).json({
+          success: false,
+          message: `File size exceeds ${MAX_FILE_SIZE_MB}MB limit.`,
+        });
       }
 
       try {
-        imageUrl = await uploadToCloudinary(file.path, "categories");
-        // uploadToCloudinary should delete temp file after upload; keep fallback
-        // await deleteTempFile(file.path);
+        // Upload to Cloudinary and get structured object
+        const uploadResult = await uploadToCloudinary(file.path, "categories");
+        imageData = {
+          public_id: uploadResult.public_id,
+          url: uploadResult.secure_url,
+          width: uploadResult.width,
+          height: uploadResult.height,
+          format: uploadResult.format,
+          size: uploadResult.bytes,
+          uploadedAt: new Date(),
+          alt: "",
+        };
       } catch (uploadErr: any) {
-        // ensure temp file removed
-        try { await deleteTempFile(file.path); } catch (e) { /* ignore */ }
+        try {
+          await deleteTempFile(file.path);
+        } catch {}
         console.error("Cloudinary upload error:", uploadErr);
-        return res.status(500).json({ success: false, message: "Failed to upload image to Cloudinary." });
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload image to Cloudinary.",
+        });
       }
     }
 
+    // ===== Category Data =====
     const categoryData: any = {
       name: name.trim(),
       slug: slugify(name, { lower: true, strict: true }),
       description: description || null,
-      image: imageUrl,
+      image: imageData || undefined,
       isActive: true,
+      isFeatured: false,
       level: 0,
       parentCategoryId: null,
       parentCategoryName: null,
     };
 
-    // Parent handling
+    // ===== Parent Category Handling =====
     let parentId: string | undefined;
     if (parentCategoryId && parentCategoryId !== "null") {
       parentId = String(parentCategoryId);
     }
 
-    if (parentId) {
+    if (parentId && parentId !== "null") {
       const parentCategory = await CategoryModel.findById(parentId);
       if (!parentCategory) {
-        // If a temp file was uploaded, remove it (if not removed already)
-        return res.status(404).json({ success: false, message: "Parent category not found" });
+        return res
+          .status(404)
+          .json({ success: false, message: "Parent category not found." });
       }
+
       categoryData.parentCategoryId = parentCategory._id;
       categoryData.parentCategoryName = parentCategory.name;
       categoryData.level = parentCategory.level + 1;
     }
 
+    // ===== Create Category =====
     const newCategory = new CategoryModel(categoryData);
     await newCategory.save();
 
+    // Add child reference to parent
     if (parentId) {
-      await CategoryModel.findByIdAndUpdate(parentId, { $addToSet: { children: newCategory._id } });
+      await CategoryModel.findByIdAndUpdate(parentId, {
+        $addToSet: { children: newCategory._id },
+      });
     }
 
-    // Invalidate cache
+    // ===== Invalidate Redis Cache =====
     try {
       if (redisClient && redisClient.del) {
         await redisClient.del(CATEGORY_TREE_KEY);
@@ -263,17 +304,28 @@ export const createCategoryController = async (req: Request, res: Response) => {
       console.warn("Redis del error:", redisErr);
     }
 
-    return res.status(201).json({ success: true, message: "Category created successfully", category: newCategory });
+    // ===== Response =====
+    return res.status(201).json({
+      success: true,
+      message: "Category created successfully.",
+      category: newCategory.toObject(), // ✅ keep image as full object
+    });
   } catch (err: any) {
     console.error("Unhandled error in category creation:", err);
-    // If duplicate key on slug or name occurs, respond accordingly
+
     if (err?.code === 11000) {
-      return res.status(409).json({ success: false, message: "Duplicate key error, category already exists." });
+      return res.status(409).json({
+        success: false,
+        message: "Duplicate key error, category already exists.",
+      });
     }
-    return res.status(500).json({ success: false, error: err.message || "Internal server error." });
+
+    return res.status(500).json({
+      success: false,
+      error: err.message || JSON.stringify(err) || "Internal server error.",
+    });
   }
 };
-
 
 /**
  * @desc    Update a category
@@ -410,7 +462,9 @@ export const getCategoryTree = asyncHandler(
       }
 
       // Fetch all active categories
-      const categories: any[] = await CategoryModel.find({ isActive: true }).lean().sort({ name: 1 }); // optional: sort alphabetically;
+      const categories: any[] = await CategoryModel.find({ isActive: true })
+        .lean()
+        .sort({ name: 1 }); // optional: sort alphabetically;
 
       // Build category map
       const categoryMap: Record<string, any> = {};

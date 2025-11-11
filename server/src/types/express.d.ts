@@ -1,4 +1,4 @@
-import "express";
+
 
 declare global {
   namespace Express {
@@ -9,4 +9,17 @@ declare global {
   }
 }
 
-//it is global type declaration file for express request object so that we can access userId and userRole in req object throughout the project. and we don't have to export it.
+// //it is global type declaration file for express request object so that we can access userId and userRole in req object throughout the project. and we don't have to export it.
+
+
+
+// import "express";
+
+// declare module "express-serve-static-core" {
+//   interface Request {
+//     userId?: string;
+//     userRole?: string;
+//   }
+// }
+
+export {}; // 👈 this is critical so TypeScript treats it as a module

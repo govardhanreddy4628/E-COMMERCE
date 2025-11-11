@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import CartModel from "../models/cartModel";
-import UserModel from "../models/userModel";
+import CartModel from "../models/cartModel.js";
+import UserModel from "../models/userModel.js";
 
 // Extend Express Request interface to include 'user'
 // declare global {
@@ -13,7 +13,7 @@ import UserModel from "../models/userModel";
 
 export const addToCartController = async (req:Request, res:Response) => {
     try {
-        const userId = req.user; // Assuming user ID is stored in req.user
+        const userId = req.userId; // Assuming user ID is stored in req.user
         const { productId, quantity, size, color } = req.body;
 
         if(productId === undefined || quantity === undefined) {
@@ -67,10 +67,11 @@ export const addToCartController = async (req:Request, res:Response) => {
 
 
     } catch (error) {
-        return res.status(500).json({
-            message : error.message || error,
-            error : true,
-            success : false
+       const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+        res.status(500).json({
+            message: errorMessage,
+            error:true,
+            success: false
         })
     }
 }
@@ -78,7 +79,7 @@ export const addToCartController = async (req:Request, res:Response) => {
 
 export const getCartItemsController = async(req:Request, res:Response) => {
     try {
-        const userId = req.user; // Assuming user ID is stored in req.user
+        const userId = req.userId; // Assuming user ID is stored in req.user
         const cartItems = await CartModel.find({ userId: userId }).populate('productId');  //This tells Mongoose to replace the productId field in the result with the actual product document referenced in the productId field.
         //const cartItems = await CartModel.find({ userId: userId }).populate('productId', 'name price imageUrl');  // or This tells Mongoose to replace the productId field in the result with the actual product document referenced in the productId field. Only the fields 'name', 'price', and 'imageUrl' will be fetched from the Product collection (to avoid fetching unnecessary data).
         if(cartItems.length === 0) {
@@ -96,10 +97,11 @@ export const getCartItemsController = async(req:Request, res:Response) => {
         }); 
     
     } catch (error) {
-        return res.status(500).json({
-            message : error.message || error,
-            error : true,
-            success : false
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+        res.status(500).json({
+            message: errorMessage,
+            error:true,
+            success: false
         })
         
     }
@@ -108,7 +110,7 @@ export const getCartItemsController = async(req:Request, res:Response) => {
 
 export const updateCartItemController = async(req:Request, res:Response) => {
     try {
-        const userId = req.user;
+        const userId = req.userId;
         const { cartItemId, quantity, size, color } = req.body;
         if(!cartItemId || !quantity){
             return res.status(400).json({
@@ -137,8 +139,9 @@ export const updateCartItemController = async(req:Request, res:Response) => {
             data: cartItem
         });
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
         res.status(500).json({
-            message: error.message || error,
+            message: errorMessage,
             error:true,
             success: false
         })
@@ -148,7 +151,7 @@ export const updateCartItemController = async(req:Request, res:Response) => {
 
 export const deleteCartItemController = async(req:Request, res:Response) => {
     try {
-        const userId = req.user;
+        const userId = req.userId;
         const { cartItemId } = req.body;
         if(!cartItemId) {
             return res.status(400).json({
@@ -172,8 +175,9 @@ export const deleteCartItemController = async(req:Request, res:Response) => {
             success: true
         });
     } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
         res.status(500).json({
-            message: error.message || error,
+            message: errorMessage,
             error:true,
             success: false
         })
