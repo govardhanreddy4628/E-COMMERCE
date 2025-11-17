@@ -271,7 +271,7 @@ const Hero = () => {
                                         className="mySwiper2 overflow-x-hidden rounded-lg w-full h-full select-none"
                                     >
                                         {imageUrls2.map((src) => (
-                                            <>
+                                            <div key={src}>
                                                 {/* <SwiperSlide className='rounded-lg overflow-hidden' key={src}>
                                     < InnerImageZoom
                                         src={src}
@@ -281,7 +281,7 @@ const Hero = () => {
                                     />
                                 </SwiperSlide> */}
 
-                                                <SwiperSlide key={src} className="!flex items-center justify-center ">
+                                                <SwiperSlide  className="!flex items-center justify-center ">
                                                     <InnerImageZoom
                                                         src={src}
                                                         zoomType="hover"
@@ -293,7 +293,7 @@ const Hero = () => {
 
                                                 </SwiperSlide>
 
-                                            </>
+                                            </div>
                                         ))}
                                     </Swiper>
                                 </div>

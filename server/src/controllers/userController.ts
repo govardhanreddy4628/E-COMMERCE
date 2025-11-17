@@ -5,25 +5,32 @@ import jwt from "jsonwebtoken";
 import UserModel from "../models/userModel.js";
 import { ApiError } from "../utils/ApiError.js";
 import {
+  ACCESS_EXPIRES_SEC,
   generateAccessToken,
   generateRefreshToken,
   REFRESH_EXPIRES_SEC,
 } from "../utils/generateToken.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction, CookieOptions } from "express";
 import { sendVerificationEmail } from "../utils/sendEmail.js";
 import fs from "fs";
 import cloudinary from "../config/cloudinary.js";
 import validator from "validator";
 import redisClient from "../config/connectRedis.js";
+import { storeSession } from "../utils/redisSessions.js";
 import logger from "../utils/logger.js";
-import { success } from "zod"
+import { hashToken } from "../utils/hash.js";
 
-
-// interface AuthRequest extends Request {
-//   userId?: string;
-//   userRole?: string;
-// }
+// helper cookie opts
+const cookieOptionsBase: CookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: (process.env.NODE_ENV === "production" ? "none" : "lax") as
+    | "none"
+    | "lax"
+    | "strict",
+  path: "/",
+};
 
 // ===================== registration =======================
 export const registerController = async (
@@ -35,16 +42,7 @@ export const registerController = async (
     const { email, password, fullName, confirmPassword } = req.body;
     const avatar = req.file?.path || undefined; // Assuming you're using multer for file uploads
     console.log(avatar);
-    // if (!email ) {
-    //   return res
-    //     .status(400)
-    //     .send({ message: "Email is Required", error: true, success: false }); //though it works. still better to use json instead of send
-    // }
-    // if (!validator.isEmail(email)) {
-    //   throw new Error("Invalid email format");
-    // }
 
-    //or
     if (!email || !validator.isEmail(email)) {
       return res.status(400).json({ message: "Valid email is required" });
     }
@@ -68,11 +66,10 @@ export const registerController = async (
       "+otp +otpExpiresAt"
     );
 
-    const now = new Date();
     //const verificationToken = crypto.randomBytes(32).toString("hex");
     const otp = crypto.randomInt(100000, 999999).toString();
-    // Hash OTP using SHA256
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+    const otpExpiryMs = 10 * 60 * 1000;   // 10 minutes
 
     if (existingUser) {
       if (existingUser.isVerified) {
@@ -81,21 +78,21 @@ export const registerController = async (
       } else {
         // Case 2: User exists but is NOT verified → resend verification email
 
-        const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-        const recentAttempts = await UserModel.countDocuments({
-          email,
-          otpExpiresAt: { $gt: oneHourAgo },
-        });
+        const lastSent = existingUser.otpExpiresAt;
+        const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
 
-        if (recentAttempts >= 15) {
+        // Simple throttle: disallow resend more than once per minute.
+        if (lastSent && lastSent > oneMinuteAgo) {
           return res
             .status(429)
-            .json({ message: "Too many OTP requests. Try again later." });
+            .json({ message: "OTP recently sent. Try again in a minute." });
         }
+
         existingUser.otp = hashedOtp;
-        existingUser.otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+        existingUser.otpExpiresAt = new Date(Date.now() + otpExpiryMs);
         await existingUser.save();
 
+        // intent token to bind OTP verification action (short lived)
         const intentToken = jwt.sign(
           { email: existingUser.email, userId: existingUser.id.toString() }, //actually here no need to use toString() method because mongoose.Document has a built-in getter for .id, and it returns a string by default. ✅ existingUser.id is already a string. ❌ existingUser._id is an ObjectId, and would need .toString()
           process.env.LOGIN_INTENT_SECRET!,
@@ -120,7 +117,7 @@ export const registerController = async (
       email,
       password: hashedPassword,
       otp: hashedOtp,
-      otpExpiresAt: new Date(now.getTime() + 900000), //or new Date(Date.now() + 15 * 60 * 1000),
+      otpExpiresAt: new Date(Date.now() + otpExpiryMs),
       avatar,
       isVerified: false,
     });
@@ -138,6 +135,7 @@ export const registerController = async (
       intentToken,
       success: true,
       error: false,
+      isVerified: false,
     });
   } catch (err) {
     next(err);
@@ -173,26 +171,34 @@ export const verifyEmailController = async (
     if (!user) throw new ApiError(400, "Invalid or expired OTP");
 
     user.isVerified = true;
-    user.otp = "";
-    user.otpExpiresAt = undefined;
+    user.otp = null;
+    user.otpExpiresAt = null;
     await user.save();
 
-    // ✅ Auto-login after verification
-    const accessToken = await generateAccessToken(user.id, user.role);
-    const refreshToken = await generateRefreshToken(user.id);
+    // auto-login after verify: create tokens and session
+    const accessToken = generateAccessToken(user.id, user.role);
+    //const refreshToken = generateRefreshToken(user.id);
+    const { token: refreshToken, sid } = generateRefreshToken(user.id);
 
-    await UserModel.findByIdAndUpdate(user.id, {
-      last_login_date: new Date(),
+
+        // store hashed refresh in redis & metadata
+    await storeSession({ rawRefreshToken: refreshToken, userId: user.id, sid, meta: { ip: req.ip, ua: req.get("user-agent") } });
+
+
+    // await UserModel.findByIdAndUpdate(user.id, {
+    //   last_login_date: new Date(),
+    // });
+
+
+    res.cookie("accessToken", accessToken, {
+      ...cookieOptionsBase,
+      maxAge: ACCESS_EXPIRES_SEC * 1000
     });
 
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict" as const,
-    };
-
-    res.cookie("accessToken", accessToken, cookieOptions);
-    res.cookie("refreshToken", refreshToken, cookieOptions);
+    res.cookie("refreshToken", refreshToken, {
+      ...cookieOptionsBase,
+      maxAge: REFRESH_EXPIRES_SEC * 1000, // usually days
+    });
 
     res.status(200).json({
       success: true,
@@ -232,7 +238,7 @@ export const loginController = async (
       throw new ApiError(400, "User Does not Exist.");
     }
 
-    if (user.status !== "Active") {
+    if (user.status !== "ACTIVE") {
       throw new ApiError(403, "Contact admin - account is not active.");
     }
 
@@ -241,7 +247,7 @@ export const loginController = async (
       throw new ApiError(400, "Invalid credentials.");
     }
 
-    // 🔒 If email not verified — resend OTP
+    // case 1: If email not verified — resend OTP and return intent token
     if (!user.isVerified) {
       //const verificationToken = crypto.randomBytes(32).toString("hex");
       const otp = crypto.randomInt(100000, 999999).toString();
@@ -249,7 +255,7 @@ export const loginController = async (
 
       user.otp = hashedOtp;
 
-      user.otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+      user.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
       await user.save();
 
       await sendVerificationEmail(user.email, otp);
@@ -264,33 +270,34 @@ export const loginController = async (
         success: false,
         message: "Please verify your email with the OTP sent to your email.",
         intentToken: intentToken,
+        needVerify: true 
       });
       return;
     }
 
-    // ✅ Email verified, generate tokens
+    // case 2: Email verified, generate tokens
     const accessToken = generateAccessToken(user.id, user.role);
-    const refreshToken = generateRefreshToken(user.id);
+    const { token: refreshToken, sid } = generateRefreshToken(user.id);
 
     // store refresh in redis for revocation & rotation
-    await redisClient.set(`refresh:${refreshToken}`, user.id, {
-      EX: REFRESH_EXPIRES_SEC
-    });
+    await storeSession({ rawRefreshToken: refreshToken, userId: user.id, sid, meta: { ip: req.ip, ua: req.get("user-agent") } });
 
     await UserModel.findByIdAndUpdate(user.id, {
       last_login_date: new Date(),
     });
 
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict" as const,
-      path: "/auth/refresh",            //path: "/auth/refresh" The path only controls when the browser will send that cookie back to the server in future requests, but not when to send cookies from backend.  path: "/auth/refresh" only limits when the cookie is returned back to the server. if u give path: "/" it ensures cookie is recieved from every request
-       maxAge: REFRESH_EXPIRES_SEC * 1000,
-    };
 
-    //res.cookie("accessToken", accessToken, cookieOptions);
-    res.cookie("refreshToken", refreshToken, cookieOptions);
+    // Access Token
+    res.cookie("accessToken", accessToken, {
+      ...cookieOptionsBase,
+      maxAge: ACCESS_EXPIRES_SEC * 1000,  // 15 minutes
+    });
+
+    // Refresh Token
+    res.cookie("refreshToken", refreshToken, {
+      ...cookieOptionsBase,
+      maxAge: REFRESH_EXPIRES_SEC * 1000,
+    });
 
     res.status(200).json({
       success: true,
@@ -304,61 +311,78 @@ export const loginController = async (
   }
 };
 
-
-
 //========================regenerate new accessToken and refreshToken==============
 export const getNewAccessToken = async (req: Request, res: Response) => {
   try {
-    const refreshToken = req.cookies.refreshToken;
-    if (!refreshToken) {
+    const rawRefresh = (req.cookies?.refresh_token as string) || (req.cookies?.refreshToken as string);
+    if (!rawRefresh) {
       return res.status(401).json({ message: "No refresh token provided" });
     }
-    const storedUserIdInRedis = await redisClient.get(`refresh:${refreshToken}`);
-    if (!storedUserIdInRedis) {
+
+    // hash the incoming raw refresh token (must match how you stored it)
+    const hashed = hashToken(rawRefresh);
+    const redisKey = `refresh:${hashed}`;
+
+    const storedJson = await redisClient.get(redisKey);
+    if (!storedJson) {
       return res.status(403).json({ message: "Invalid refresh token" });
     }
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET!) as {
-      id: string;
-    };
-    if (decoded.id !== storedUserIdInRedis) {
+
+    // if you stored JSON like { userId, sid }, parse it
+    let stored: { userId: string; sid?: string } | string = storedJson;
+    try {
+      stored = JSON.parse(storedJson);
+    } catch {
+      // if older code stored plain string userId
+      stored = storedJson;
+    }
+
+    // verify refresh JWT
+    const decoded = jwt.verify(rawRefresh, process.env.JWT_REFRESH_SECRET!) as { id: string; sid?: string };
+
+    const storedUserId = typeof stored === "string" ? stored : (stored as any).userId;
+    if (decoded.id !== storedUserId) {
       return res.status(403).json({ message: "Token user mismatch" });
     }
-    const user = await UserModel.findById(decoded.id);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-    
-    
-    // rotate: issue new refresh token and delete old entry
-    const newRefresh = generateRefreshToken(decoded.id );
-    await redisClient.del(`refresh:${refreshToken}`);
-    await redisClient.set(`refresh:${newRefresh}`, decoded.id, { EX: REFRESH_EXPIRES_SEC });
 
-    // set new cookie
-    res.cookie("refreshToken", newRefresh, {
+    const user = await UserModel.findById(decoded.id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // rotate: delete old entry and create a new refresh token + store hashed mapping
+    await redisClient.del(redisKey);
+
+    const { token: newRefreshToken, sid: newSid } = generateRefreshToken(decoded.id);
+
+    // store new refresh token (use your storeSession helper to ensure same format/hashing)
+    await storeSession({
+      rawRefreshToken: newRefreshToken,
+      userId: decoded.id,
+      sid: newSid,
+      meta: { ip: req.ip, ua: req.get("user-agent") || "" },
+    });
+
+    // set new cookie names consistent with above
+    res.cookie("refresh_token", newRefreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict" as const,
-      path: "/auth/refresh",
+      sameSite: process.env.NODE_ENV === "production" ? ("none" as const) : ("lax" as const),
+      path: "/",
       maxAge: REFRESH_EXPIRES_SEC * 1000,
     });
 
     const newAccessToken = generateAccessToken(user.id, user.role);
     res.json({ accessToken: newAccessToken });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Internal server error" });
+  } catch (err: any) {
+    console.error("getNewAccessToken error:", err);
+    if (err?.name === "TokenExpiredError") {
+      return res.status(401).json({ message: "Refresh token expired" });
+    }
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
 
-
-
-
-// controllers/authController.ts
+// =====================currentUserController=========================
 export const getCurrentUserController = async (
-
-
-
   req: Request,
   res: Response,
   next: NextFunction
@@ -391,286 +415,14 @@ export const getCurrentUserController = async (
 };
 
 
-
-// const tokenBlacklist = new Set<string>();
-// const userTokens: Record<string, string> = {};
-
-// export const refreshTokenWithTokenRotation = async (req, res) => {
-//   const oldToken = req.cookies.refreshToken;
-//   if (!oldToken || tokenBlacklist.has(oldToken)) {
-//     return res.status(401).send('Invalid refresh token');
-//   }
-
-//   jwt.verify(oldToken, REFRESH_SECRET, (err, decoded: any) => {
-//     if (err || userTokens[decoded.userId] !== oldToken) {
-//       return res.status(403).send('Token reuse detected');
-//     }
-
-//     tokenBlacklist.add(oldToken); // Invalidate used token
-
-//     const newToken = generateRefreshToken(decoded.userId);
-//     userTokens[decoded.userId] = newToken;
-
-//     res.cookie('refreshToken', newToken, { httpOnly: true, secure: true });
-//     res.json({ accessToken: generateAccessToken(decoded.userId) });
-//   });
-// }
-
-
-//=================upload images==================
-//method1 :
-
-//     var imagesArr = [];
-
-//     for (let i = 0; i < files?.length; i++) {
-//       const img = await cloudinary.uploader.upload(
-//         files[i].path,
-//         options,
-//         function (error, result) {
-//           imagesArr.push(result.secure_url);
-//           fs.unlinkSync(`uploads/${req.files[i].filename}`);
-//         }
-//       );
-//     }
-//   } catch (error) {
-//     res.status(500).json({ message: "Upload failed", error });
-//   }
-// }
-
-//method2 :
-export const userAvatarController = async (req: Request, res: Response) => {
-  try {
-    const userId = req.userId; // Ensure this comes from your auth middleware
-    const files = req.files as Express.Multer.File[];
-
-    if (!files || files.length === 0) {
-      return res.status(400).json({ message: "No files uploaded" });
-    }
-    // Validate userId
-    if (!userId || typeof userId !== "string") {
-      return res.status(400).json({ message: "Invalid user ID" });
-    }
-    const user = await UserModel.findOne({ _id: userId });
-    if (!user) {
-      return res.status(500).json({
-        message: "User not found",
-        error: true,
-        success: false,
-      });
-    }
-
-    // first remove image from cloudinary
-    const imgUrl = user.avatar;
-    const urlArr = imgUrl.split("/");
-    const avatar_image = urlArr[urlArr.length - 1];
-
-    const imageName = avatar_image.split(".")[0];
-
-    if (imageName) {
-      const res = await cloudinary.uploader.destroy(
-        imageName,
-        (error, result) => {}
-      );
-    }
-
-    // Validate file types
-    const validMimeTypes = ["image/jpeg", "image/png", "image/gif"];
-    for (const file of files) {
-      if (!validMimeTypes.includes(file.mimetype)) {
-        return res.status(400).json({ message: "Invalid file type" });
-      }
-    }
-
-    const options = {
-      folder: "avatar_uploads",
-      transformation: [{ width: 500, height: 500, crop: "limit" }],
-      resource_type: "image" as "image",
-      format: "jpg",
-      public_id: `user_${userId}`,
-      use_filename: true,
-      unique_filename: false,
-      overwrite: true, // Set to true if you want to replace existing avatar
-      secure: true,
-    };
-
-    const uploadPromises = files.map((file) =>
-      cloudinary.uploader.upload(file.path, options)
-    );
-
-    const uploadResults = await Promise.all(uploadPromises);
-
-    // Cleanup local files
-    const deletePromises = files.map((file) =>
-      fs.promises
-        .unlink(file.path)
-        .catch((err) => console.error(`Error deleting file ${file.path}:`, err))
-    );
-    await Promise.all(deletePromises);
-
-    const imageUrls = uploadResults.map((result) => result.secure_url);
-
-    user.avatar = imageUrls[0];
-    await user.save();
-
-    return res.status(200).json({
-      _id: userId,
-      avatar: imageUrls[0],
-      message: "Images uploaded successfully",
-    });
-  } catch (error: any) {
-    console.error("Upload failed:", error);
-    return res
-      .status(500)
-      .json({ message: "Upload failed", error: error.message });
-  }
-};
-
-// export const removeImgFromCloudinary = async(req: Request, res: Response) => {
-//   const imgUrl = req.query.img;
-//   const urlArr = imgUrl.split("/");
-//   const image = urlArr[urlArr.length - 1];
-
-//   const imageName = image.split(".")[0];
-
-//   if(imageName){
-//     const res = await cloudinary.uploader.destroy(
-//       imageName, (error, result) => {
-
-//       }
-//     );
-
-//     if(res){
-//       res.status(200).send(res)
-//     }
-//   }
-// }
-
-export const removeImgFromCloudinary = async (req: Request, res: Response) => {
-  try {
-    const imgUrl = req.query.img as string;
-
-    if (!imgUrl) {
-      return res.status(400).json({ error: "Image URL is required." });
-    }
-
-    const urlSegments = imgUrl.split("/");
-    const imageWithExtension = urlSegments[urlSegments.length - 1];
-    const publicId = imageWithExtension.split(".")[0]; // Assumes image name doesn't include extra dots
-
-    // Optional: if your images are in a folder like 'profile_pics/abc123', preserve the full path
-    const folderSegments = urlSegments.slice(urlSegments.indexOf("upload") + 1);
-    const fullPublicId = folderSegments.join("/").split(".")[0];
-
-    const result = await cloudinary.uploader.destroy(fullPublicId);
-
-    if (result.result === "ok") {
-      return res
-        .status(200)
-        .json({ success: true, message: "Image deleted successfully." });
-    } else {
-      return res
-        .status(404)
-        .json({ error: "Image not found or already deleted." });
-    }
-  } catch (error) {
-    console.error("Cloudinary delete error:", error);
-    return res
-      .status(500)
-      .json({ error: "Failed to delete image from Cloudinary." });
-  }
-};
-
-// PUT /api/user/profile-pic
-export const updateUserProfilePic = async (req: Request, res: Response) => {
-  try {
-    const userId = req.userId; // Assuming you have auth middleware that adds user to req
-    const file = req.file;
-
-    if (!file) {
-      return res.status(400).json({ error: "No image file provided" });
-    }
-
-    // Upload to Cloudinary
-    const result = await cloudinary.uploader.upload(file.path, {
-      folder: "profile_pics",
-    });
-
-    // Update user in DB
-    await UserModel.findByIdAndUpdate(userId, {
-      profilePic: result.secure_url,
-    });
-
-    res.json({
-      success: true,
-      message: "Profile picture updated",
-      imageUrl: result.secure_url,
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Failed to update profile picture" });
-  }
-};
-
-//===================update user===================
-export async function updateUserDetails(req: Request, res: Response) {
-  try {
-    const userId = req.userId;
-    const { name, email, mobile, password } = req.body;
-
-    const userExist = await UserModel.findById(userId);
-    if (!userExist) return res.status(400).send("The user cannot be updated");
-
-    let otp = "";
-    if (email !== userExist.email) {
-      otp = Math.floor(100000 * Math.random() * 900000).toString();
-    }
-
-    let hashedPassword = "";
-    if (password) {
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-    } else {
-      hashedPassword = userExist.password;
-    }
-
-    const updateUser = await UserModel.findByIdAndUpdate(
-      userId,
-      {
-        fullName: name,
-        mobile,
-        email,
-        verify_email: email ? false : true,
-        password: hashedPassword,
-        otp: otp !== "" ? otp : null,
-        otpExpires: otp !== "" ? Date.now() + 600000 : "",
-      },
-      { new: true }
-    );
-
-    if (email !== userExist.email) {
-      await sendVerificationEmail(userExist.email, otp);
-    }
-
-    return res.json({
-      message: "user Updated successfully",
-      error: false,
-      success: true,
-      user: updateUser,
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: error,
-      error: true,
-      success: false,
-    });
-  }
-}
-
 // --- controllers/auth/logoutController.ts ---
 const getUserSessionKey = (userId: string) => `user_sessions:${userId}`;
 const getBlacklistKey = (token: string) => `bl_refresh:${token}`;
 
-export const logoutController = async (req: Request, res: Response): Promise<Response> => {
+export const logoutController = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
   try {
     const userId = req.userId;
     const refreshToken = req.cookies?.refreshToken;
@@ -725,7 +477,7 @@ export const logoutController = async (req: Request, res: Response): Promise<Res
       success: true,
     });
   } catch (err: any) {
-    logger.error("Logout error:", err);
+    console.error("Logout error:", err);
     return res.status(500).json({
       message: "Internal server error during logout",
       error: true,
@@ -733,6 +485,7 @@ export const logoutController = async (req: Request, res: Response): Promise<Res
     });
   }
 };
+
 
 //================forgot password======================
 export const forgotPasswordController = async (
@@ -873,3 +626,212 @@ export const verifyForgotPasswordOtpController = async (
 
 
 
+//=================upload images==================
+export const userAvatarController = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId; // Ensure this comes from your auth middleware
+    const files = req.files as Express.Multer.File[];
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({ message: "No files uploaded" });
+    }
+    // Validate userId
+    if (!userId || typeof userId !== "string") {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+    const user = await UserModel.findOne({ _id: userId });
+    if (!user) {
+      return res.status(500).json({
+        message: "User not found",
+        error: true,
+        success: false,
+      });
+    }
+
+    // first remove image from cloudinary
+    const imgUrl = user.avatar;
+    const urlArr = imgUrl.split("/");
+    const avatar_image = urlArr[urlArr.length - 1];
+
+    const imageName = avatar_image.split(".")[0];
+
+    if (imageName) {
+      const res = await cloudinary.uploader.destroy(
+        imageName,
+        (error, result) => {}
+      );
+    }
+
+    // Validate file types
+    const validMimeTypes = ["image/jpeg", "image/png", "image/gif"];
+    for (const file of files) {
+      if (!validMimeTypes.includes(file.mimetype)) {
+        return res.status(400).json({ message: "Invalid file type" });
+      }
+    }
+
+    const options = {
+      folder: "avatar_uploads",
+      transformation: [{ width: 500, height: 500, crop: "limit" }],
+      resource_type: "image" as "image",
+      format: "jpg",
+      public_id: `user_${userId}`,
+      use_filename: true,
+      unique_filename: false,
+      overwrite: true, // Set to true if you want to replace existing avatar
+      secure: true,
+    };
+
+    const uploadPromises = files.map((file) =>
+      cloudinary.uploader.upload(file.path, options)
+    );
+
+    const uploadResults = await Promise.all(uploadPromises);
+
+    // Cleanup local files
+    const deletePromises = files.map((file) =>
+      fs.promises
+        .unlink(file.path)
+        .catch((err) => console.error(`Error deleting file ${file.path}:`, err))
+    );
+    await Promise.all(deletePromises);
+
+    const imageUrls = uploadResults.map((result) => result.secure_url);
+
+    user.avatar = imageUrls[0];
+    await user.save();
+
+    return res.status(200).json({
+      _id: userId,
+      avatar: imageUrls[0],
+      message: "Images uploaded successfully",
+    });
+  } catch (error: any) {
+    console.error("Upload failed:", error);
+    return res
+      .status(500)
+      .json({ message: "Upload failed", error: error.message });
+  }
+};
+
+
+export const removeImgFromCloudinary = async (req: Request, res: Response) => {
+  try {
+    const imgUrl = req.query.img as string;
+
+    if (!imgUrl) {
+      return res.status(400).json({ error: "Image URL is required." });
+    }
+
+    const urlSegments = imgUrl.split("/");
+    const imageWithExtension = urlSegments[urlSegments.length - 1];
+    const publicId = imageWithExtension.split(".")[0]; // Assumes image name doesn't include extra dots
+
+    // Optional: if your images are in a folder like 'profile_pics/abc123', preserve the full path
+    const folderSegments = urlSegments.slice(urlSegments.indexOf("upload") + 1);
+    const fullPublicId = folderSegments.join("/").split(".")[0];
+
+    const result = await cloudinary.uploader.destroy(fullPublicId);
+
+    if (result.result === "ok") {
+      return res
+        .status(200)
+        .json({ success: true, message: "Image deleted successfully." });
+    } else {
+      return res
+        .status(404)
+        .json({ error: "Image not found or already deleted." });
+    }
+  } catch (error) {
+    console.error("Cloudinary delete error:", error);
+    return res
+      .status(500)
+      .json({ error: "Failed to delete image from Cloudinary." });
+  }
+};
+
+// PUT /api/user/profile-pic
+export const updateUserProfilePic = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId; // Assuming you have auth middleware that adds user to req
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({ error: "No image file provided" });
+    }
+
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(file.path, {
+      folder: "profile_pics",
+    });
+
+    // Update user in DB
+    await UserModel.findByIdAndUpdate(userId, {
+      profilePic: result.secure_url,
+    });
+
+    res.json({
+      success: true,
+      message: "Profile picture updated",
+      imageUrl: result.secure_url,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update profile picture" });
+  }
+};
+
+//===================update user===================
+export async function updateUserDetails(req: Request, res: Response) {
+  try {
+    const userId = req.userId;
+    const { name, email, mobile, password } = req.body;
+
+    const userExist = await UserModel.findById(userId);
+    if (!userExist) return res.status(400).send("The user cannot be updated");
+
+    let otp = "";
+    if (email !== userExist.email) {
+      otp = Math.floor(100000 * Math.random() * 900000).toString();
+    }
+
+    let hashedPassword = "";
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+    } else {
+      hashedPassword = userExist.password;
+    }
+
+    const updateUser = await UserModel.findByIdAndUpdate(
+      userId,
+      {
+        fullName: name,
+        mobile,
+        email,
+        verify_email: email ? false : true,
+        password: hashedPassword,
+        otp: otp !== "" ? otp : null,
+        otpExpires: otp !== "" ? Date.now() + 600000 : "",
+      },
+      { new: true }
+    );
+
+    if (email !== userExist.email) {
+      await sendVerificationEmail(userExist.email, otp);
+    }
+
+    return res.json({
+      message: "user Updated successfully",
+      error: false,
+      success: true,
+      user: updateUser,
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error,
+      error: true,
+      success: false,
+    });
+  }
+}

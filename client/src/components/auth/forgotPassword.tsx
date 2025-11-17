@@ -5,14 +5,16 @@ import { FaRegEye } from "react-icons/fa6";
 // import Axios from '../utils/Axios';
 // import SummaryApi from '../common/SummaryApi';
 // import AxiosToastError from '../utils/AxiosToastError';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 const ForgotPassword = () => {
     const [data, setData] = useState({
         email: "",
     })
 
-    const location = useLocation().pathname
+    console.log(useParams().email)
+    const location = useParams().email;
+    //const location = useLocation().pathname
     const navigate = useNavigate()
 
     const handleChange = (e) => {
@@ -80,7 +82,7 @@ const ForgotPassword = () => {
                         />
                     </div>
              
-                    <button disabled={!valideValue} className={` ${valideValue ? "bg-green-800 hover:bg-green-700" : "bg-gray-500" }    text-white py-2 rounded font-semibold my-3 tracking-wide`}>Send Otp</button>
+                    <button onClick={() => navigate("/otpverify")} disabled={!valideValue} className={` ${valideValue ? "bg-green-800 hover:bg-green-700" : "bg-gray-500" }    text-white py-2 rounded font-semibold my-3 tracking-wide`}>Send Otp</button>
 
                 </form>
 

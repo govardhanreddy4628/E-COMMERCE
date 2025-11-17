@@ -75,3 +75,55 @@ export const DELETE = (
   url: string,
   config?: AxiosRequestConfig
 ): Promise<AxiosResponse> => api.delete(url, config);
+
+
+
+
+// // services/api.ts
+// import axios from "axios";
+
+// const api = axios.create({
+//   baseURL: process.env.REACT_APP_API_BASE,
+//   withCredentials: true,
+// });
+
+// let isRefreshing = false;
+// let queue: { resolve: (v?: any) => void; reject: (e?: any) => void }[] = [];
+
+// const processQueue = (error: any) => {
+//   queue.forEach(p => {
+//     if (error) p.reject(error);
+//     else p.resolve();
+//   });
+//   queue = [];
+// };
+
+// api.interceptors.response.use(
+//   res => res,
+//   async err => {
+//     const originalReq = err.config;
+//     if (err.response?.status === 401 && !originalReq._retry) {
+//       if (isRefreshing) {
+//         return new Promise((resolve, reject) => {
+//           queue.push({ resolve, reject });
+//         }).then(() => api(originalReq));
+//       }
+//       originalReq._retry = true;
+//       isRefreshing = true;
+//       try {
+//         await api.get("/auth/refresh"); // server rotates and sets cookies
+//         processQueue(null);
+//         return api(originalReq);
+//       } catch (e) {
+//         processQueue(e);
+//         window.location.href = "/login";
+//         return Promise.reject(e);
+//       } finally {
+//         isRefreshing = false;
+//       }
+//     }
+//     return Promise.reject(err);
+//   }
+// );
+
+// export default api;

@@ -2,8 +2,8 @@
 import jwt from "jsonwebtoken";
 import { RequestHandler } from "express";
 //import { Request, Response, NextFunction } from "express";
-import { ApiError } from "../utils/ApiError";
-
+import { ApiError } from "../utils/ApiError.js";
+import UserModel, { IUserDocument } from "../models/userModel.js";
 
 // Extend Express Request type
 // interface AuthenticatedRequest extends Request {
@@ -16,11 +16,12 @@ interface DecodedToken {
   role: string;
 }
 
-export const auth = (roles?: string[]): RequestHandler => {
-  return (req, res, next) => {
+export const authenticate = (roles?: string[]): RequestHandler => {
+  return async (req, res, next) => {
     try {
       console.log(req.cookies);
       const accessToken =
+        req.cookies?.access_token ||
         req.cookies?.accessToken ||
         (req.headers.authorization?.startsWith("Bearer ")
           ? req.headers.authorization.split(" ")[1]
@@ -37,8 +38,11 @@ export const auth = (roles?: string[]): RequestHandler => {
         );
       }
 
-      const decoded = jwt.verify(accessToken, process.env.JWT_ACCESS_SECRET!) as DecodedToken;
-      console.log("Decoded Token:", decoded);
+      const decoded = jwt.verify(
+        accessToken,
+        process.env.JWT_ACCESS_SECRET!
+      ) as DecodedToken;
+      //console.log("Decoded Token:", decoded);
       if (!decoded?.id) {
         res.status(401).json({
           message: "unauthorized access",
@@ -48,15 +52,32 @@ export const auth = (roles?: string[]): RequestHandler => {
         return;
       }
       if (roles && !roles.includes(decoded?.role)) {
-        throw new ApiError(403, "Forbidden: insufficient role");
+        res.status(403).json({ message: "Forbidden: insufficient role" });
+        return;
       }
-      req.userId = decoded.id;
-      req.userRole = decoded.role;
+      const user: IUserDocument | null = await UserModel.findById(
+        decoded.id
+      ).select("-password -otp -otpExpiresAt");
+
+      if (!user) {
+        res.status(401).json({ message: "User not found" });
+        return;
+      }
+
+      // after loading user from DB
+      if (user.status !== "ACTIVE") {
+        res.status(403).json({
+          message: `Account is ${user.status.toLowerCase()}. Contact support.`,
+        });
+        return;
+      }
+
+      req.user = user;
       // (req as AuthenticatedRequest).userId = decoded.id;
       // (req as AuthenticatedRequest).userRole = decoded.role;
       next();
     } catch (error: any) {
-      if (error.name === "TokenExpiredError") {
+      if (error?.name === "TokenExpiredError") {
         res.status(401).json({
           message: "Access token expired",
           error: true,
@@ -64,7 +85,7 @@ export const auth = (roles?: string[]): RequestHandler => {
         });
         return;
       }
-      if (error.name === "JsonWebTokenError") {
+      if (error?.name === "JsonWebTokenError") {
         res.status(401).json({
           message: "Invalid access token",
           error: true,

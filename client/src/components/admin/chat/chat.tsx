@@ -121,6 +121,8 @@ const Chat = () => {
   const currentMessages = selectedChatId ? messages[selectedChatId] || [] : [];
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  console.log(isConnected)
+
   const handleSendMessage = (content: string) => {
     if (!selectedChatId) return;
 
@@ -139,20 +141,26 @@ const Chat = () => {
   };
 
   useEffect(() => {
-    console.log(import.meta.env.VITE_BACKEND_URL)
-    const backendUrl = import.meta.env.VITE_BACKEND_URL as string;
+    console.log(import.meta.env.VITE_BACKEND_URL_LOCAL)
+    const backendUrl = import.meta.env.VITE_BACKEND_URL_LOCAL as string;
 
     if (!backendUrl) {
       console.error('Backend URL is not defined.');
       return;
     }
 
-    socketRef.current = io(backendUrl+"/admin", {
-      //transports: ['websocket'],
+    socketRef.current = io(backendUrl + "/admin", {
+      transports: ["websocket"],
+      transportOptions: {
+        websocket: {
+          withCredentials: true,
+        },
+      },
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       reconnectionDelayMax: 5000,
     });
+
 
 
     socketRef.current.on("connect", () => {
@@ -168,7 +176,6 @@ const Chat = () => {
     // socketRef.current.on("recieveMessage", (msg: ChatMessage) => {
     //   setSelectedChatId((prev) => [...prev, msg])
     // })
-    socketRef.current.on("disconnect", () => setIsConnected(false));
 
     return () => {
       socketRef.current?.disconnect();

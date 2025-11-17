@@ -1,5 +1,6 @@
-import { app } from "./app.js";
 import dotenv from "dotenv";
+dotenv.config();
+import { app } from "./app.js";
 import "colors";
 import connectDB from "./config/connectDB.js";
 import redisClient from "./config/connectRedis.js";
@@ -9,7 +10,6 @@ import "./agent/agent.js";
 
 
 
-dotenv.config();
 
 export const razorpayInstance = new Razorpay({
   key_id: process.env.RAZORPAY_API_KEY,

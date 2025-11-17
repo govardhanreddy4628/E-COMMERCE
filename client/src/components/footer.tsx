@@ -43,10 +43,10 @@ const serviceItems = [
 ];
 
 const Footer = () => {
-  navigator.geolocation.getCurrentPosition((location) => {
-    console.log(location)
-  },
-    () => { console.log("no location") })
+  // navigator.geolocation.getCurrentPosition((location) => {
+  //   console.log(location)
+  // },
+  //   () => { console.log("no location") })
   return (
     <>
       <div className='dark:bg-gray-800'>

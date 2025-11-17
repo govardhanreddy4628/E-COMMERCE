@@ -11,6 +11,7 @@ import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation } from "swiper/modules";
 import "swiper/css";
 import "swiper/css/navigation";
+import { useAuth } from "../context/authContext";
 
 // ✅ Mock products data
 const mockProducts = [
@@ -113,6 +114,7 @@ const ProductsSlider = ({ handleClickOpen }) => {
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<{ [key: number]: number }>({});
   const navigate = useNavigate();
+  const { isLogin } = useAuth();
 
   useEffect(() => {
     setTimeout(() => {
@@ -121,27 +123,169 @@ const ProductsSlider = ({ handleClickOpen }) => {
     }, 2000);
   }, []);
 
-  // ✅ Add to Cart
-  const handleAddToCart = (id: number) => {
-    setCart((prev) => ({ ...prev, [id]: 1 }));
-  };
 
-  // ✅ Increase Qty
-  const handleIncrease = (id: number) => {
-    setCart((prev) => ({ ...prev, [id]: prev[id] + 1 }));
-  };
+  // // with mock data
+  // const handleAddToCart = (id: number) => {
+  //   setCart((prev) => ({ ...prev, [id]: 1 }));
+  // };
 
-  // ✅ Decrease Qty
-  const handleDecrease = (id: number) => {
-    setCart((prev) => {
-      const qty = prev[id] - 1;
-      if (qty <= 0) {
-        const { [id]: _, ...rest } = prev;
-        return rest;
-      }
-      return { ...prev, [id]: qty };
+  // // ✅ Increase Qty
+  // const handleIncrease = (id: number) => {
+  //   setCart((prev) => ({ ...prev, [id]: prev[id] + 1 }));
+  // };
+
+  // // ✅ Decrease Qty
+  // const handleDecrease = (id: number) => {
+  //   setCart((prev) => {
+  //     const qty = prev[id] - 1;
+  //     if (qty <= 0) {
+  //       const { [id]: _, ...rest } = prev;
+  //       return rest;
+  //     }
+  //     return { ...prev, [id]: qty };
+  //   });
+  // };
+
+
+    // ✅ Fetch user cart from backend
+  const fetchCart = async () => {
+  if (!isLogin) return; // Only fetch if logged in
+
+  try {
+    const res = await fetch("http://localhost:8080/api/v1/cart/getCart", {
+      method: "GET",
+      credentials: "include",
     });
+
+    const data = await res.json();
+
+    if (!data.success) {
+      setCart([]);
+      return;
+    }
+
+    // ✅ Always set an array
+    if (!Array.isArray(data.data) || data.data.length === 0) {
+      setCart([]);
+      return;
+    }
+
+    // ✅ Save entire cart array
+    setCart(data.data);
+  } catch (err) {
+    console.error("Failed to fetch cart:", err);
+    setCart([]);
+  }
+};
+
+
+  useEffect(() => {
+    fetchCart();
+  }, []);
+
+   // ✅ Add to Cart
+  const handleAddToCart = async (productId: string) => {
+    console.log(productId)
+    if (isLogin) return; // skip fetching if not logged in
+    try {
+      const res = await fetch("http://localhost:8080/api/v1/cart/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ productId, quantity: 1 }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        fetchCart(); // refresh state
+      } else {
+        console.error("Add to cart failed:", data.message);
+      }
+    } catch (err) {
+      console.error("Error adding to cart:", err);
+    }
   };
+
+  // ✅ Increase quantity
+  const handleIncrease = async (productId: string) => {
+    if (isLogin) return; // skip fetching if not logged in
+    const currentQty = cart[productId] || 0;
+    try {
+      const res = await fetch("http://localhost:8080/api/v1/cart/update", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          // You’d ideally need cartItemId from backend, but if not stored, refetch and find
+          cartItemId: await getCartItemId(productId),
+          quantity: currentQty + 1,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) fetchCart();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // ✅ Decrease quantity
+  const handleDecrease = async (productId: string) => {
+    if (isLogin) return; // skip fetching if not logged in
+    const currentQty = cart[productId];
+    if (currentQty <= 1) {
+      await handleDelete(productId);
+      return;
+    }
+
+    try {
+      const res = await fetch("http://localhost:8080/api/v1/cart/update", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          cartItemId: await getCartItemId(productId),
+          quantity: currentQty - 1,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) fetchCart();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // ✅ Delete item (when qty <= 0)
+  const handleDelete = async (productId: string) => {
+    if (isLogin) return; // skip fetching if not logged in
+    try {
+      const res = await fetch("http://localhost:8080/api/v1/cart/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ cartItemId: await getCartItemId(productId) }),
+      });
+      const data = await res.json();
+      if (data.success) fetchCart();
+    } catch (err) {
+      console.error("Delete failed:", err);
+    }
+  };
+
+  // ✅ Helper to find cartItemId for a product
+  const getCartItemId = async (productId: string) => {
+    if (isLogin) return;
+    try {
+      const res = await fetch("http://localhost:8080/api/v1/cart", {
+        credentials: "include",
+      });
+      const data = await res.json();
+      const item = data.data.find((c: any) => c.productId._id === productId);
+      return item?._id;
+    } catch (err) {
+      console.error("Error finding cart item:", err);
+      return null;
+    }
+  };
+
 
   return (
     <div className="categorySwiper my-8">
@@ -233,7 +377,7 @@ const ProductsSlider = ({ handleClickOpen }) => {
                         {!inCart ? (
                           <Button
                             className="flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-4"
-                            onClick={() => handleAddToCart(product.id)}
+                            onClick={() => handleAddToCart("6910382ab2bde5be4093f7e5")}
                           >
                             <ShoppingCartCheckoutIcon /> ADD TO CART
                           </Button>

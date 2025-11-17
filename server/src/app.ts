@@ -30,24 +30,50 @@ import { initAdminChat } from "./sockets/initAdminChat.js";
 import { initAssistantChat } from "./sockets/initAssistantChat.js";
 import { socketAuthenticator } from "./middleware/socketAuthenticator.js";
 import uploadRoutes from "./routes/uploadRoutes.js";  
+import authRoutes from "./routes/authRoutes.js"
 
 const app = express();
 const server = http.createServer(app);
 
+const allowedOrigins = [
+  process.env.CLIENT_URL_DEV,
+  process.env.CLIENT_URL_PROD,
+].filter(Boolean);
+
+// ✅ Dynamic CORS configuration
 const corsOptions = {
-  origin: process.env.CLIENT_URL, // || "https://food-app-yt.onrender.com" for production,
-  methods: "GET, POST, PUT, DELETE, PATCH, HEAD",
-  credentials: true,          // ✅ Allow cookies/auth headers
+  origin: function (origin: any, callback: any) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true, // important for cookies/auth headers
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 };
 
+
 // default middleware for any mern project
-app.use(cors(corsOptions)); // refer npm cors site for more info.
+app.use(cors(corsOptions)); // refer npm cors site for more info. and this middleware should be at top.
+
+// ✅ Handle preflight requests globally
+app.options("*", cors(corsOptions));
+
+
+app.use((req, res, next) => {
+  console.log("🌍 CORS origin received:", req.headers.origin);
+  next();
+});
+
+
+app.use(helmet({crossOriginResourcePolicy: false}))
 app.use(morgan("dev"));
 app.use(express.json({ limit: "32kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(express.static("public")); //public is a folder name where we can store images
 app.use(cookieParser());
-app.use(helmet({crossOriginResourcePolicy: false}))
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }));
 app.use(express.static("public"));   // serve static assets
 
@@ -58,12 +84,13 @@ app.use("/api/inngest", serve({ client: inngest, functions }));
 
 // ---------------------- API ROUTES ----------------------
 app.use("/api/v1/user", userRoutes);
+app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/product", productRoutes);
 app.use("/api/v1/category", categoryRoutes);
 app.use("/api/v1/chat", chatRoutes)
 app.use("/api/v1/offers", offersRoutes)
 app.use("/api/v1/upload", uploadRoutes);
-// app.use("/api/v1/cart", cartRouter);
+app.use("/api/v1/cart", cartRouter);
 // app.use("/api/v1/coupons", couponRouter);
 // app.use("/api/v1/payments", paymentRoutes);
 // app.use("/api/v1/order", orderRoutes);
@@ -83,22 +110,19 @@ app.get("/api/getkey", (req, res) => {
 
 // ---------------------- SOCKET.IO ----------------------
 const io = new Server(server, {
-  cors: { origin: process.env.CLIENT_URL || "http://localhost:5173", methods: ["GET", "POST"] },
+  cors: { origin: process.env.CLIENT_URL_PROD || "http://localhost:5173", methods: ["GET", "POST"], credentials:true },
 });
 
 app.set("io", io);
 
-// io.use((socket, next) => {
-//   cookieParser()(
-//     socket.request,
-//     socket.request.res,
-//     async (err) => await socketAuthenticator(err, socket, next)
-//   );
-// });
+io.use((socket, next) => {socketAuthenticator(socket, next)});
 
 // Use separate namespaces
 const adminNamespace = io.of("/admin");
+adminNamespace.use((socket, next) => socketAuthenticator(socket, next)); 
+
 const assistantNamespace = io.of("/assistant");
+assistantNamespace.use((socket, next) => socketAuthenticator(socket, next)); 
 
 // Initialize chat modules
 initAdminChat(adminNamespace);

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { auth } from "../middleware/auth.js";
+import { auth } from "../middleware/authenticate.js";
 import {
   addToCartController,
   getCartItemsController,
@@ -14,9 +14,21 @@ const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-cartRouter.post("/createCart", auth(['user']), asyncHandler(addToCartController));
-cartRouter.get("/getCart", auth(['user']), asyncHandler(getCartItemsController));
-cartRouter.delete("/deleteCartItem/:id", auth(['user']), asyncHandler(deleteCartItemController));
-cartRouter.put("/updateCartItem/:id", auth(['user']), asyncHandler(updateCartItemController));
+cartRouter.post("/add", auth(["user"]), asyncHandler(addToCartController));
+cartRouter.get(
+  "/getCart",
+  auth(["user"]),
+  asyncHandler(getCartItemsController)
+);
+cartRouter.delete(
+  "/deleteCartItem/:id",
+  auth(["user"]),
+  asyncHandler(deleteCartItemController)
+);
+cartRouter.put(
+  "/updateCartItem/:id",
+  auth(["user"]),
+  asyncHandler(updateCartItemController)
+);
 
 export default cartRouter;

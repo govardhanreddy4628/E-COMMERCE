@@ -57,7 +57,9 @@ import UnderConstruction from "./components/admin/components/underConstruction.t
 import ProductCategories from "./pages/ProductCategories.tsx";
 import AdminReviewPage from "./components/admin/reviews/ReviewPage.tsx";
 import Products from "./components/admin/products/AllProducts/Products.tsx";
-import Counter from "./move/counter.tsx";
+import MyOrders from "./pages/myorders.tsx";
+import { CartProvider } from "./context/cartContext.tsx";
+//import Counter from "./move/counter.tsx";
 
 
 
@@ -71,10 +73,11 @@ const App = () => {
       {/* <ThemeProvider theme={theme}> */}
       <ThemeProvider defaultTheme="system" storageKey="marketpulse-ui-theme">
         <AuthProvider>
+          <CartProvider>
           <CategoryProvider>
             {/* <RegisterForm/> */}
             
-            <Counter/>
+           {/* <Counter/> */}
 
             {/* <Suspense fallback={<h1>Loading....</h1>}> */}
             <Routes>
@@ -100,6 +103,7 @@ const App = () => {
               <Route path="addaddress" element={<AddressPage />}></Route>
               <Route path="category-chart" element={<Testh />}></Route>
               <Route path="customersupport" element={<CustomerSupport />}></Route>
+              <Route path="myorders" element={<MyOrders />}></Route>
               <Route path="rating"></Route>
               {/* </Route> */}
 
@@ -147,6 +151,7 @@ const App = () => {
     </ThemeProvider> */}
             <Toaster />
           </CategoryProvider>
+          </CartProvider>
         </AuthProvider>
       </ThemeProvider>
 

@@ -1583,3 +1583,48 @@ export const checkoutController = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: "Checkout failed" });
   }
 };
+
+
+
+// export async function productFiltersController(req:Request, res:Response){
+//   const {catId, subCatId, thirdSubCatId,minPrice, maxPrice, rating, page, limit} = req.body;
+//   const filters = {}
+
+//   if(catId?.length){
+//     filters.catId = {$in: catId}
+//   }
+//   if(subCatId?.length){
+//     filters.catId = {$in: subCatId}
+//   }
+//   if(thirdSubCatId?.length){
+//     filters.catId = {$in: thirdSubCatId}
+//   }
+
+//   if(minPrice || maxPrice){
+//     filters.price = {$gte: +minPrice || 0, $lte: +maxPrice || Infinity};
+//   }
+
+//   if(rating?.length){
+//     filters.rating = {$in: rating}
+//   }
+
+//   try{
+//     const products = await ProductModel.find(filters).populate("category".skip(page - 1) * limit).limit(parseInt(limit));
+//     const total = await ProductModel.countDocuments(filters);
+//     return res.status(200).json({
+//       error:false,
+//       success:true,
+//       products:products,
+//       total:total,
+//       page:parseInt(page),
+//       totalPages:Match.ceil(total / limit)
+//     })
+//   } catch(){
+//     return  res.status(500).json({
+//       message: error.message || error,
+//       error: true,
+//       success: false
+//     })
+//   }
+
+// }

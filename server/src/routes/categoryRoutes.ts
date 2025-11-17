@@ -6,25 +6,35 @@ import {
   getSingleCategoryByIdController,
   updateCategoryController,
 } from "../controllers/categoryController.js";
-import { auth } from "../middleware/auth.js";
+import { auth } from "../middleware/authenticate.js";
 import { uploadSingle } from "../middleware/multer.js";
 import { uploadLimiter } from "../middleware/rateLimiter.js";
 import { Roles } from "../constants";
 
 const categoryRouter = Router();
 
-
 // Helper to wrap async controllers
 const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-categoryRouter.post('/create-category', uploadSingle, asyncHandler(createCategoryController));
-categoryRouter.post('/update-category', uploadSingle, asyncHandler(updateCategoryController));
+categoryRouter.post(
+  "/create-category",
+  uploadSingle,
+  asyncHandler(createCategoryController)
+);
+categoryRouter.post(
+  "/update-category",
+  uploadSingle,
+  asyncHandler(updateCategoryController)
+);
 //categoryRouter.post('/category', auth, uploadLimiter, createCategoryController);
-categoryRouter.get("/tree", (getCategoryTree));
+categoryRouter.get("/tree", getCategoryTree);
 categoryRouter.get("/getAllCategory", asyncHandler(getAllCategoryController));
-categoryRouter.get("/getSingleCategoryById/:id", asyncHandler(getSingleCategoryByIdController));
+categoryRouter.get(
+  "/getSingleCategoryById/:id",
+  asyncHandler(getSingleCategoryByIdController)
+);
 
 export default categoryRouter;
 

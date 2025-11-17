@@ -2,8 +2,8 @@
 import jwt from "jsonwebtoken";
 import { Socket, ExtendedError } from "socket.io";
 import cookie from "cookie";
-import UserModel from "../models/userModel";
-import { ApiError } from "../utils/ApiError";
+import UserModel from "../models/userModel.js";
+import { ApiError } from "../utils/ApiError.js";
 
 interface DecodedToken {
   id: string;

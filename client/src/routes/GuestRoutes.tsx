@@ -1,6 +1,7 @@
 // components/GuestRoute.tsx
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/authContext';
+
 
 
 const GuestRoute = () => {

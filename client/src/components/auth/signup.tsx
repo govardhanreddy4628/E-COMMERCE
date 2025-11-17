@@ -69,6 +69,7 @@ export default function SignUp() {
       const response = await fetch('http://localhost:8080/api/v1/user/register', {
         method: 'POST',
         body: formData,
+        credentials: "include", // ✅ include cookies if needed later
       });
 
       const result: SignupResponse = await response.json();
@@ -84,6 +85,12 @@ export default function SignUp() {
       setSubmitting(false);
     }
   };
+
+  const googleSignUp = () => {
+  const API_BASE = import.meta.env.VITE_BACKEND_URL_LOCAL || import.meta.env.VITE_BACKEND_URL_PRODUCTION || "http://localhost:8080";
+  window.location.href = `${API_BASE}/api/v1/auth/google`;
+};
+
 
   return (
     <section className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4 py-10">
@@ -217,6 +224,7 @@ export default function SignUp() {
               <button
                 type="button"
                 className="flex items-center justify-center gap-3 w-full border border-gray-300 rounded-md py-2 hover:bg-gray-50 transition"
+                onClick= { googleSignUp }
               >
                 <FcGoogle size={22} />
                 <span>Sign up with Google</span>

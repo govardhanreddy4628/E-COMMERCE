@@ -3,14 +3,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Label } from "../../../ui/label";
 import { Input } from "../../../ui/input";
 import { Button } from "../../../ui/button";
-import { useState } from "react";
-import QRCode from "qrcode";
+import { useEffect, useState } from "react";
 import { Copy } from "lucide-react";
 import { Switch } from "../../../ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../ui/dialog";
+import { useAuth } from "../../../context/AuthContext";
 
 const AdminSettings = () => {
+  const API_BASE = import.meta.env.VITE_BACKEND_URL_LOCAL || "http://localhost:8080";
+  const { accessToken } = useAuth();
+
   const { toast } = useToast();
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [showEnableDialog, setShowEnableDialog] = useState(false);
@@ -20,85 +23,125 @@ const AdminSettings = () => {
   const [verificationCode, setVerificationCode] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
 
-  // Generate a random secret for 2FA
-  const generateSecret = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-    let secret = '';
-    for (let i = 0; i < 32; i++) {
-      secret += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return secret;
-  };
 
-  // Generate QR code when enabling 2FA
-  const handleEnable2FA = async () => {
-    const newSecret = generateSecret();
-    setSecret(newSecret);
-    
-    // Format: otpauth://totp/YourApp:admin@example.com?secret=SECRET&issuer=YourApp
-    const otpUrl = `otpauth://totp/Admin%20Panel:admin@example.com?secret=${newSecret}&issuer=Admin%20Panel`;
-    
+  // --- ENABLE MFA FLOW ---
+  const handleEnableMFA = async () => {
     try {
-      const qrUrl = await QRCode.toDataURL(otpUrl);
-      setQrCodeUrl(qrUrl);
+      const res = await fetch(`${API_BASE}/api/v1/user/mfa/generate`, {
+        method: "POST",
+        credentials: "include",
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      setQrCodeUrl(data.qr);
+      setSecret(data.base32);
+      //setQrCodeUrl(data.qrCode);      // base64 QR from backend
+      //setSecret(data.secret);         // base32 secret
       setShowEnableDialog(true);
-    } catch (error) {
+    } catch (err: any) {
       toast({
         title: "Error",
-        description: "Failed to generate QR code. Please try again.",
+        description: err.message || "Failed to generate QR code.",
         variant: "destructive",
       });
     }
   };
 
+
+  // On page load → fetch MFA status
+  useEffect(() => {
+    (async () => {
+      const res = await fetch(`${API_BASE}/api/v1/user/mfa/status`, {
+        credentials: "include",
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+
+      const data = await res.json();
+      setTwoFactorEnabled(data.enabled);
+    })();
+  }, []);
+
+  
+
   // Verify the code entered by user
-  const handleVerifyCode = () => {
+  const handleVerifyCode = async () => {
     setIsVerifying(true);
-    
-    // Simulate verification (in production, this would be a backend call)
-    setTimeout(() => {
-      if (verificationCode.length === 6) {
-        setTwoFactorEnabled(true);
-        setShowEnableDialog(false);
-        setVerificationCode("");
-        toast({
-          title: "2FA Enabled",
-          description: "Two-Factor Authentication has been successfully enabled.",
-        });
-      } else {
-        toast({
-          title: "Invalid Code",
-          description: "Please enter a valid 6-digit code from your authenticator app.",
-          variant: "destructive",
-        });
-      }
-      setIsVerifying(false);
-    }, 1000);
+
+    if (verificationCode.length !== 6) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/user/mfa/verify-setup`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ token: verificationCode })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      setTwoFactorEnabled(true);
+      setShowEnableDialog(false);
+      setVerificationCode("");
+
+      toast({
+        title: "MFA Enabled",
+        description: "Store your backup codes safely:\n" + data.backupCodes.join(", "),
+      });
+    } catch (err: any) {
+      toast({
+        title: "Invalid Code",
+        description: err.message || "Wrong authenticator code.",
+        variant: "destructive",
+      });
+    }
+
+    setIsVerifying(false);
   };
 
-  // Disable 2FA
-  const handleDisable2FA = () => {
+  // Disable MFA
+  const handleDisableMFA = async () => {
     setIsVerifying(true);
-    
-    // Simulate verification (in production, this would be a backend call)
-    setTimeout(() => {
-      if (verificationCode.length === 6) {
-        setTwoFactorEnabled(false);
-        setShowDisableDialog(false);
-        setVerificationCode("");
-        toast({
-          title: "2FA Disabled",
-          description: "Two-Factor Authentication has been disabled.",
-        });
-      } else {
-        toast({
-          title: "Invalid Code",
-          description: "Please enter a valid 6-digit code from your authenticator app.",
-          variant: "destructive",
-        });
-      }
-      setIsVerifying(false);
-    }, 1000);
+
+    if (verificationCode.length !== 6) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/user/mfa/disable`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ token: verificationCode })
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+
+      setTwoFactorEnabled(false);
+      setShowDisableDialog(false);
+      setVerificationCode("");
+
+      toast({
+        title: "MFA Disabled",
+        description: "Two-factor authentication is turned off.",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Invalid Code",
+        description: err.message || "Wrong authenticator code.",
+        variant: "destructive",
+      });
+    }
+    setIsVerifying(false);
+
   };
 
   const copySecret = () => {
@@ -109,9 +152,9 @@ const AdminSettings = () => {
     });
   };
 
-  const handle2FAToggle = (checked: boolean) => {
+  const handleMFAToggle = (checked: boolean) => {
     if (checked) {
-      handleEnable2FA();
+      handleEnableMFA();
     } else {
       setShowDisableDialog(true);
     }
@@ -207,7 +250,7 @@ const AdminSettings = () => {
                   <Label>Two-Factor Authentication</Label>
                   <p className="text-sm text-muted-foreground">Add an extra layer of security</p>
                 </div>
-                <Switch checked={twoFactorEnabled} onCheckedChange={handle2FAToggle} />
+                <Switch checked={twoFactorEnabled} onCheckedChange={handleMFAToggle} />
               </div>
 
               <div className="flex items-center justify-between">
@@ -226,7 +269,7 @@ const AdminSettings = () => {
         </div>
       </div>
 
-      {/* Enable 2FA Dialog */}
+      {/* Enable MFA Dialog */}
       <Dialog open={showEnableDialog} onOpenChange={setShowEnableDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -235,15 +278,15 @@ const AdminSettings = () => {
               Scan the QR code below with Google Authenticator or any compatible authenticator app.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {/* QR Code */}
             <div className="flex justify-center p-4 bg-muted rounded-lg">
               {qrCodeUrl && (
-                <img src={qrCodeUrl} alt="2FA QR Code" className="w-48 h-48" />
+                <img src={qrCodeUrl} alt="MFA QR Code" className="w-48 h-48" />
               )}
             </div>
-            
+
             {/* Secret Key */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Or enter this key manually:</Label>
@@ -287,16 +330,16 @@ const AdminSettings = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Disable 2FA Dialog */}
+      {/* Disable MFA Dialog */}
       <Dialog open={showDisableDialog} onOpenChange={setShowDisableDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Disable Two-Factor Authentication</DialogTitle>
             <DialogDescription>
-              Enter the 6-digit code from your authenticator app to disable 2FA.
+              Enter the 6-digit code from your authenticator app to disable MFA.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="disable-code">Authentication Code:</Label>
@@ -322,12 +365,12 @@ const AdminSettings = () => {
             >
               Cancel
             </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleDisable2FA} 
+            <Button
+              variant="destructive"
+              onClick={handleDisableMFA}
               disabled={isVerifying || verificationCode.length !== 6}
             >
-              {isVerifying ? "Verifying..." : "Disable 2FA"}
+              {isVerifying ? "Verifying..." : "Disable MFA"}
             </Button>
           </DialogFooter>
         </DialogContent>

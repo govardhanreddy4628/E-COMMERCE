@@ -15,7 +15,7 @@ export const addToCartController = async (req:Request, res:Response) => {
     try {
         const userId = req.userId; // Assuming user ID is stored in req.user
         const { productId, quantity, size, color } = req.body;
-
+        console.log(productId, quantity, size, color)
         if(productId === undefined || quantity === undefined) {
             return res.status(400).json({
                 message: "Product ID and quantity are required",
@@ -77,35 +77,58 @@ export const addToCartController = async (req:Request, res:Response) => {
 }
 
 
-export const getCartItemsController = async(req:Request, res:Response) => {
-    try {
-        const userId = req.userId; // Assuming user ID is stored in req.user
-        const cartItems = await CartModel.find({ userId: userId }).populate('productId');  //This tells Mongoose to replace the productId field in the result with the actual product document referenced in the productId field.
-        //const cartItems = await CartModel.find({ userId: userId }).populate('productId', 'name price imageUrl');  // or This tells Mongoose to replace the productId field in the result with the actual product document referenced in the productId field. Only the fields 'name', 'price', and 'imageUrl' will be fetched from the Product collection (to avoid fetching unnecessary data).
-        if(cartItems.length === 0) {
-            return res.status(404).json({
-                message: "No items found in the cart",
-                error: true,
-                success: false
-            });
-        }
-        return res.status(200).json({
-            message: "Cart items fetched successfully",
-            error: false,
-            success: true,
-            data: cartItems
-        }); 
-    
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-        res.status(500).json({
-            message: errorMessage,
-            error:true,
-            success: false
-        })
-        
+export const getCartItemsController = async (req: Request, res: Response) => {
+  try {
+    console.log("🧩 getCartItemsController called");
+    console.log("req.userId =", req.userId);
+
+    const userId = req.userId;
+
+    if (!userId) {
+      console.log("❌ No userId found in request");
+      return res.status(401).json({
+        message: "User not authenticated",
+        error: true,
+        success: false,
+      });
     }
-}
+
+    // 🔍 Log before query
+    console.log("🔍 Querying CartModel for userId:", userId);
+
+
+    const cartItems = await CartModel.find({ userId })
+      .populate("productId", "name price images")
+      .lean();
+
+    console.log("✅ Cart items found:", cartItems.length);
+
+    if (cartItems.length === 0) {
+      return res.status(200).json({
+        message: "Cart is empty",
+        error: false,
+        success: true,
+        data: [],
+      });
+    }
+
+    return res.status(200).json({
+      message: "Cart items fetched successfully",
+      error: false,
+      success: true,
+      data: cartItems,
+    });
+  } catch (error: any) {
+    console.error("❌ getCartItemsController error:", error.message);
+    return res.status(500).json({
+      message: error.message || "Internal server error",
+      error: true,
+      success: false,
+    });
+  }
+};
+
+
 
 
 export const updateCartItemController = async(req:Request, res:Response) => {

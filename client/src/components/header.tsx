@@ -11,14 +11,15 @@ import { ThemeToggle } from '../ui/themeToggle';
 import SideDrawer from '../ui/drawer';
 import LeftMenu from './leftMenu';
 import CartSidebar from './cartSidebar';
-import { useAuth } from '../hooks/useAuth';
 import Menu from '@mui/material/Menu';
 import { IoBagCheckOutline, IoLocationOutline } from 'react-icons/io5';
 import { FaRegHeart, FaRegUser } from 'react-icons/fa';
-import { useNavigate } from "react-router-dom";
+
 
 
 import { FiLogOut } from 'react-icons/fi';
+import { useAuth } from '../context/authContext';
+import { useCart } from '../context/cartContext';
 
 interface Category {
     name: string;
@@ -123,7 +124,9 @@ const Header = () => {
         setAccAnchorEl(null);
     };
 
-    const { isLogin } = useAuth();
+    const { isLogin, user, logout } = useAuth();
+    const {cart} = useCart();
+    console.log(user)
 
     const toggleDrawer = (newOpen: boolean, side: 'left' | 'right' = "left") => {
         setOpen(newOpen);
@@ -144,6 +147,11 @@ const Header = () => {
 
     const location = useLocation();
     const isHome = location.pathname === "/";
+
+    const handleLogout = async () => {
+        await logout();
+        handleClose();
+    };
 
 
     return (
@@ -185,14 +193,14 @@ const Header = () => {
                                             aria-haspopup="true"
                                             aria-expanded={userMenuOpen ? 'true' : undefined}>
                                             <img
-                                                src={"https://i.pinimg.com/originals/2a/9a/a2/2a9aa2765b453d34bf23f0b253ebbcb3.jpg"}
+                                                src={user?.avatar || "https://i.pinimg.com/originals/2a/9a/a2/2a9aa2765b453d34bf23f0b253ebbcb3.jpg"}
                                                 alt="User Avatar"
                                                 className="w-full h-full object-cover"
                                             />
                                         </div>
                                         <div className='hidden lg:block'>
-                                            <p className="text-sm font-semibold text-muted-foreground">{"john Doe"}</p>
-                                            <p className="text-xs text-muted-foreground">{"johndoe@gmail.com"}</p>
+                                            <p className="text-sm font-semibold text-muted-foreground">{user?.fullName || "john Doe"}</p>
+                                            <p className="text-xs text-muted-foreground">{user?.email || "johndoe@gmail.com"}</p>
                                         </div>
                                     </div>
 
@@ -267,9 +275,9 @@ const Header = () => {
                                         <div className=" flex gap-1 flex-col py-2 px-2 transition-all ease-in-out">
                                             <Button className="!flex gap-3 !items-center !justify-start hover:bg-gray-100 p-2 rounded-sm "><FaRegUser /><span>My Profile</span></Button>
                                             <Button className="!flex gap-3 !items-center !justify-start hover:bg-gray-100 p-2 rounded-sm "><FaRegHeart /><span>My List</span></Button>
-                                            <Button className="!flex gap-3 !items-center !justify-start hover:bg-gray-100 p-2 rounded-sm "><IoBagCheckOutline /><span>My Orders</span></Button>
+                                            <Button className="!flex gap-3 !items-center !justify-start hover:bg-gray-100 p-2 rounded-sm "><Link to="myorders"><IoBagCheckOutline /><span>My Orders</span></Link></Button>
                                             <Button className="!flex gap-3 !items-center !justify-start hover:bg-gray-100 p-2 rounded-sm "><IoLocationOutline /><span>My Address</span></Button>
-                                            <Button className="!flex gap-3 !items-center !justify-start hover:bg-gray-100 p-2 rounded-sm "><FiLogOut /><span>Logout</span></Button>
+                                            <Button className="!flex gap-3 !items-center !justify-start hover:bg-gray-100 p-2 rounded-sm " onClick={handleLogout}><FiLogOut /><span>Logout</span></Button>
                                         </div>
                                     </Menu>
 
@@ -283,7 +291,7 @@ const Header = () => {
                                 </Badge>
                             </IconButton>
                             <IconButton aria-label="cart" onClick={() => toggleDrawer(true, "right")}>
-                                <Badge badgeContent={2} color="primary">
+                                <Badge badgeContent={cart.length} color="primary">
                                     <ShoppingCartCheckoutIcon className='!w-5 lg:!w-6 !h-5 lg:!h-6 text-muted-foreground' />
                                 </Badge>
                             </IconButton>
@@ -405,7 +413,7 @@ const Header = () => {
             </section>
 
             <SideDrawer open={open} toggleDrawer={toggleDrawer} anchor={anchor} drawerList={leftDrawerList} />
-           
+
         </div>
     )
 }

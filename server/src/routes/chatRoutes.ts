@@ -1,6 +1,6 @@
 import express from "express";
-import { auth } from "../middleware/auth.js";
-import { accessChat, createGroupChat, } from "../controllers/chatController.js";
+import { auth } from "../middleware/authenticate.js";
+import { accessChat, createGroupChat } from "../controllers/chatController.js";
 //import upload from "../middleware/multer";
 
 const chatRouter = express.Router();
@@ -17,7 +17,6 @@ chatRouter.route("/newgroup").post(createGroupChat);
 // chatRouter.route("/rename").put(renameGroup);
 // chatRouter.route("/groupremove").put(removeFromGroup);
 // chatRouter.route("/groupadd").put(addToGroup);
-
 
 // Send Attachments
 //chatRouter.post("/message", upload.array(), sendAttachmentsValidator(), validateHandler, sendAttachments);

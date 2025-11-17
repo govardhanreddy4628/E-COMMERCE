@@ -3,11 +3,12 @@ import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import Loader from "../../ui/Loader";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../context/authContext";
+
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({ email: "testuser@gmail.com", password: "123456" });
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { fetchUser } = useAuth();
@@ -28,9 +29,10 @@ const Login = () => {
     }
 
     setIsLoading(true);
+    const API_BASE_URL = import.meta.env.VITE_BACKEND_URL_LOCAL || import.meta.env.VITE_BACKEND_URL_PRODUCTION;
 
     try {
-      const res = await fetch("http://localhost:8080/api/v1/user/login", {
+      const res = await fetch(`${API_BASE_URL}/api/v1/user/login`, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -40,6 +42,7 @@ const Login = () => {
       });
 
       const result = await res.json();
+      console.log(result)
 
       if (!res.ok) {
         throw new Error(result.message || "Login failed");
@@ -47,7 +50,7 @@ const Login = () => {
 
       toast.success(result.message || "Login successful!");
       await fetchUser();
-      navigate("/");
+      navigate("home");
     } catch (error: any) {
       console.error("❌ Login error:", error);
       toast.error(error.message || "Something went wrong, please try again.");
