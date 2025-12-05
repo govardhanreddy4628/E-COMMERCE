@@ -4,12 +4,14 @@ import {
   createProduct,
   createProductController,
   deleteProductController,
+  filters,
   getAllProductController,
   getSingleProductByIdController,
   productFiltersController,
   //updateProductController,
 } from "../controllers/productController.js";
-import { auth } from "../middleware/authenticate.js";
+import { authenticate } from "../middleware/authenticate.js";
+
 import { uploadMultiple } from "../middleware/multer.js";
 
 const productRouter = express.Router();
@@ -37,5 +39,7 @@ productRouter.delete("/deleteproduct", deleteProductController);
 productRouter.post("/checkout", asyncHandler(checkoutController));
 
 //productRouter.post('/filters', productFiltersController);
+
+productRouter.post('/filters', filters)
 
 export default productRouter;

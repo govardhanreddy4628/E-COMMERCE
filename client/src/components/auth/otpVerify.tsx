@@ -1,51 +1,101 @@
 import { useEffect, useRef, useState, ChangeEvent, KeyboardEvent } from 'react';
+import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 
 const OTP_LENGTH = 6;
+const TIME_GAP = 45
 
 const OtpVerify = () => {
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
+  const [timer, setTimer] = useState(TIME_GAP); // 1 minute
+  const [isResending, setIsResending] = useState(false);
+
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const navigate = useNavigate();
 
-  console.log(inputRefs)
+  const intentToken = localStorage.getItem("intentToken");
 
+  // --------------------------
+  // TIMER COUNTDOWN
+  // --------------------------
+  useEffect(() => {
+    if (timer === 0) return;
+    const interval = setInterval(() => {
+      setTimer((prev) => prev - 1);
+    }, 1000);
 
-  const handleOtpSubmit = async (combinedOtp: string) => {
-    const formData = { "otp": combinedOtp, "intentToken": intentToken };
+    return () => clearInterval(interval);
+  }, [timer]);
+
+  // --------------------------
+  // SUBMIT OTP ON BUTTON CLICK
+  // --------------------------
+  const handleOtpSubmit = async () => {
+    const combinedOtp = otp.join("");
+
+    if (combinedOtp.length !== OTP_LENGTH) {
+      toast.error("Please enter complete 6-digit OTP");
+      return;
+    }
+
+    const formData = { otp: combinedOtp, intentToken };
     const response = await fetch('http://localhost:8080/api/v1/user/verify-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(formData)
     });
+
     const result = await response.json();
-    console.log(response);
     console.log(result);
+
     if (result.success) {
-      alert("OTP verified successfully!");
+      toast.success("OTP verified successfully!");
       localStorage.removeItem("intentToken");
-      //window.location.href = '/login';  // dont use this because it is Native browser navigation. it Forces a full page reload. Breaks React’s single-page behavior. The entire app reloads from scratch.
-      navigate('/login'); // Performs in-app navigation without reloading the page or without reloading the app.
+      navigate('/login');
     } else {
-      alert("OTP verification failed: " + result.message);
+      toast.error("OTP verification failed: " + result.message);
     }
   };
 
+  // --------------------------
+  // HANDLE RESEND OTP
+  // --------------------------
+  const handleResend = async () => {
+    if (!intentToken) return;
+
+    setIsResending(true);
+
+    const response = await fetch('http://localhost:8080/api/v1/user/resend-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ intentToken })
+    });
+
+    const data = await response.json();
+    setIsResending(false);
+
+    if (data.success) {
+      toast.success("OTP resent successfully!");
+      setTimer(TIME_GAP);  // reset timer
+      setOtp(Array(OTP_LENGTH).fill("")); // clear inputs
+      inputRefs.current[0]?.focus();
+    } else {
+      toast.error("Failed to resend OTP.");
+    }
+  };
+
+  // --------------------------
+  // INPUT LOGIC
+  // --------------------------
   const handleChange = (index: number, e: ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (isNaN(Number(value))) return;
 
     const updatedOtp = [...otp];
-    updatedOtp[index] = value.slice(-1); // only keep the last digit
+    updatedOtp[index] = value.slice(-1);
     setOtp(updatedOtp);
 
-    const combinedOtp = updatedOtp.join("");
-    if (combinedOtp.length === OTP_LENGTH && !updatedOtp.includes("")) {
-      handleOtpSubmit(combinedOtp);
-    }
-
-    // Move to next input
     if (value && index < OTP_LENGTH - 1) {
       inputRefs.current[index + 1]?.focus();
     }
@@ -53,14 +103,6 @@ const OtpVerify = () => {
 
   const handleClick = (index: number) => {
     inputRefs.current[index]?.setSelectionRange(1, 1);
-
-    // Optional: focus on the first empty input
-    if (index > 0 && !otp[index - 1]) {
-      const firstEmptyIndex = otp.findIndex(val => val === "");
-      if (firstEmptyIndex !== -1) {
-        inputRefs.current[firstEmptyIndex]?.focus();
-      }
-    }
   };
 
   const handleKeyDown = (index: number, e: KeyboardEvent<HTMLInputElement>) => {
@@ -70,14 +112,11 @@ const OtpVerify = () => {
   };
 
   useEffect(() => {
-    if (inputRefs.current[0]) (inputRefs.current[0]?.focus())
-  }, []
-  );
-
-  const intentToken = localStorage.getItem("intentToken");
+    inputRefs.current[0]?.focus();
+  }, []);
 
   if (!intentToken) {
-    console.error("Intend token not found in localStorage");
+    console.error("Intent token not found");
     return null;
   }
 
@@ -87,6 +126,7 @@ const OtpVerify = () => {
         <form className="otp-Form" onSubmit={(e) => e.preventDefault()}>
           <span className="mainHeading">Enter OTP</span>
           <p className="otpSubheading mb-6">Please enter verification code sent to your email</p>
+
           <div className="inputContainer">
             {otp.map((value, index) => (
               <input
@@ -96,7 +136,6 @@ const OtpVerify = () => {
                 maxLength={1}
                 type="text"
                 className="otp-input"
-                id={`otp-input-${index + 1}`}
                 value={value}
                 onChange={(e) => handleChange(index, e)}
                 onClick={() => handleClick(index)}
@@ -104,9 +143,22 @@ const OtpVerify = () => {
               />
             ))}
           </div>
-          <button className="verifyButton mt-8" type="submit">Verify</button>
+
+          <button className="verifyButton mt-8" type="button" onClick={handleOtpSubmit}>
+            Verify
+          </button>
+
           <p className="resendNote mt-3">
-            Didn't receive the code? <button type="button" className="resendBtn">Resend Code</button>
+            Didn’t receive the code?
+            <button
+              type="button"
+              className="resendBtn"
+              disabled={timer > 0 || isResending}
+              onClick={handleResend}
+            >
+              {timer > 0 ? `Resend in ${Math.floor(timer / 60)}:${String(timer % 60).padStart(2, "0")}` :
+                isResending ? "Resending..." : "Resend Code"}
+            </button>
           </p>
         </form>
       </StyledWrapper>
@@ -114,8 +166,8 @@ const OtpVerify = () => {
   );
 };
 
-
 const StyledWrapper = styled.div`
+  /* your existing styles */
   .otp-Form {
     width: 400px;
     height: 500px;
@@ -130,30 +182,20 @@ const StyledWrapper = styled.div`
     box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.082);
     border-radius: 5px;
   }
-
   .mainHeading {
     font-size: 1.5em;
-    color: rgb(15, 15, 15);
     font-weight: 700;
   }
-
   .otpSubheading {
     font-size: 1.1em;
-    color: black;
-    line-height: 20px;
     text-align: center;
-    word-spacing: 1px
   }
-
   .inputContainer {
     width: 100%;
     display: flex;
-    flex-direction: row;
     gap: 14px;
-    align-items: center;
     justify-content: center;
   }
-
   .otp-input {
     background-color: rgb(228, 228, 228);
     width: 40px;
@@ -161,18 +203,9 @@ const StyledWrapper = styled.div`
     text-align: center;
     border: none;
     border-radius: 7px;
-    caret-color: rgb(127, 129, 255);
-    color: rgb(44, 44, 44);
     outline: none;
     font-weight: 600;
   }
-
-  .otp-input:focus,
-  .otp-input:valid {
-    background-color: rgba(225, 129, 127, 0.199);
-    transition-duration: .3s;
-  }
-
   .verifyButton {
     width: 80%;
     height: 40px;
@@ -182,32 +215,19 @@ const StyledWrapper = styled.div`
     font-weight: 600;
     cursor: pointer;
     border-radius: 10px;
-    transition-duration: .2s;
   }
-
-  .verifyButton:hover {
-    background-color: rgb(0, 0, 0);
-    transition-duration: .2s;
-  }
-
-  .resendNote {
-    font-size: 1.0em;
-    color: black;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-  }
-
   .resendBtn {
     background-color: transparent;
     border: none;
     color: rgb(225, 60, 85);
     cursor: pointer;
-    font-size: 1.2em;
-    font-weight: 700;
-  }`;
+    font-size: 1.1em;
+    margin-top: 6px;
+  }
+  .resendBtn:disabled {
+    color: grey;
+    cursor: not-allowed;
+  }
+`;
 
 export default OtpVerify;

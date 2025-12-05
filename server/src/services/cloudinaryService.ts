@@ -13,7 +13,10 @@ export interface CloudinaryUploadResult {
   resource_type: string;
 }
 
-export async function uploadToCloudinary(localPath: string, folder = "uploads") {
+export async function  uploadToCloudinary(
+  localPath: string,
+  folder = "uploads"
+) {
   try {
     const result = await cloudinary.uploader.upload(localPath, {
       folder,
@@ -33,13 +36,14 @@ export async function uploadToCloudinary(localPath: string, folder = "uploads") 
       resource_type: result.resource_type,
     };
   } catch (err) {
+    // attempt to delete local file if it exists
     await fs.unlink(localPath).catch(() => {});
-    throw new Error("Cloudinary upload failed");
+    // throw original error to let controller decide status code & message
+    throw err;
   }
 }
 
-
- // =============Safely deletes a temporary file (used when validation or upload fails)
+// =============Safely deletes a temporary file (used when validation or upload fails)
 export async function deleteTempFile(filePath: string) {
   try {
     await fs.unlink(filePath);
@@ -48,3 +52,13 @@ export async function deleteTempFile(filePath: string) {
     console.warn(`⚠️ Failed to delete temp file: ${filePath}`, err);
   }
 }
+
+
+
+export const destroyCloudinaryById = async (publicId: string) => {
+  try {
+    await cloudinary.uploader.destroy(publicId, { invalidate: true });
+  } catch (err) {
+    console.warn("cloudinary destroy error:", err);
+  }
+};

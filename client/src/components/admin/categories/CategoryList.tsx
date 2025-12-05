@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Filter, Grid, List, Table } from 'lucide-react';
+import { Search, Filter, Grid, List, Table, Plus } from 'lucide-react';
 import { Input } from '../../../ui/input';
 import { Button } from '../../../ui/button';
 import {
@@ -10,14 +10,11 @@ import {
   SelectValue,
 } from '../../../ui/select';
 import { useCategories } from '../context/categoryContext';
-import { CreateCategory } from './CreateCategory';
 import { CategoryCard } from './CategoryCard';
-import { Category } from '../types/category';
 import { CategoryTable } from './CategoryTable';
+import CategoryFormDialog from './CategoryFormDialog';
+import { getCategoryId } from './CategoryUtility';
 
-
-
-export const getCategoryId = (cat: Category) => String(cat.id ?? cat._id ?? Math.random().toString(36).substr(2, 9));
 
 export function CategoryList() {
   const { categories, loading } = useCategories();
@@ -79,7 +76,13 @@ export function CategoryList() {
             Manage your product categories and subcategories
           </p>
         </div>
-        <CreateCategory />
+        <CategoryFormDialog
+          mode="create"
+          trigger={<Button size="sm" className="bg-primary text-white shadow-soft">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Category
+          </Button>}
+        />
       </div>
 
       {/* Filters and Search */}
@@ -161,7 +164,13 @@ export function CategoryList() {
           <div className="text-muted-foreground mb-4">
             {searchTerm ? 'No categories found matching your search.' : 'No categories yet.'}
           </div>
-          {!searchTerm && <CreateCategory />}
+          {!searchTerm && <CategoryFormDialog
+            mode="create"
+            trigger={<Button size="sm" className="bg-primary text-white shadow-soft">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Category
+            </Button>}
+          />}
         </div>
       ) : viewMode === 'table' ? (
         <CategoryTable categories={sortedCategories} />
@@ -181,6 +190,4 @@ export function CategoryList() {
     </div>
   );
 }
-
-
 

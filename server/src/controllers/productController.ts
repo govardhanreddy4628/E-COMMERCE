@@ -1628,3 +1628,51 @@ export const checkoutController = async (req: Request, res: Response) => {
 //   }
 
 // }
+
+
+
+
+
+
+export async function filters(request, response){
+  const {catId, subCatId, thirdSubCategoryId, minPrice, maxPrice, rating, page, limit} = request.body;
+
+  const filters = {}
+
+  if(catId?.length){
+    filters.catId = {$in: catId}
+  }
+  if(subCatId?.length){
+    filters.subCatId = {$in: subCatId}
+  }
+  if(thirdSubCategoryId?.length){
+    filters.thirdSubCategoryId = {$in: thirdSubCategoryId}
+  }
+
+  if(minPrice || maxPrice){
+    filters.price = {$gte: +minPrice || 0, $lte: +maxPrice || Infinity}
+  }
+
+  if(rating?.length){
+    filters.rating = {$in: rating}
+  }
+
+  try {
+    const products = await productModel.find(filters).populate("category".skip(page - 1) * limit).limit(parseInt(limit));
+    const total = await productModel.countDocuments(filters);
+    return response.status(200).json({
+      error: false,
+      success: true,
+      products:products,
+      total:total,
+      page:parseInt(page),
+      totalPages: Math.ceil(total/limit)
+    })
+  } catch (error) {
+    return response.status(500).json({
+      message: error.message || error,
+      error: true,
+      success: false
+    })
+  }
+}

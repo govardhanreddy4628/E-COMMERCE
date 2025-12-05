@@ -12,7 +12,6 @@ import {
 } from "../utils/generateToken.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { Request, Response, NextFunction, CookieOptions } from "express";
-import { sendVerificationEmail } from "../utils/sendEmail.js";
 import fs from "fs";
 import cloudinary from "../config/cloudinary.js";
 import validator from "validator";
@@ -20,6 +19,8 @@ import redisClient from "../config/connectRedis.js";
 import { storeSession } from "../utils/redisSessions.js";
 import logger from "../utils/logger.js";
 import { hashToken } from "../utils/hash.js";
+import { sendVerificationEmailUsingResend } from "../utils/sendEmailUsingResend.js";
+import { sendVerificationEmailUsingNodeMailer } from "../utils/sendEmailUsingNodeMailer.js";
 
 // helper cookie opts
 const cookieOptionsBase: CookieOptions = {
@@ -39,6 +40,9 @@ export const registerController = async (
   next: NextFunction
 ): Promise<void | any> => {
   try {
+    // console.log("BODY:", req.body);
+    console.log("FILE:", req.file);
+
     const { email, password, fullName, confirmPassword } = req.body;
     const avatar = req.file?.path || undefined; // Assuming you're using multer for file uploads
     console.log(avatar);
@@ -69,7 +73,7 @@ export const registerController = async (
     //const verificationToken = crypto.randomBytes(32).toString("hex");
     const otp = crypto.randomInt(100000, 999999).toString();
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
-    const otpExpiryMs = 10 * 60 * 1000;   // 10 minutes
+    const otpExpiryMs = 10 * 60 * 1000; // 10 minutes
 
     if (existingUser) {
       if (existingUser.isVerified) {
@@ -78,15 +82,15 @@ export const registerController = async (
       } else {
         // Case 2: User exists but is NOT verified → resend verification email
 
-        const lastSent = existingUser.otpExpiresAt;
-        const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+        // const lastSent = existingUser.otpExpiresAt;
+        // const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
 
-        // Simple throttle: disallow resend more than once per minute.
-        if (lastSent && lastSent > oneMinuteAgo) {
-          return res
-            .status(429)
-            .json({ message: "OTP recently sent. Try again in a minute." });
-        }
+        // // Simple throttle: disallow resend more than once per minute.
+        // if (lastSent && lastSent > oneMinuteAgo) {
+        //   return res
+        //     .status(429)
+        //     .json({ message: "OTP recently sent. Try again in a minute." });
+        // }
 
         existingUser.otp = hashedOtp;
         existingUser.otpExpiresAt = new Date(Date.now() + otpExpiryMs);
@@ -99,10 +103,11 @@ export const registerController = async (
           { expiresIn: "15m" }
         );
 
-        await sendVerificationEmail(existingUser.email, otp);
+        //await sendVerificationEmailUsingResend(existingUser.email, otp);
+        await sendVerificationEmailUsingNodeMailer(existingUser.email, otp);
 
         return res.status(200).json({
-          msg: "User already exists but is not verified. Verification email resent.",
+          message: "User already exists but is not verified. Verification email resent.",
           intentToken,
         });
       }
@@ -128,16 +133,16 @@ export const registerController = async (
       { expiresIn: "15m" }
     );
 
-    await sendVerificationEmail(newUser.email, otp);
+    await sendVerificationEmailUsingResend(newUser.email, otp);
 
     return res.status(201).json({
-      msg: "New user created. Check your email to verify.",
+      message: "New user created. Check your email to verify.",
       intentToken,
       success: true,
       error: false,
       isVerified: false,
     });
-  } catch (err) {
+} catch (err) {
     next(err);
   }
 };
@@ -180,19 +185,21 @@ export const verifyEmailController = async (
     //const refreshToken = generateRefreshToken(user.id);
     const { token: refreshToken, sid } = generateRefreshToken(user.id);
 
-
-        // store hashed refresh in redis & metadata
-    await storeSession({ rawRefreshToken: refreshToken, userId: user.id, sid, meta: { ip: req.ip, ua: req.get("user-agent") } });
-
+    // store hashed refresh in redis & metadata
+    await storeSession({
+      rawRefreshToken: refreshToken,
+      userId: user.id,
+      sid,
+      meta: { ip: req.ip, ua: req.get("user-agent") },
+    });
 
     // await UserModel.findByIdAndUpdate(user.id, {
     //   last_login_date: new Date(),
     // });
 
-
     res.cookie("accessToken", accessToken, {
       ...cookieOptionsBase,
-      maxAge: ACCESS_EXPIRES_SEC * 1000
+      maxAge: ACCESS_EXPIRES_SEC * 1000,
     });
 
     res.cookie("refreshToken", refreshToken, {
@@ -220,6 +227,7 @@ export const loginController = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    console.log("BODY:", req.body);
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -258,7 +266,7 @@ export const loginController = async (
       user.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
       await user.save();
 
-      await sendVerificationEmail(user.email, otp);
+      await sendVerificationEmailUsingResend(user.email, otp);
 
       const intentToken = jwt.sign(
         { userId: user.id, email: user.email },
@@ -270,7 +278,7 @@ export const loginController = async (
         success: false,
         message: "Please verify your email with the OTP sent to your email.",
         intentToken: intentToken,
-        needVerify: true 
+        needVerify: true,
       });
       return;
     }
@@ -280,17 +288,21 @@ export const loginController = async (
     const { token: refreshToken, sid } = generateRefreshToken(user.id);
 
     // store refresh in redis for revocation & rotation
-    await storeSession({ rawRefreshToken: refreshToken, userId: user.id, sid, meta: { ip: req.ip, ua: req.get("user-agent") } });
+    await storeSession({
+      rawRefreshToken: refreshToken,
+      userId: user.id,
+      sid,
+      meta: { ip: req.ip, ua: req.get("user-agent") },
+    });
 
     await UserModel.findByIdAndUpdate(user.id, {
       last_login_date: new Date(),
     });
 
-
     // Access Token
     res.cookie("accessToken", accessToken, {
       ...cookieOptionsBase,
-      maxAge: ACCESS_EXPIRES_SEC * 1000,  // 15 minutes
+      maxAge: ACCESS_EXPIRES_SEC * 1000, // 15 minutes
     });
 
     // Refresh Token
@@ -314,7 +326,9 @@ export const loginController = async (
 //========================regenerate new accessToken and refreshToken==============
 export const getNewAccessToken = async (req: Request, res: Response) => {
   try {
-    const rawRefresh = (req.cookies?.refresh_token as string) || (req.cookies?.refreshToken as string);
+    const rawRefresh =
+      (req.cookies?.refresh_token as string) ||
+      (req.cookies?.refreshToken as string);
     if (!rawRefresh) {
       return res.status(401).json({ message: "No refresh token provided" });
     }
@@ -338,9 +352,13 @@ export const getNewAccessToken = async (req: Request, res: Response) => {
     }
 
     // verify refresh JWT
-    const decoded = jwt.verify(rawRefresh, process.env.JWT_REFRESH_SECRET!) as { id: string; sid?: string };
+    const decoded = jwt.verify(rawRefresh, process.env.JWT_REFRESH_SECRET!) as {
+      id: string;
+      sid?: string;
+    };
 
-    const storedUserId = typeof stored === "string" ? stored : (stored as any).userId;
+    const storedUserId =
+      typeof stored === "string" ? stored : (stored as any).userId;
     if (decoded.id !== storedUserId) {
       return res.status(403).json({ message: "Token user mismatch" });
     }
@@ -351,7 +369,9 @@ export const getNewAccessToken = async (req: Request, res: Response) => {
     // rotate: delete old entry and create a new refresh token + store hashed mapping
     await redisClient.del(redisKey);
 
-    const { token: newRefreshToken, sid: newSid } = generateRefreshToken(decoded.id);
+    const { token: newRefreshToken, sid: newSid } = generateRefreshToken(
+      decoded.id
+    );
 
     // store new refresh token (use your storeSession helper to ensure same format/hashing)
     await storeSession({
@@ -365,7 +385,10 @@ export const getNewAccessToken = async (req: Request, res: Response) => {
     res.cookie("refresh_token", newRefreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? ("none" as const) : ("lax" as const),
+      sameSite:
+        process.env.NODE_ENV === "production"
+          ? ("none" as const)
+          : ("lax" as const),
       path: "/",
       maxAge: REFRESH_EXPIRES_SEC * 1000,
     });
@@ -388,7 +411,7 @@ export const getCurrentUserController = async (
   next: NextFunction
 ) => {
   try {
-    const userId = req.userId;
+    const userId = req.user;
 
     if (!userId) {
       return res
@@ -414,7 +437,6 @@ export const getCurrentUserController = async (
   }
 };
 
-
 // --- controllers/auth/logoutController.ts ---
 const getUserSessionKey = (userId: string) => `user_sessions:${userId}`;
 const getBlacklistKey = (token: string) => `bl_refresh:${token}`;
@@ -424,7 +446,7 @@ export const logoutController = async (
   res: Response
 ): Promise<Response> => {
   try {
-    const userId = req.userId;
+    const userId = req.user;
     const refreshToken = req.cookies?.refreshToken;
 
     if (!userId || !refreshToken) {
@@ -436,7 +458,7 @@ export const logoutController = async (
     }
 
     // Redis keys
-    const sessionKey = getUserSessionKey(userId);
+    const sessionKey = getUserSessionKey(userId.id);
     const blacklistKey = getBlacklistKey(refreshToken);
 
     // Cookie options (must match login!)
@@ -517,7 +539,7 @@ export const forgotPasswordController = async (
     user.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 min
     await user.save();
 
-    await sendVerificationEmail(user.email, otp); // Secure email utility
+    await sendVerificationEmailUsingResend(user.email, otp); // Secure email utility
 
     return res.status(200).json({
       success: true,
@@ -623,13 +645,10 @@ export const verifyForgotPasswordOtpController = async (
   }
 };
 
-
-
-
 //=================upload images==================
 export const userAvatarController = async (req: Request, res: Response) => {
   try {
-    const userId = req.userId; // Ensure this comes from your auth middleware
+    const userId = req.user; // Ensure this comes from your auth middleware
     const files = req.files as Express.Multer.File[];
 
     if (!files || files.length === 0) {
@@ -714,7 +733,6 @@ export const userAvatarController = async (req: Request, res: Response) => {
   }
 };
 
-
 export const removeImgFromCloudinary = async (req: Request, res: Response) => {
   try {
     const imgUrl = req.query.img as string;
@@ -753,7 +771,7 @@ export const removeImgFromCloudinary = async (req: Request, res: Response) => {
 // PUT /api/user/profile-pic
 export const updateUserProfilePic = async (req: Request, res: Response) => {
   try {
-    const userId = req.userId; // Assuming you have auth middleware that adds user to req
+    const userId = req.user; // Assuming you have auth middleware that adds user to req
     const file = req.file;
 
     if (!file) {
@@ -784,7 +802,7 @@ export const updateUserProfilePic = async (req: Request, res: Response) => {
 //===================update user===================
 export async function updateUserDetails(req: Request, res: Response) {
   try {
-    const userId = req.userId;
+    const userId = req.user;
     const { name, email, mobile, password } = req.body;
 
     const userExist = await UserModel.findById(userId);
@@ -818,7 +836,7 @@ export async function updateUserDetails(req: Request, res: Response) {
     );
 
     if (email !== userExist.email) {
-      await sendVerificationEmail(userExist.email, otp);
+      await sendVerificationEmailUsingResend(userExist.email, otp);
     }
 
     return res.json({
@@ -835,3 +853,91 @@ export async function updateUserDetails(req: Request, res: Response) {
     });
   }
 }
+
+
+
+
+
+
+
+export const resendOtpController = async (req: Request, res: Response) => {
+  try {
+    const { intentToken } = req.body;
+
+    if (!intentToken) {
+      return res.status(400).json({
+        success: false,
+        message: "intentToken is required",
+      });
+    }
+
+    // 1️⃣ Decode JWT
+    let decoded: any;
+    try {
+      decoded = jwt.verify(intentToken, process.env.LOGIN_INTENT_SECRET!);
+    } catch (err) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid or expired intent token",
+      });
+    }
+
+    const { email, userId } = decoded;
+
+    // 2️⃣ Fetch user
+    const user = await UserModel.findById(userId).select("+otp +otpExpiresAt");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email already verified",
+      });
+    }
+
+    // 3️⃣ Generate new OTP
+    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiration = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+    // 🔐 Hash OTP before saving (IMPORTANT)
+    const hashedOtp = crypto.createHash("sha256").update(newOtp).digest("hex");
+
+    user.otp = hashedOtp;
+    user.otpExpiresAt = otpExpiration;
+
+    await user.save();
+
+    // 4️⃣ Send email using Resend
+    try {
+      await sendVerificationEmailUsingResend(email, newOtp); // send plain OTP
+    } catch (error) {
+      console.error("OTP RESEND EMAIL FAILED:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to send OTP email",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+
+    // 5️⃣ Respond
+    return res.json({
+      success: true,
+      message: "OTP resent successfully",
+    });
+  } catch (error) {
+    console.error("RESEND OTP ERROR:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+
+

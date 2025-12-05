@@ -1,9 +1,8 @@
-// components/CreateCategory.tsx
 import React, { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Plus, Upload, X } from "lucide-react";
+import { Plus, Edit2, Upload, X } from "lucide-react";
 import { Button } from "../../../ui/button";
 import {
   Dialog,
@@ -30,9 +29,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../ui/select";
-import { getCategoryId, useCategories } from "../context/categoryContext";
+import { useCategories } from "../context/categoryContext";
 import { useToast } from "../../../hooks/use-toast";
+import { Category } from "../types/category";
 
+// Schema: we keep imageFile as File for both create & edit because backend expects File for updates too (user choice A)
 const categorySchema = z.object({
   name: z.string().min(1, "Category name is required").max(50, "Name too long"),
   description: z.string().optional(),
@@ -42,68 +43,130 @@ const categorySchema = z.object({
 
 type CategoryFormSchema = z.infer<typeof categorySchema>;
 
-interface CreateCategoryProps {
-  parentCategoryId?: string;
+interface CategoryFormDialogProps {
+  mode: "create" | "edit";
+  category?: Category; // required when mode === 'edit'
+  parentCategoryId?: string; // allow pre-selecting a parent when creating a subcategory
   trigger?: React.ReactNode;
-  children?: React.ReactNode;
+  children?: React.ReactNode; // alternate trigger
 }
 
-export function CreateCategory({ parentCategoryId, trigger, children }: CreateCategoryProps) {
-  const [open, setOpen] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const { getAllCategories, addCategory } = useCategories();
+export default function CategoryFormDialog({
+  mode,
+  category,
+  parentCategoryId,
+  trigger,
+  children,
+}: CategoryFormDialogProps) {
+  const isEdit = mode === "edit";
+  const { getAllCategories, addCategory, updateCategory } = useCategories();
   const { toast } = useToast();
+
+  const [open, setOpen] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    isEdit ? (category?.image?.url ?? null) : null
+  );
+  const [lastObjectUrl, setLastObjectUrl] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // track if user removed existing image (so update can delete it)
+  const [imageRemoved, setImageRemoved] = useState(false);
 
   const form = useForm<CategoryFormSchema>({
     resolver: zodResolver(categorySchema),
     defaultValues: {
-      name: "",
-      description: "",
-      parentCategoryId: parentCategoryId || "none",
+      name: isEdit ? category?.name ?? "" : "",
+      description: isEdit ? category?.description ?? "" : "",
+      parentCategoryId: isEdit ? (category?.parentCategoryId ?? "none") : (parentCategoryId ?? "none"),
       imageFile: undefined,
     },
   });
 
-  // track last object url to revoke
-  const [lastObjectUrl, setLastObjectUrl] = useState<string | null>(null);
+  useEffect(() => {
+    // when opening edit dialog for different category, sync preview and defaults
+    if (isEdit) {
+      setImagePreview(category?.image?.url ?? null);
+      setImageRemoved(false);
+      form.reset({
+        name: category?.name ?? "",
+        description: category?.description ?? "",
+        parentCategoryId: category?.parentCategoryId ?? "none",
+        imageFile: undefined,
+      });
+    } else if (parentCategoryId) {
+      // when create and parentCategoryId prop changes
+      form.reset({
+        name: "",
+        description: "",
+        parentCategoryId: parentCategoryId ?? "none",
+        imageFile: undefined,
+      });
+      setImagePreview(null);
+      setImageRemoved(false);
+    }
+    // we intentionally omit form from deps to avoid infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, category, parentCategoryId]);
 
   useEffect(() => {
     return () => {
       if (lastObjectUrl) {
-        URL.revokeObjectURL(lastObjectUrl);
+        try {
+          URL.revokeObjectURL(lastObjectUrl);
+        } catch (e) {}
       }
     };
   }, [lastObjectUrl]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // revoke previous
-      if (lastObjectUrl) {
-        try { URL.revokeObjectURL(lastObjectUrl); } catch {}
-      }
-      const obj = URL.createObjectURL(file);
-      setLastObjectUrl(obj);
-      setImagePreview(obj);
-      form.setValue("imageFile", file, { shouldValidate: true });
+    if (!file) return;
+
+    // revoke previous object url
+    if (lastObjectUrl) {
+      try {
+        URL.revokeObjectURL(lastObjectUrl);
+      } catch (e) {}
     }
+
+    const obj = URL.createObjectURL(file);
+    setLastObjectUrl(obj);
+    setImagePreview(obj);
+    setImageRemoved(false);
+    form.setValue("imageFile", file, { shouldValidate: true });
   };
 
   const removeImage = () => {
+    // if a newly selected file exists, revoke its object URL
     if (lastObjectUrl) {
-      try { URL.revokeObjectURL(lastObjectUrl); } catch {}
+      try {
+        URL.revokeObjectURL(lastObjectUrl);
+      } catch (e) {}
       setLastObjectUrl(null);
     }
+
+    // clear preview and mark removed if there was an existing image
     setImagePreview(null);
     form.setValue("imageFile", undefined);
+    // if editing an existing category that had an image, mark it for removal
+    if (isEdit && category?.image) {
+      setImageRemoved(true);
+    }
   };
 
   const onSubmit = async (data: CategoryFormSchema) => {
     try {
-      // local duplicate check
       const allCategories = getAllCategories();
-      const isDuplicate = allCategories.some(cat => (cat.name || "").toLowerCase() === data.name.toLowerCase());
+      const lower = data.name.trim().toLowerCase();
+      const isDuplicate = allCategories.some((cat) => {
+        if (isEdit && category) {
+          // skip self in edit
+          const id = String(cat.id ?? cat._id ?? "");
+          const selfId = String(category.id ?? category._id ?? "");
+          if (id === selfId) return false;
+        }
+        return (cat.name ?? "").toLowerCase() === lower;
+      });
+
       if (isDuplicate) {
         form.setError("name", { message: "Category name already exists" });
         return;
@@ -111,25 +174,33 @@ export function CreateCategory({ parentCategoryId, trigger, children }: CreateCa
 
       setIsSubmitting(true);
 
-      await addCategory({
+      const payload: any = {
         name: data.name,
         description: data.description,
-        imageFile: data.imageFile,
         parentCategoryId: data.parentCategoryId === "none" ? undefined : data.parentCategoryId,
-      });
+      };
 
-      toast({ title: "Success", description: "Category created successfully" });
+      // If user selected a file, send imageFile (backend expects File for both create & update)
+      if (data.imageFile) payload.imageFile = data.imageFile;
+
+      // If editing and user removed existing image and didn't upload a new one, send a flag so backend can delete it
+      if (isEdit && imageRemoved && !data.imageFile) payload.removeImage = true;
+
+      if (isEdit && category) {
+        // call updateCategory(id, payload)
+        await updateCategory(category.id ?? (category as any)._id, payload);
+        toast({ title: "Success", description: "Category updated successfully" });
+      } else {
+        await addCategory(payload);
+        toast({ title: "Success", description: "Category created successfully" });
+      }
+
       form.reset();
       removeImage();
       setOpen(false);
-
     } catch (error: any) {
-      console.error("Failed to create category:", error);
-      toast({
-        title: "Error",
-        description: error?.message || "Failed to create category",
-        variant: "destructive",
-      });
+      console.error("Category form failed:", error);
+      toast({ title: "Error", description: error?.message || "Failed to save category", variant: "destructive" });
     } finally {
       setIsSubmitting(false);
     }
@@ -137,20 +208,30 @@ export function CreateCategory({ parentCategoryId, trigger, children }: CreateCa
 
   const allCategories = getAllCategories();
 
-  const defaultTrigger = (
+  const defaultCreateTrigger = (
     <Button size="sm" className="bg-primary text-white shadow-soft">
       <Plus className="w-4 h-4 mr-2" />
       Add Category
     </Button>
   );
 
+  const defaultEditTrigger = (
+    <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-accent">
+      <Edit2 className="w-4 h-4" />
+    </Button>
+  );
+
+  const triggerNode = children || trigger || (isEdit ? defaultEditTrigger : defaultCreateTrigger);
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{children || trigger || defaultTrigger}</DialogTrigger>
+      <DialogTrigger asChild>{triggerNode}</DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Create New Category</DialogTitle>
-          <DialogDescription>Add a new category to organize your products.</DialogDescription>
+          <DialogTitle>{isEdit ? "Edit Category" : "Create New Category"}</DialogTitle>
+          <DialogDescription>
+            {isEdit ? "Update the category information below." : "Add a new category to organize your products."}
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -175,7 +256,6 @@ export function CreateCategory({ parentCategoryId, trigger, children }: CreateCa
               </FormItem>
             )} />
 
-            {/* File input: wired to imageFile */}
             <FormField control={form.control} name="imageFile" render={() => (
               <FormItem>
                 <FormLabel>Image (Optional)</FormLabel>
@@ -216,9 +296,13 @@ export function CreateCategory({ parentCategoryId, trigger, children }: CreateCa
                   </FormControl>
                   <SelectContent>
                     <SelectItem value="none">None (Main Category)</SelectItem>
-                    {allCategories.map(category => (
-                      <SelectItem key={getCategoryId(category)} value={getCategoryId(category)}>{category.name}</SelectItem>
-                    ))}
+                    {allCategories
+                      .filter((cat) => !isEdit || String(cat.id ?? cat._id) !== String(category?.id ?? category?._id))
+                      .map((cat) => (
+                        <SelectItem key={String(cat.id ?? cat._id)} value={String(cat.id ?? cat._id)}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -227,8 +311,8 @@ export function CreateCategory({ parentCategoryId, trigger, children }: CreateCa
 
             <div className="flex justify-end space-x-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" className="bg-primary text-primary-foreground" disabled={isSubmitting}>
-                {isSubmitting ? "Creating..." : "Create Category"}
+              <Button type="submit" className={isEdit ? "bg-gradient-primary text-primary-foreground" : "bg-primary text-primary-foreground"} disabled={isSubmitting}>
+                {isSubmitting ? (isEdit ? "Updating..." : "Creating...") : (isEdit ? "Update Category" : "Create Category")}
               </Button>
             </div>
           </form>

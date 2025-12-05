@@ -222,8 +222,8 @@ export default function CreateProduct3() {
             };
 
             const url = isEditMode
-                ? `${import.meta.env.VITE_BACKEND_URL}/api/v1/product/update/${id}`
-                : `${import.meta.env.VITE_BACKEND_URL}/api/v1/product/createproduct`;
+                ? `${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/product/update/${id}`
+                : `${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/product/createproduct`;
 
             const method = isEditMode ? "PUT" : "POST";
 
@@ -329,8 +329,6 @@ export default function CreateProduct3() {
             toast({ title: "Failed to delete image", description: err.message, variant: "destructive" });
         }
     };
-
-
 
 
 

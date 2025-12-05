@@ -1,35 +1,30 @@
+// middleware/multer.ts
 import multer, { StorageEngine } from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
+import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_MB, MAX_FILES } from "../config/uploadConfig.js";
 
 // ===== Fix for __dirname in ESM =====
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ===== Allowed Types & Limits =====
-export const ALLOWED_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/jpg",
-  "image/gif",
-  "image/svg+xml",
-];
-
-const MAX_FILE_SIZE_MB = 5; // 5 MB
-const MAX_FILES = 8;
-
-// ===== Multer Local Temp Storage =====
+// Make sure destination uses req.folder if set, otherwise fallback
 const storage: StorageEngine = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, "../../public/uploads"));
+  destination: function (req: any, file, cb) {
+    const folder = req?.folder || "uploads";
+    const destPath = path.join(__dirname, "../../public", folder);
+    // Ensure directory exists
+    fs.mkdir(destPath, { recursive: true }, (err) => {
+      cb(err, destPath);
+    });
   },
   filename: function (req, file, cb) {
     cb(null, `${Date.now()}_${file.originalname}`);
   },
 });
 
-// ===== File Filter =====
+// File filter validates mime types
 const fileFilter = (req: any, file: any, cb: any) => {
   if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
     cb(null, true);
@@ -38,10 +33,9 @@ const fileFilter = (req: any, file: any, cb: any) => {
   }
 };
 
-// ===== Multer Middleware =====
 const multerUpload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
+  storage,
+  fileFilter,
   limits: {
     fileSize: MAX_FILE_SIZE_MB * 1024 * 1024,
   },

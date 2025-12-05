@@ -1,7 +1,7 @@
 // middleware/errorHandler.ts
 import { Request, Response, NextFunction } from "express";
-import { ApiResponse } from "../utils/ApiResponse";
-import { ApiError } from "../utils/ApiError";
+import { ApiResponse } from "../utils/ApiResponse.js";
+import { ApiError } from "../utils/ApiError.js";
 
 export const errorHandler = (
   err: Error | ApiError,

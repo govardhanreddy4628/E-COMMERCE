@@ -1,5 +1,5 @@
 // src/utils/chatHelpers.ts
-import { userSocketIDs } from "../sockets/initAdminChat";
+import { userSocketIDs } from "../sockets/initAdminChat.js";
 import type { Socket } from "socket.io";
 
 // ✅ Define minimal interfaces for clarity

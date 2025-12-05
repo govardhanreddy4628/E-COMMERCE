@@ -1,3 +1,4 @@
+import "./utils/logger.js";
 import dotenv from "dotenv";
 dotenv.config();
 import { app } from "./app.js";
@@ -7,7 +8,6 @@ import redisClient from "./config/connectRedis.js";
 import Razorpay from "razorpay";
 import "./jobs/cleanupJob.js";
 import "./agent/agent.js";
-
 
 
 
@@ -23,7 +23,6 @@ const startServer = async () => {
   try {
     await connectDB();           // MongoDB connection
     await redisClient.connect(); // Redis connection
-
     app.listen(PORT, () => {
       console.log(
         `🚀 Server running on ${process.env.NODE_ENV} mode on port ${PORT}`.bgCyan

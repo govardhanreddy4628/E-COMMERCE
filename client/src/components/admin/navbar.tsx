@@ -1,7 +1,7 @@
 import { Search, Bell } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { ThemeToggle } from '../../ui/themeToggle';
-import { Badge, IconButton, ListItemIcon, Tooltip } from '@mui/material';
+import { Badge, IconButton, Tooltip } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import * as React from 'react';
 //import Menu from '@mui/material/Menu';
@@ -13,8 +13,7 @@ import { User, Settings, Lock, LogOut } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '../../ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '../../ui/avatar';
 import { useNavigate } from 'react-router-dom';
-import { useToast } from '../../hooks/use-toast';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../../ui/alert-dialog';
+import LogoutDialog from './logoutDialog';
 
 interface NavbarProps {
     className?: string;
@@ -56,28 +55,9 @@ const StyledBadge = styled(Badge)(({ theme }) => ({
 }));
 
 export function Navbar({ className }: NavbarProps) {
-
-    //const [accanchorEl, setAccAnchorEl] = React.useState<null | HTMLElement>(null);
-    // const adminMenuOpen = Boolean(accanchorEl);
-    // const handleClick = (event: React.MouseEvent<HTMLElement>) => {
-    //     setAccAnchorEl(event.currentTarget);
-    // };
-    // const handleClose = () => {
-    //     setAccAnchorEl(null);
-    // };
-
-
-    const navigate = useNavigate();
-    const { toast } = useToast();
+       
     const [showLogoutDialog, setShowLogoutDialog] = React.useState(false);
-
-    const handleLogout = () => {
-        toast({
-            title: "Logged Out",
-            description: "You have been successfully logged out.",
-        });
-        navigate("/");
-    };
+    const navigate = useNavigate()
 
     return (
         <>
@@ -232,21 +212,8 @@ export function Navbar({ className }: NavbarProps) {
             </div>
         </header>
 
+        <LogoutDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog} />
 
-        <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure you want to logout?</AlertDialogTitle>
-            <AlertDialogDescription>
-              You will be redirected to the home page.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleLogout}>Logout</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
         </>
     );
 }

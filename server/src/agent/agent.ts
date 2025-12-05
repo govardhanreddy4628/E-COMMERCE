@@ -6,7 +6,7 @@ import { Command, MemorySaver } from "@langchain/langgraph";
 import readline from "node:readline/promises";
 //import { stdin as input, stdout as output } from 'node:process';
 
-const gmailEmails = [
+export const gmailEmails = [
   {
     id: "msg-1",
     threadId: "thread-1",
@@ -263,24 +263,54 @@ async function main() {
     let output = "";
 
     if (response?.__interrupt__?.length) {
-      interrupts.push(response.__interrupt__[0]);
+      interrupts?.push(response?.__interrupt__?.[0]);
 
-      output +=
-        response?.__interrupt__[0]?.value.actionRequests[0].description +
-        "\n\n";
-      output += "Choose:\n";
+      // narrow/cast interrupt so TypeScript knows the shape before property access
+      const interrupt = (response as any)?.__interrupt__?.[0];
 
-      output +=
-        response?.__interrupt__[0]?.value.reviewConfigs[0].allowedDescriptions
-          .filter((decision) => decision != "edit")
-          .map((decision, idx) => "${idx + 1}. ${decision}")
+      if (interrupt) {
+        const actionDesc = interrupt?.value?.actionRequests?.[0]?.description ?? "";
+        output += actionDesc + "\n\n";
+        output += "Choose:\n";
+
+        const allowed: string[] = interrupt?.value?.reviewConfigs?.[0]?.allowedDescriptions ?? [];
+        output += allowed
+          .filter((decision) => decision !== "edit")
+          .map((decision, idx) => `${idx + 1}. ${decision}`)
           .join("\n");
+      } else {
+        // fallback if interrupt unexpectedly missing
+        output += "No interrupt details available.\n";
+      }
     } else {
       output += response.messages[response.messages.length - 1].content;
     }
     console.log(output);
+    
   }
   rl.close()
 }
 
 main();
+
+
+
+
+
+  // if (response?.__interrupt__?.length) {
+  //   interrupts.push(response.__interrupt__[0]);
+
+  //   output +=
+  //     response?.__interrupt__[0]?.value.actionRequests[0].description +
+  //     "\n\n";
+  //   output += "Choose:\n";
+
+  //   output +=
+  //     response?.__interrupt__[0]?.value.reviewConfigs[0].allowedDescriptions
+  //       .filter((decision) => decision != "edit")
+  //       .map((decision, idx) => "${idx + 1}. ${decision}")
+  //       .join("\n");
+  // } else {
+  //   output += response.messages[response.messages.length - 1].content;
+  // }
+  // console.log(output);

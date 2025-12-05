@@ -25,7 +25,7 @@ export interface ICategory extends Document {
   description?: string | null;
   parentCategoryName?: string | null;
   parentCategoryId?: Types.ObjectId | null;
-  children?: Types.ObjectId[];
+  children: Types.ObjectId[];
   level: number;
   isActive: boolean;
   isFeatured: boolean;
@@ -51,7 +51,7 @@ const categorySchema = new Schema<ICategory>(
     },
     // ✅ Updated image field — same pattern as Product
     image: {
-      public_id: { type: String, },
+      public_id: { type: String },
       url: {
         type: String,
         validate: {
@@ -102,12 +102,11 @@ const categorySchema = new Schema<ICategory>(
         message: "Parent category does not exist",
       },
     },
-    children: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "Category",
-      },
-    ],
+    children: {
+      type: [Schema.Types.ObjectId],
+      ref: "Category",
+      default: [], // <-- important
+    },
     level: { type: Number, default: 0 },
     createdBy: {
       type: Schema.Types.ObjectId,
@@ -147,10 +146,7 @@ categorySchema.pre<ICategory>("save", async function (next) {
 });
 
 // Indexes
-categorySchema.index({ name: 1 });
-categorySchema.index({ slug: 1 });
 categorySchema.index({ parentCategoryId: 1 });
-
 
 categorySchema.virtual("imageUrl").get(function () {
   return this.image?.url || null;

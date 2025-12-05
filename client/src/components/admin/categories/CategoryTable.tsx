@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { ChevronRight, ChevronDown, Edit, Trash2, Plus } from 'lucide-react';
-import { EditCategory } from './EditCategory';
-import { CreateCategory } from './CreateCategory';
+import { ChevronRight, ChevronDown, Edit2, Trash2, Plus } from 'lucide-react';
+//import { EditCategory } from './EditCategory';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../ui/table";
 import { Category } from '../types/category';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../ui/alert-dialog";
 import { Button } from '../../../ui/button';
 import { useCategories } from '../context/categoryContext';
 import { AlertDialogTrigger } from '../../../ui/alert-dialog';
+import CategoryFormDialog from './CategoryFormDialog';
+import { getCategoryId } from './CategoryUtility';
+
 
 
 interface CategoryTableProps {
@@ -55,7 +57,7 @@ function CategoryRow({ category, level }: CategoryRowProps) {
         <TableCell>
           {category.image ? (
             <img
-              src={category.image}
+              src={category.image.url}
               alt={category.name}
               className="h-10 w-10 object-cover rounded"
             />
@@ -68,16 +70,22 @@ function CategoryRow({ category, level }: CategoryRowProps) {
         <TableCell className="text-center">{category.subcategories.length}</TableCell>
         <TableCell className="text-right">
           <div className="flex items-center justify-end gap-2">
-            <CreateCategory parentId={category.id}>
-              <Button variant="ghost" size="sm">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </CreateCategory>
-            <EditCategory category={category}>
-              <Button variant="ghost" size="sm">
-                <Edit className="h-4 w-4" />
-              </Button>
-            </EditCategory>
+            
+            <CategoryFormDialog
+              mode="create"
+              parentCategoryId={getCategoryId(category)}
+              trigger={
+                <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
+                  <Plus className="w-3 h-3" />
+                </Button>
+              }
+            />
+
+            <CategoryFormDialog mode="edit" category={category}
+              trigger={<Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-accent">
+                <Edit2 className="w-4 h-4" />
+              </Button>} />
+
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="ghost" size="sm">

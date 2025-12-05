@@ -165,49 +165,51 @@ export default function MyOrders() {
     setPage(0);
   };
 
-   
+
 
 
   return (
     <div>
-    <h2 className='text-xl font-semibold dark:text-white text-gray-800 p-4 pl-10'>Recent Orders</h2>
-    <Paper className='bg-gray-50 dark:bg-gray-900 text-[#fff] dark:text-[#000] w-[95%] mx-auto'>
-      <TableContainer component={Paper} sx={{ maxHeight: 440 }} className='dark:bg-gray-800 muiTableContainer overflow-auto'>
-        <Table aria-label="collapsible table" stickyHeader>
-          <TableHead>
-            <TableRow>
-              <TableCell className='dark:bg-gray-900' />
-              <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>ORDER ID</TableCell>
-              <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>PAYMENT ID</TableCell>
-              <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>NAME</TableCell>
-              <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>PHONE NUMBER</TableCell>
-              <TableCell align="center" style={{ minWidth: 300 }} className='dark:text-white dark:bg-gray-900'>ADDRESS</TableCell>
-              <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>PINCODE</TableCell>
-              <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>TOTAL AMOUNT</TableCell>
-              <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>EMAIL</TableCell>
-              <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>USER ID</TableCell>
-              <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>ORDER STATUS</TableCell>
-              <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>DATE</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody className='dark:bg-gray-800'>
-            {rows.map((row) => (
-              <Row key={row.name} row={row} />
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <TablePagination
-        rowsPerPageOptions={[3, 5, 10, 25, 100]}
-        component="div"
-        count={rows.length}
-        rowsPerPage={rowsPerPage}
-        page={page}
-        onPageChange={handleChangePage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-        className=' dark:bg-gray-900 dark:text-white'
-      />
-    </Paper>
+      <h1 className='text-xl font-semibold dark:text-white mb-4'>My Orders</h1>
+      <hr className="my-4" />
+
+      <Paper className='bg-gray-50 dark:bg-gray-900 text-[#fff] dark:text-[#000] w-[95%] mx-auto'>
+        <TableContainer component={Paper} sx={{ maxHeight: 440 }} className='dark:bg-gray-800 muiTableContainer overflow-auto'>
+          <Table aria-label="collapsible table" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell className='dark:bg-gray-900' />
+                <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>ORDER ID</TableCell>
+                <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>PAYMENT ID</TableCell>
+                <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>NAME</TableCell>
+                <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>PHONE NUMBER</TableCell>
+                <TableCell align="center" style={{ minWidth: 300 }} className='dark:text-white dark:bg-gray-900'>ADDRESS</TableCell>
+                <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>PINCODE</TableCell>
+                <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>TOTAL AMOUNT</TableCell>
+                <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>EMAIL</TableCell>
+                <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>USER ID</TableCell>
+                <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>ORDER STATUS</TableCell>
+                <TableCell align="center" className='text-nowrap dark:text-white dark:bg-gray-900'>DATE</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody className='dark:bg-gray-800'>
+              {rows.map((row) => (
+                <Row key={row.name} row={row} />
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          rowsPerPageOptions={[3, 5, 10, 25, 100]}
+          component="div"
+          count={rows.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          className=' dark:bg-gray-900 dark:text-white'
+        />
+      </Paper>
     </div>
   );
 }

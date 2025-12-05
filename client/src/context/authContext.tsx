@@ -1,5 +1,14 @@
 // context/AuthContext.tsx
-import { createContext, useEffect, useState, ReactNode, useCallback, useContext,} from "react";
+import {
+  createContext,
+  useEffect,
+  useState,
+  ReactNode,
+  useCallback,
+  useContext,
+} from "react";
+import toast from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 
 // --- Type Definitions ---
 export interface User {
@@ -9,7 +18,6 @@ export interface User {
   role: string;
   avatar?: string;
   [key: string]: any;
-  // Add other user fields as needed
 }
 
 export interface AuthContextType {
@@ -21,7 +29,9 @@ export interface AuthContextType {
   isLogin: boolean;
 }
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(
+  undefined
+);
 
 // --- Provider Component ---
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -29,33 +39,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE_URL = import.meta.env.VITE_BACKEND_URL_LOCAL || import.meta.env.VITE_BACKEND_URL_PRODUCTION;
+   const navigate = useNavigate();
 
+  // FIXED: Proper fallback chaining (local → production)
+  const API_BASE_URL =
+    import.meta.env.VITE_BACKEND_URL_LOCAL ||
+    import.meta.env.VITE_BACKEND_URL_PRODUCTION;
 
   const fetchUser = useCallback(async () => {
+    if (!API_BASE_URL) {
+      console.error("❌ Backend URL is not defined.");
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
 
-      if (!API_BASE_URL) {
-        console.error('Backend URL is not defined.');
-        return;
-      }
-      const res = await fetch(API_BASE_URL+"/api/v1/user/me", {
-        credentials: "include", // required to send cookies
+      const res = await fetch(`${API_BASE_URL}/api/v1/user/me`, {
+        credentials: "include",
       });
 
       if (!res.ok) {
+        // Avoid leaving stale user
         setUser(null);
-        setError("Unauthorized");
+
+        const errData = await res.json().catch(() => null);
+        setError(errData?.message || "Unauthorized");
+
         return;
       }
 
       const data = await res.json();
-      console.log(data)
       setUser(data.user);
       setError(null);
     } catch (err: any) {
-      console.log(err)
+      console.error(err);
       setUser(null);
       setError("Failed to fetch user");
     } finally {
@@ -63,33 +82,59 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [API_BASE_URL]);
 
+  const logout = useCallback(
+    async () => {
+      if (!API_BASE_URL) {
+        toast.error("Backend URL missing");
+        return;
+      }
 
-  const logout = useCallback(async () => {
-    try {
-      await fetch(`${API_BASE_URL}/api/v1/user/logout`, {
-        method: "GET",
-        credentials: "include",
-      });
-      setUser(null);
-    } catch (err) {
-      console.error("Logout failed", err);
-    }
-  }, [API_BASE_URL]);
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/user/logout`, {
+          method: "GET",
+          credentials: "include",
+        });
 
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null);
+          toast.error(errData?.message || "Logout failed");
+          return;
+        }
+
+        setUser(null);
+        toast.success("Logged out");
+        navigate("/");
+      } catch (err: any) {
+        console.error("Logout failed", err);
+        toast.error(err?.message || "Logout failed");
+      }
+    },
+    [API_BASE_URL]
+  );
+
+  // Fetch user on mount
   useEffect(() => {
     fetchUser();
   }, [fetchUser]);
 
-   // ✅ Computed value
+  // Computed value
   const isLogin = !!user;
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, isLogin, fetchUser, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        error,
+        isLogin,
+        fetchUser,
+        logout,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 };
-
 
 // Custom hook
 export const useAuth = (): AuthContextType => {

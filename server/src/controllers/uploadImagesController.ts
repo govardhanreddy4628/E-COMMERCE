@@ -2,7 +2,8 @@ import { Request, Response } from "express";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
 
-export const uploadImages = async (req: Request, res: Response) => {
+
+export const uploadImages1 = async (req: Request, res: Response) => {
   try {
     const files = req.files as Express.Multer.File[];
 
@@ -41,6 +42,7 @@ export const uploadImages = async (req: Request, res: Response) => {
 import { uploadToCloudinary, deleteTempFile } from "../services/cloudinaryService.js";
 import { uploadSingle } from "../middleware/multer.js";
 import { inngest } from "../inngest/client.js";
+import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_MB, MAX_FILES } from "../config/uploadConfig.js";
 
 /**
  * Backend single upload (e.g. category image) -> multer handles req.file
@@ -114,4 +116,189 @@ export const deleteTempImageController = async (req: Request, res: Response) => 
     console.error("deleteTempImage error:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
+};
+
+
+
+
+export async function uploadImages(req: Request, res: Response) {
+  try {
+    const files = req.files as Express.Multer.File[];
+
+    if (!files || files.length === 0) {
+      return res.status(400).json({ message: "No files uploaded" });
+    }
+
+    if (files.length > MAX_FILES) {
+      return res.status(400).json({
+        message: `Upload limit exceeded. Max ${MAX_FILES} files allowed.`,
+      });
+    }
+
+    const skippedFiles: { name: string; reason: string }[] = [];
+    const validFiles: Express.Multer.File[] = [];
+
+    for (const file of files) {
+      const isValidType = ALLOWED_MIME_TYPES.includes(file.mimetype);
+      const isValidSize = file.size <= MAX_FILE_SIZE_MB * 1024 * 1024;
+
+      if (!isValidType || !isValidSize) {
+        skippedFiles.push({
+          name: file.originalname,
+          reason: !isValidType ? "Invalid file type" : "File too large",
+        });
+        continue;
+      }
+
+      validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) {
+      return res.status(400).json({
+        message: "All uploaded files are invalid.",
+        skippedFiles,
+      });
+    }
+
+    const uploadOptions = {
+      use_filename: true,
+      unique_filename: false,
+      overwrite: false,
+      folder: "uploads", // optional
+    };
+
+    // Upload each file with safe error handling
+    const results = await Promise.allSettled(
+      validFiles.map(async (file) => {
+        try {
+          const result = await cloudinary.uploader.upload(
+            file.path,
+            uploadOptions
+          );
+          await fs.promises.unlink(file.path);
+          return {
+            status: "fulfilled" as const,
+            url: result.secure_url,
+            name: file.originalname,
+          };
+        } catch (err: any) {
+          await fs.promises.unlink(file.path); // delete temp file
+          return {
+            status: "rejected" as const,
+            name: file.originalname,
+            reason: err.message || "Upload failed",
+          };
+        }
+      })
+    );
+
+    const uploaded = results
+      .filter(
+        (r): r is PromiseFulfilledResult<{
+          status: "fulfilled";
+          url: string;
+          name: string;
+        }> => r.status === "fulfilled"
+      )
+      .map((r) => ({ url: r.value.url, name: r.value.name }));
+
+    const failed = results
+      .filter((r): r is PromiseRejectedResult => r.status === "rejected")
+      .map((r) => ({
+        name: (r as any).reason?.name || "Unknown",
+        reason: (r as any).reason || "Upload failed",
+      }));
+
+    return res
+      .status(
+        uploaded.length === 0
+          ? 500
+          : failed.length || skippedFiles.length
+          ? 207
+          : 200
+      )
+      .json({
+        success: uploaded.length > 0,
+        uploaded,
+        failed,
+        skippedFiles,
+        avatar: uploaded[0]?.url || null,
+      });
+  } catch (error: any) {
+    console.error("Upload error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+}
+
+
+
+
+const extractFirstSingleFileFromUploadedFiles = (
+  files: any
+): { path: string; mimetype: string } | null => {
+  if (!files) return null;
+
+  // -------- Case 1: multer.array() --------
+  if (Array.isArray(files)) {
+    const f = files[0];
+    return f ? { path: f.path, mimetype: f.mimetype } : null;
+  }
+
+  // -------- Case 2: multer.fields() --------
+  if (typeof files === "object" && files !== null) {
+    for (const group of Object.values(files)) {
+      if (Array.isArray(group) && group[0]) {
+        const f = group[0];
+        return f?.path && f?.mimetype
+          ? { path: f.path, mimetype: f.mimetype }
+          : null;
+      }
+    }
+  }
+
+  return null;
+};
+
+
+
+
+const extractAllUploadedFiles = (
+  files: any,
+  singleFile?: any
+): { path: string; mimetype: string }[] => {
+  const result: { path: string; mimetype: string }[] = [];
+
+  // -------- Case 1: multer.single() --------
+  if (singleFile?.path && singleFile?.mimetype) {
+    result.push({ path: singleFile.path, mimetype: singleFile.mimetype });
+    return result;
+  }
+
+  // -------- Case 2: multer.array() --------
+  if (Array.isArray(files)) {
+    for (const f of files) {
+      if (f?.path && f?.mimetype) {
+        result.push({ path: f.path, mimetype: f.mimetype });
+      }
+    }
+    return result;
+  }
+
+  // -------- Case 3: multer.fields() --------
+  if (typeof files === "object" && files !== null) {
+    for (const group of Object.values(files)) {
+      if (Array.isArray(group)) {
+        for (const f of group) {
+          if (f?.path && f?.mimetype) {
+            result.push({ path: f.path, mimetype: f.mimetype });
+          }
+        }
+      }
+    }
+  }
+
+  return result;
 };

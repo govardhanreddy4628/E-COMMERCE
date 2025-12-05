@@ -1,178 +1,16 @@
 import { Request, Response } from "express";
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import fs from "fs/promises";
-import slugify from "slugify";
 import asyncHandler from "express-async-handler";
 import cloudinary from "../config/cloudinary.js";
 import CategoryModel from "../models/categoryModel.js";
-import {
-  deleteTempFile,
-  uploadToCloudinary,
-} from "../services/cloudinaryService.js";
+import { deleteTempFile, destroyCloudinaryById, uploadToCloudinary } from "../services/cloudinaryService.js";
 import redisClient from "../config/connectRedis.js";
+import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_MB } from "../config/uploadConfig.js";
+import { addAuditLog } from "../lib/audit.js";
+import slugify from "slugify";
+import productModel from "../models/productModel.js";
 
-// Configurable limits
-export const ALLOWED_MIME_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/jpg",
-  "image/gif",
-  "image/svg+xml",
-];
-const MAX_FILE_SIZE_MB = 5; // 5 MB
-const MAX_FILES = 8;
-
-var imagesArr = [];
-
-export async function uploadImages(req: Request, res: Response) {
-  try {
-    const files = req.files as Express.Multer.File[];
-
-    if (!files || files.length === 0) {
-      return res.status(400).json({ message: "No files uploaded" });
-    }
-
-    if (files.length > MAX_FILES) {
-      return res.status(400).json({
-        message: `Upload limit exceeded. Max ${MAX_FILES} files allowed.`,
-      });
-    }
-
-    const skippedFiles: { name: string; reason: string }[] = [];
-    const validFiles: Express.Multer.File[] = [];
-
-    for (const file of files) {
-      const isValidType = ALLOWED_MIME_TYPES.includes(file.mimetype);
-      const isValidSize = file.size <= MAX_FILE_SIZE_MB * 1024 * 1024;
-
-      if (!isValidType || !isValidSize) {
-        skippedFiles.push({
-          name: file.originalname,
-          reason: !isValidType ? "Invalid file type" : "File too large",
-        });
-        continue;
-      }
-
-      validFiles.push(file);
-    }
-
-    if (validFiles.length === 0) {
-      return res.status(400).json({
-        message: "All uploaded files are invalid.",
-        skippedFiles,
-      });
-    }
-
-    const uploadOptions = {
-      use_filename: true,
-      unique_filename: false,
-      overwrite: false,
-      folder: "uploads", // optional
-    };
-
-    const results = await Promise.allSettled(
-      validFiles.map(async (file) => {
-        try {
-          const result = await cloudinary.uploader.upload(
-            file.path,
-            uploadOptions
-          );
-          await fs.unlink(file.path);
-          return {
-            status: "fulfilled" as const,
-            url: result.secure_url,
-            name: file.originalname,
-          };
-        } catch (err: any) {
-          await fs.unlink(file.path);
-          return {
-            status: "rejected" as const,
-            name: file.originalname,
-            reason: err.message || "Upload failed",
-          };
-        }
-      })
-    );
-
-    const uploaded = results
-      .filter(
-        (
-          r
-        ): r is PromiseFulfilledResult<{
-          status: "fulfilled";
-          url: string;
-          name: string;
-        }> => r.status === "fulfilled"
-      )
-      .map((r) => ({ url: r.value.url, name: r.value.name }));
-
-    const failed = results
-      .filter((r): r is PromiseRejectedResult => r.status === "rejected")
-      .map((r) => ({
-        name: (r as any).reason?.name || "Unknown",
-        reason: (r as any).reason || "Upload failed",
-      }));
-
-    return res
-      .status(
-        uploaded.length === 0
-          ? 500
-          : failed.length || skippedFiles.length
-          ? 207
-          : 200
-      )
-      .json({
-        success: uploaded.length > 0,
-        uploaded,
-        failed,
-        skippedFiles,
-        avatar: uploaded[0]?.url || null,
-      });
-  } catch (error: any) {
-    console.error("Upload error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Internal server error",
-    });
-  }
-}
-
-// Helper: Extract single uploaded file path and mimetype
-const extractUploadedFile = (
-  files: any
-): { path: string; mimetype: string } | null => {
-  if (!files) return null;
-
-  if (Array.isArray(files)) return files[0] || null;
-
-  const fileGroups = Object.values(files);
-  for (const group of fileGroups) {
-    if (Array.isArray(group) && group[0]?.path && group[0]?.mimetype) {
-      return { path: group[0].path, mimetype: group[0].mimetype };
-    }
-  }
-  return null;
-};
-
-//or
-
-// const extractFilePath = (
-//     files: any
-//   ): { path: string; mimetype: string } | null => {
-//     if (Array.isArray(files)) {
-//       return files[0]
-//         ? { path: files[0].path, mimetype: files[0].mimetype }
-//         : null;
-//     }
-//     if (typeof files === "object" && files !== null) {
-//       const fileGroup = Object.values(files)[0];
-//       if (Array.isArray(fileGroup) && fileGroup[0]) {
-//         return { path: fileGroup[0].path, mimetype: fileGroup[0].mimetype };
-//       }
-//     }
-//     return null;
-//   };
 
 const CATEGORY_TREE_KEY = "category_tree";
 
@@ -332,115 +170,272 @@ export const createCategoryController = async (req: Request, res: Response) => {
  * @route   PUT /api/v1/category/:id
  * @access  Admin
  */
+// controllers/categoryController.ts (replace updateCategoryController)
+
+
+const isValidObjectId = (id?: string) => !!(id && Types.ObjectId.isValid(id));
+
 export const updateCategoryController = async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { name, description, parentCategoryId } = req.body;
-
-  if (!id || !Types.ObjectId.isValid(id)) {
-    return res.status(400).json({ message: "Invalid category ID." });
-  }
-
-  const category = await CategoryModel.findById(id);
-  if (!category) {
-    return res.status(404).json({ message: "Category not found." });
-  }
-
-  // Prevent duplicate names
-  if (name && name.trim() !== category.name) {
-    const existing = await CategoryModel.findOne({ name: name.trim() });
-    if (existing) {
-      return res.status(400).json({ message: "Category name already exists." });
-    }
-    category.name = name.trim();
-    category.slug = slugify(name.trim(), { lower: true, strict: true });
-  }
-
-  if (description) category.description = description;
-
-  // Handle image upload if present
-  if (req.file) {
-    const file = req.file;
-
-    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      await deleteTempFile(file.path);
-      return res.status(400).json({ message: "Unsupported file type." });
+  const categoryId = req.params.id;
+  const session = await mongoose.startSession();
+  try {
+    // 1) Basic validations
+    if (!isValidObjectId(categoryId)) {
+      return res.status(400).json({ success: false, message: "Invalid category ID." });
     }
 
-    const fileSizeMB = file.size / (1024 * 1024);
-    if (fileSizeMB > MAX_FILE_SIZE_MB) {
-      await deleteTempFile(file.path);
-      return res
-        .status(400)
-        .json({ message: `File exceeds ${MAX_FILE_SIZE_MB}MB limit.` });
+    // destructure allowed fields from body
+    const { name, description, parentCategoryId, removeImage } = req.body;
+
+    // 2) Load category (for update) with session
+    session.startTransaction();
+    const category = await CategoryModel.findById(categoryId).session(session);
+    if (!category) {
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, message: "Category not found." });
     }
 
+    // 3) Duplicate name check (global unique, case-insensitive) - only if name changed
+    if (typeof name === "string" && name.trim() && name.trim() !== category.name) {
+      const existing = await CategoryModel.findOne({
+        _id: { $ne: category._id },
+        name: { $regex: `^${name.trim()}$`, $options: "i" },
+      })
+        .lean()
+        .session(session)
+        .exec();
+      if (existing) {
+        await session.abortTransaction();
+        return res.status(400).json({ success: false, message: "Category name already exists." });
+      }
+      // update name + slug
+      category.name = name.trim();
+      category.slug = slugify(name.trim(), { lower: true, strict: true });
+    }
+
+    // 4) Description
+    if (description !== undefined) {
+      category.description = description || null;
+    }
+
+    // 5) IMAGE handling: removeImage flag or file upload
+    // removeImage may come as "true" string
+    const removeImageFlag = removeImage === true || removeImage === "true";
+
+    // If a new file uploaded: validate and upload
+    if (req.file) {
+      const file = req.file as Express.Multer.File;
+      // validate mime
+      if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+        await deleteTempFile(file.path);
+        await session.abortTransaction();
+        return res.status(400).json({ success: false, message: "Unsupported file type." });
+      }
+      const sizeMB = file.size / (1024 * 1024);
+      if (sizeMB > MAX_FILE_SIZE_MB) {
+        await deleteTempFile(file.path);
+        await session.abortTransaction();
+        return res.status(400).json({ success: false, message: `File exceeds ${MAX_FILE_SIZE_MB}MB limit.` });
+      }
+
+      // upload
+      try {
+        const uploadResult = await uploadToCloudinary(file.path,  "categories" );
+        // remove old cloudinary image if present
+        if (category.image?.public_id) {
+          try {
+            await destroyCloudinaryById(category.image.public_id);
+          } catch (err) {
+            // log and continue
+            console.warn("Old Cloudinary destroy failed:", err);
+          }
+        }
+        // set new image metadata
+        category.image = {
+          public_id: uploadResult.public_id,
+          url: uploadResult.secure_url,
+          width: uploadResult.width,
+          height: uploadResult.height,
+          format: uploadResult.format,
+          size: uploadResult.bytes,
+          uploadedAt: new Date(),
+          alt: category.image?.alt || "",
+        };
+        // push image audit
+        category.imageAudit = category.imageAudit || [];
+        category.imageAudit.push({
+          public_id: uploadResult.public_id,
+          action: "replace",
+          userId: (req.user as any)?._id || null,
+          timestamp: new Date(),
+          meta: { source: "upload" },
+        });
+      } catch (uploadErr: any) {
+        await deleteTempFile((req.file as any).path);
+        await session.abortTransaction();
+        console.error("Cloudinary upload error:", uploadErr);
+        return res.status(500).json({ success: false, message: "Failed to upload image." });
+      } finally {
+        // cleanup temp
+        await deleteTempFile((req.file as any).path);
+      }
+    } else if (removeImageFlag) {
+      // remove stored image if user asked (and delete from cloud)
+      if (category.image?.public_id) {
+        try {
+          await destroyCloudinaryById(category.image.public_id);
+        } catch (err) {
+          console.warn("Cloudinary destroy failed:", err);
+        }
+        category.image = null as any;
+        category.imageAudit = category.imageAudit || [];
+        category.imageAudit.push({
+          public_id: undefined,
+          action: "delete",
+          userId: (req.user as any)?._id || null,
+          timestamp: new Date(),
+          meta: { reason: "removeImage flag" },
+        });
+      } else {
+        category.image = null as any;
+      }
+    }
+    // else keep existing image
+
+    // 6) Parent update logic (normalize parent)
+    const normalizedParentId =
+      parentCategoryId === "null" || parentCategoryId === null || parentCategoryId === undefined
+        ? null
+        : String(parentCategoryId).trim();
+
+    const currentParentId = category.parentCategoryId ? String(category.parentCategoryId) : null;
+    const parentChanged = (normalizedParentId || null) !== (currentParentId || null);
+
+    if (parentChanged) {
+      // If removing parent (move to root)
+      if (!normalizedParentId) {
+        // remove from old parent's children if exists
+        if (category.parentCategoryId) {
+          await CategoryModel.findByIdAndUpdate(category.parentCategoryId, { $pull: { children: category._id } }).session(session).exec();
+        }
+        category.parentCategoryId = null;
+        category.parentCategoryName = null;
+        category.level = 0;
+      } else {
+        // validate id
+        if (!isValidObjectId(normalizedParentId)) {
+          await session.abortTransaction();
+          return res.status(400).json({ success: false, message: "Invalid parentCategoryId." });
+        }
+        // ensure parent exists
+        const newParent = await CategoryModel.findById(normalizedParentId).session(session);
+        if (!newParent) {
+          await session.abortTransaction();
+          return res.status(404).json({ success: false, message: "Parent category not found." });
+        }
+
+        // Prevent cycle: ensure newParent is NOT a descendant of current category
+        const isDescendant = async (candidateId: Types.ObjectId, targetId: Types.ObjectId): Promise<boolean> => {
+          const node = await CategoryModel.findById(candidateId).select("children").lean().session(session).exec();
+          if (!node || !Array.isArray((node as any).children) || (node as any).children.length === 0) return false;
+          for (const childId of (node as any).children) {
+            if (String(childId) === String(targetId)) return true;
+            const deeper = await isDescendant(childId as Types.ObjectId, targetId);
+            if (deeper) return true;
+          }
+          return false;
+        };
+
+        const wouldCreateCycle = await isDescendant(newParent._id, category._id);
+        if (wouldCreateCycle) {
+          await session.abortTransaction();
+          return res.status(400).json({ success: false, message: "Cannot set a descendant as the parent category." });
+        }
+
+        // remove from old parent's children if changed
+        if (category.parentCategoryId && String(category.parentCategoryId) !== normalizedParentId) {
+          await CategoryModel.findByIdAndUpdate(category.parentCategoryId, { $pull: { children: category._id } }).session(session).exec();
+        }
+
+        // add to new parent's children (idempotent)
+        await CategoryModel.findByIdAndUpdate(newParent._id, { $addToSet: { children: category._id } }).session(session).exec();
+
+        // set new parent & level
+        category.parentCategoryId = newParent._id;
+        category.parentCategoryName = newParent.name;
+        category.level = (newParent.level || 0) + 1;
+      }
+
+      // If moved levels, update descendant levels recursively
+      const updateDescendantLevels = async (catId: Types.ObjectId, baseLevel: number) => {
+        const node = await CategoryModel.findById(catId).select("children").lean().session(session).exec();
+        if (!node || !Array.isArray((node as any).children)) return;
+        for (const childId of (node as any).children) {
+          await CategoryModel.findByIdAndUpdate(childId, { $set: { level: baseLevel + 1 } }).session(session).exec();
+          await updateDescendantLevels(childId as Types.ObjectId, baseLevel + 1);
+        }
+      };
+
+      // update for this category's subtree
+      await updateDescendantLevels(category._id, category.level);
+    }
+
+    // 7) Save category
+    await category.save({ session });
+
+    // 8) Commit transaction
+    await session.commitTransaction();
+    session.endSession();
+
+    // 9) Invalidate Redis cache (best-effort, outside transaction)
     try {
-      const imageUrl = await uploadToCloudinary(file.path, "categories");
-      category.image = imageUrl;
-      await deleteTempFile(file.path);
-    } catch (err) {
-      await deleteTempFile(file.path);
-      console.error("Cloudinary upload error:", err);
-      return res
-        .status(500)
-        .json({ message: "Failed to upload image to Cloudinary." });
+      if (redisClient && typeof redisClient.del === "function") {
+        await redisClient.del(CATEGORY_TREE_KEY);
+      }
+    } catch (redisErr) {
+      console.warn("Redis del error:", redisErr);
     }
-  }
 
-  // Handle parent category update
-  if (parentCategoryId !== undefined) {
-    if (parentCategoryId === null || parentCategoryId === "null") {
-      // Remove from old parent's children if exists
-      if (category.parentCategoryId) {
-        await CategoryModel.findByIdAndUpdate(category.parentCategoryId, {
-          $pull: { children: category._id },
-        });
-      }
-      category.parentCategoryId = null;
-      category.parentCategoryName = undefined;
-      category.level = 0;
-    } else {
-      if (!Types.ObjectId.isValid(parentCategoryId)) {
-        return res.status(400).json({ message: "Invalid parentCategoryId." });
-      }
-
-      const parentCategory = await CategoryModel.findById(parentCategoryId);
-      if (!parentCategory) {
-        return res.status(404).json({ message: "Parent category not found." });
-      }
-
-      // Remove from old parent's children if parent changed
-      if (
-        category.parentCategoryId &&
-        category.parentCategoryId.toString() !== parentCategoryId
-      ) {
-        await CategoryModel.findByIdAndUpdate(category.parentCategoryId, {
-          $pull: { children: category._id },
-        });
-      }
-
-      // Add to new parent's children
-      await CategoryModel.findByIdAndUpdate(parentCategoryId, {
-        $addToSet: { children: category._id },
+    // 10) Add success audit log
+    try {
+      await addAuditLog?.({
+        entity: "category",
+        entityId: String(category._id),
+        action: "update",
+        userId: (req.user as any)?._id || undefined,
+        changes: { name: category.name, parentCategoryId: category.parentCategoryId },
       });
-
-      category.parentCategoryId = parentCategory._id as Types.ObjectId;
-      category.parentCategoryName = parentCategory.name;
-      category.level = parentCategory.level + 1;
+    } catch (auditErr) {
+      console.warn("Audit log error:", auditErr);
     }
+
+    // 11) Return populated version (one-level children) for frontend convenience
+    const updatedCategory = await CategoryModel.findById(category._id)
+      .populate({ path: "children", select: "name slug parentCategoryId" })
+      .lean()
+      .exec();
+
+    return res.status(200).json({ success: true, message: "Category updated successfully.", category: updatedCategory });
+  } catch (err: any) {
+    try {
+      await session.abortTransaction();
+      session.endSession();
+    } catch (e) {
+      // ignore
+    }
+    console.error("Unhandled error in updateCategoryController:", err);
+    // Duplicate key (name/slug) handled
+    if (err?.code === 11000) {
+      return res.status(409).json({ success: false, message: "Duplicate key error, category already exists." });
+    }
+    // return message
+    return res.status(500).json({ success: false, message: err?.message || "Internal server error." });
   }
-
-  await category.save();
-
-  // Invalidate cache
-  await redisClient.del(CATEGORY_TREE_KEY);
-
-  return res.status(200).json({
-    success: true,
-    message: "Category updated successfully.",
-    category,
-  });
 };
+
+
+
+
 
 /**
  * @desc    Get hierarchical category tree (cached)
@@ -742,3 +737,277 @@ export async function deleteCategoryController(req: Request, res: Response) {
     });
   }
 }
+
+
+
+
+
+
+
+
+
+export const permanentDeleteCategoryController = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    // ===== Validate ID =====
+    if (!id || !isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID.",
+      });
+    }
+
+    // ===== Fetch Category =====
+    const category = await CategoryModel.findById(id);
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found.",
+      });
+    }
+
+    const parentId = category.parentCategoryId;
+
+    // ===== OPTIONAL RULE =====
+    // Prevent delete if category has products
+    // const productCount = await productModel.countDocuments({ categoryId: id });
+    // if (productCount > 0) {
+    //   return res.status(400).json({
+    //    success: false,
+    //    message: "Category cannot be deleted because it has linked products.",
+    //   });
+    // }
+
+    // If category has children → prevent delete
+    // If you want to allow delete, skip this block and move children to root.
+    const hasChildren = category.children && category.children.length > 0;
+    if (hasChildren) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "This category has subcategories. Remove or reassign them before deleting.",
+      });
+    }
+
+    // -------------------------
+    // If you prefer: Move children to root instead of blocking delete:
+    // await CategoryModel.updateMany(
+    //   { parentCategoryId: category._id },
+    //   { $set: { parentCategoryId: null, parentCategoryName: null, level: 0 } }
+    // );
+    // -------------------------
+
+    // ===== Remove category reference from parent =====
+    if (parentId) {
+      await CategoryModel.findByIdAndUpdate(parentId, {
+        $pull: { children: category._id },
+      }).exec();
+    }
+
+    // ===== Delete image from Cloudinary if exists =====
+    if (category.image?.public_id) {
+      try {
+        await cloudinary.uploader.destroy(category.image.public_id);
+      } catch (err) {
+        console.warn("Cloudinary delete failed:", err);
+      }
+    }
+
+    // ===== Delete category document =====
+    await CategoryModel.findByIdAndDelete(category._id);
+
+    // ===== Invalidate Redis Cache =====
+    try {
+      if (redisClient && redisClient.del) {
+        await redisClient.del(CATEGORY_TREE_KEY);
+      }
+    } catch (redisErr) {
+      console.warn("Redis del error:", redisErr);
+    }
+
+    // ===== Response =====
+    return res.status(200).json({
+      success: true,
+      message: "Category deleted successfully.",
+      deletedCategoryId: id,
+    });
+  } catch (err: any) {
+    console.error("Unhandled error in deleteCategoryController:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Internal server error.",
+    });
+  }
+};
+
+
+
+
+
+
+
+/**
+ * @desc    Soft delete a category
+ * @route   DELETE /api/v1/category/:id
+ * @access  Admin
+ */
+export const softDeleteCategoryController = async (req: Request, res: Response) => {
+  const categoryId = req.params.id;
+  const session = await mongoose.startSession();
+
+  try {
+    if (!categoryId || !Types.ObjectId.isValid(categoryId)) {
+      return res.status(400).json({ success: false, message: "Invalid category ID." });
+    }
+
+    session.startTransaction();
+
+    const category = await CategoryModel.findById(categoryId).session(session);
+    if (!category) {
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, message: "Category not found." });
+    }
+
+    // ✅ Prevent delete if category has children
+    if (category.children && category.children.length > 0) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: "Cannot delete category with subcategories." });
+    }
+
+    // Optional: Soft delete instead of hard delete
+    category.isDeleted = true;
+    await category.save({ session });
+
+    // Remove from parent's children array if exists
+    if (category.parentCategoryId) {
+      await CategoryModel.findByIdAndUpdate(
+        category.parentCategoryId,
+        { $pull: { children: category._id } },
+        { session }
+      );
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    // Invalidate Redis cache
+    try {
+      if (redisClient && typeof redisClient.del === "function") {
+        await redisClient.del(CATEGORY_TREE_KEY);
+      }
+    } catch (err) {
+      console.warn("Redis del error:", err);
+    }
+
+    // Optional: audit log
+    try {
+      await addAuditLog?.({
+        entity: "category",
+        entityId: categoryId,
+        action: "delete",
+        userId: (req.user as any)?._id,
+        changes: { isDeleted: true },
+      });
+    } catch (auditErr) {
+      console.warn("Audit log error:", auditErr);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Category deleted successfully.",
+      categoryId,
+    });
+  } catch (err: any) {
+    try { await session.abortTransaction(); session.endSession(); } catch {}
+    console.error("Delete category error:", err);
+    return res.status(500).json({ success: false, message: err?.message || "Internal server error." });
+  }
+};
+
+
+
+
+
+
+
+
+
+
+/**
+ * @desc    Restore a soft-deleted category
+ * @route   PATCH /api/v1/category/:id/restore
+ * @access  Admin
+ */
+export const restoreCategoryController = async (req: Request, res: Response) => {
+  const categoryId = req.params.id;
+  const session = await mongoose.startSession();
+
+  try {
+    if (!categoryId || !Types.ObjectId.isValid(categoryId)) {
+      return res.status(400).json({ success: false, message: "Invalid category ID." });
+    }
+
+    session.startTransaction();
+
+    const category = await CategoryModel.findById(categoryId).session(session);
+    if (!category) {
+      await session.abortTransaction();
+      return res.status(404).json({ success: false, message: "Category not found." });
+    }
+
+    if (!category.isDeleted) {
+      await session.abortTransaction();
+      return res.status(400).json({ success: false, message: "Category is not deleted." });
+    }
+
+    // Restore the category
+    category.isDeleted = false;
+    await category.save({ session });
+
+    // Re-add to parent's children array if parent exists
+    if (category.parentCategoryId) {
+      await CategoryModel.findByIdAndUpdate(
+        category.parentCategoryId,
+        { $addToSet: { children: category._id } },
+        { session }
+      );
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+    // Invalidate Redis cache
+    try {
+      if (redisClient && typeof redisClient.del === "function") {
+        await redisClient.del(CATEGORY_TREE_KEY);
+      }
+    } catch (err) {
+      console.warn("Redis del error:", err);
+    }
+
+    // Optional: audit log
+    try {
+      await addAuditLog?.({
+        entity: "category",
+        entityId: categoryId,
+        action: "restore",
+        userId: (req.user as any)?._id,
+        changes: { isDeleted: false },
+      });
+    } catch (auditErr) {
+      console.warn("Audit log error:", auditErr);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Category restored successfully.",
+      categoryId,
+    });
+  } catch (err: any) {
+    try { await session.abortTransaction(); session.endSession(); } catch {}
+    console.error("Restore category error:", err);
+    return res.status(500).json({ success: false, message: err?.message || "Internal server error." });
+  }
+};

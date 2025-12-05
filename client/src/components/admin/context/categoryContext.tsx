@@ -1,52 +1,19 @@
 // context/categoryContext.tsx
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { Category, CategoryFormData } from "../types/category";
+import { getCategoryId } from "../categories/CategoryUtility";
 
 interface CategoryContextType {
   categories: Category[];
   addCategory: (data: CategoryFormData) => Promise<Category>;
-  updateCategory: (id: string, data: Partial<CategoryFormData>) => void;
-  deleteCategory: (id: string) => void;
+  updateCategory: (id: string, data: Partial<CategoryFormData>) => Promise<Category>;
+  deleteCategory: (id: string) => Promise<void>;
   loading: boolean;
   findCategoryById: (id: string, categories?: Category[]) => Category | null;
   getAllCategories: () => Category[];
 }
 
 const CategoryContext = createContext<CategoryContextType | undefined>(undefined);
-
-// const STORAGE_KEY = "product-categories";
-
-// A minimal default for first-run
-// const defaultCategories: Category[] = [
-//   {
-//     id: "1",
-//     name: "Electronics",
-//     description: "Electronic devices and gadgets",
-//     subcategories: [
-//       { id: "1-1", name: "Smartphones", parentCategoryId: "1", subcategories: [], createdAt: new Date(), updatedAt: new Date() },
-//       { id: "1-2", name: "Laptops", parentCategoryId: "1", subcategories: [], createdAt: new Date(), updatedAt: new Date() },
-//     ],
-//     createdAt: new Date(),
-//     updatedAt: new Date(),
-//   },
-//   {
-//     id: "2",
-//     name: "Clothing",
-//     description: "Fashion and apparel",
-//     subcategories: [
-//       { id: "2-1", name: "Men's Wear", parentCategoryId: "2", subcategories: [], createdAt: new Date(), updatedAt: new Date() },
-//       { id: "2-2", name: "Women's Wear", parentCategoryId: "2", subcategories: [], createdAt: new Date(), updatedAt: new Date() },
-//     ],
-//     createdAt: new Date(),
-//     updatedAt: new Date(),
-//   },
-// ];
-
-
-// ✅ Utility to normalize ID
-export const getCategoryId = (cat: Category): string =>
-  String(cat.id ?? cat._id ?? "");
-
 
 export function CategoryProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -62,39 +29,13 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     updatedAt: cat.updatedAt ? new Date(cat.updatedAt) : new Date(),
   });
 
-  // useEffect(() => {
-  //   const stored = localStorage.getItem(STORAGE_KEY);
-  //   if (stored) {
-  //     try {
-  //       const parsed = JSON.parse(stored);
-  //       const categoriesWithDates = parsed.map(parseCategoryDates);
-  //       setCategories(categoriesWithDates);
-  //     } catch (error) {
-  //       console.error("Error loading categories from localStorage:", error);
-  //       setCategories(defaultCategories);
-  //     }
-  //   } else {
-  //     setCategories(defaultCategories);
-  //   }
-  //   setLoading(false);
-  // }, []);
-
-  // useEffect(() => {
-  //   if (!loading) {
-  //     try {
-  //       localStorage.setItem(STORAGE_KEY, JSON.stringify(categories));
-  //     } catch (e) {
-  //       console.warn("Failed to persist categories to localStorage", e);
-  //     }
-  //   }
-  // }, [categories, loading]);
-
 
   useEffect(() => {
     const fetchCategories = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/category/tree`);
+        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/category/tree`);
+
         const data = await res.json();
         console.log("Fetched category tree:", data);
 
@@ -149,6 +90,9 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     return flatten(categories);
   };
 
+
+
+  // ------------------ Add Category ------------------
   const addCategory = async (data: CategoryFormData): Promise<Category> => {
     console.log(data.imageFile)
     const formData = new FormData();
@@ -158,7 +102,7 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     if (data.imageFile) formData.append("image", data.imageFile);
 
 
-    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/category/create-category`, {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/category/create-category`, {
       method: "POST",
       body: formData,
     });
@@ -201,22 +145,64 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     return normalized;
   };
 
-  const updateCategory = (id: string, data: Partial<CategoryFormData>) => {
+   // ------------------ Update Category ------------------
+  const updateCategory = async (id: string, data: Partial<CategoryFormData>): Promise<Category> => {
+    const res = await fetch(
+      `${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/category/update/${id}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }
+    );
+
+    const body = await res.json();
+
+    if (!res.ok || !body.success) {
+      throw new Error(body.message || "Failed to update category");
+    }
+
+    const updated = body.category ?? body.data;
+    
+     const normalized: Category = {
+      ...updated,
+      id: String(updated.id ?? updated._id),
+      createdAt: updated.createdAt ? new Date(updated.createdAt) : new Date(),
+      updatedAt: updated.updatedAt ? new Date(updated.updatedAt) : new Date(),
+      subcategories: updated.subcategories || [],
+    };
+
     const updateInTree = (cats: Category[]): Category[] =>
       cats.map(cat => {
         if (getCategoryId(cat) === id) {
-          return { ...cat, ...data, updatedAt: new Date() } as Category;
+          return { ...cat, ...normalized };
         }
         return { ...cat, subcategories: updateInTree(cat.subcategories || []) };
       });
+
     setCategories(prev => updateInTree(prev));
+
+    return normalized;
   };
 
-  const deleteCategory = (id: string) => {
+// ------------------ Delete Category ------------------
+  const deleteCategory = async (id: string): Promise<void> => {
+    const res = await fetch(
+      `${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/category/delete/${id}`,
+      { method: "DELETE" }
+    );
+
+    const body = await res.json();
+
+    if (!res.ok || !body.success) {
+      throw new Error(body.message || "Failed to delete category");
+    }
+
     const deleteFromTree = (cats: Category[]): Category[] =>
       cats
         .filter(cat => getCategoryId(cat) !== id)
         .map(cat => ({ ...cat, subcategories: deleteFromTree(cat.subcategories || []) }));
+
     setCategories(prev => deleteFromTree(prev));
   };
 
@@ -234,3 +220,29 @@ export function useCategories() {
   }
   return context;
 }
+
+
+
+
+
+
+
+
+// const updateCategory = (id: string, data: Partial<CategoryFormData>) => {
+//     const updateInTree = (cats: Category[]): Category[] =>
+//       cats.map(cat => {
+//         if (getCategoryId(cat) === id) {
+//           return { ...cat, ...data, updatedAt: new Date() } as Category;
+//         }
+//         return { ...cat, subcategories: updateInTree(cat.subcategories || []) };
+//       });
+//     setCategories(prev => updateInTree(prev));
+//   };
+
+//   const deleteCategory = (id: string) => {
+//     const deleteFromTree = (cats: Category[]): Category[] =>
+//       cats
+//         .filter(cat => getCategoryId(cat) !== id)
+//         .map(cat => ({ ...cat, subcategories: deleteFromTree(cat.subcategories || []) }));
+//     setCategories(prev => deleteFromTree(prev));
+//   };

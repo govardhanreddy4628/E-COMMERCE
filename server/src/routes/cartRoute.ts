@@ -1,11 +1,13 @@
 import { Router } from "express";
-import { auth } from "../middleware/authenticate.js";
+
 import {
   addToCartController,
   getCartItemsController,
   deleteCartItemController,
   updateCartItemController,
 } from "../controllers/cartController.js";
+import { authenticate } from "../middleware/authenticate.js";
+
 
 const cartRouter = Router();
 
@@ -14,20 +16,21 @@ const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-cartRouter.post("/add", auth(["user"]), asyncHandler(addToCartController));
+cartRouter.post("/add", authenticate(), asyncHandler(addToCartController));
+
 cartRouter.get(
   "/getCart",
-  auth(["user"]),
+  authenticate(),
   asyncHandler(getCartItemsController)
 );
 cartRouter.delete(
   "/deleteCartItem/:id",
-  auth(["user"]),
+  authenticate(),
   asyncHandler(deleteCartItemController)
 );
 cartRouter.put(
   "/updateCartItem/:id",
-  auth(["user"]),
+  authenticate(),
   asyncHandler(updateCartItemController)
 );
 

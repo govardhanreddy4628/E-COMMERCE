@@ -1,5 +1,5 @@
 import nodemailer from "nodemailer";
-import { VERIFICATION_EMAIL_TEMPLATE } from "./emailTemplate";
+import { VERIFICATION_EMAIL_TEMPLATE } from "./emailTemplate.js";
 import dotenv from 'dotenv';
 dotenv.config();
 
@@ -16,12 +16,18 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-export const sendVerificationEmail = async (
-  to: string,
-  verificationToken: string,
-  text: string = ""
-) => {
-  
+transporter.verify((error, success) => {
+  if (error) {
+    console.log("❌ SMTP CONNECTION ERROR:", error);
+  } else {
+    console.log("✅ SMTP CONNECTED SUCCESSFULLY");
+  }
+});
+
+
+export const sendVerificationEmailUsingNodeMailer = async (to: string, verificationToken: string, text: string = "") => {
+  console.log("📨 Attempting to send OTP to:", to);
+ 
   // const url = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
   try {
     const info = await transporter.sendMail({
@@ -46,30 +52,7 @@ export const sendVerificationEmail = async (
   }
 };
 
-// src/utils/sendEmail.ts
 
-// import nodemailer from 'nodemailer';
-// import dotenv from 'dotenv';
-// dotenv.config();
-
-// const transporter = nodemailer.createTransport({
-//   host: 'smtp.gmail.com',
-//   port: 465,
-//   secure: true, // true for port 465, false for 587
-//   auth: {
-//     user: process.env.EMAIL_USER,
-//     pass: process.env.EMAIL_PASS,
-//   },
-//   tls: {
-//     rejectUnauthorized: false, // 👈 allow self-signed certs (only for dev)
-//   },
-// });
-
-// export const sendVerificationEmail = async (
-//   to: string,
-//   verificationToken: string
-// ) => {
-//   const url = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
 
 //   const htmlContent = `
 //     <div style="font-family: Arial, sans-serif; font-size: 16px;">
@@ -83,18 +66,4 @@ export const sendVerificationEmail = async (
 //     </div>
 //   `;
 
-//   try {
-//     const info = await transporter.sendMail({
-//       from: `"ClassyShop" <${process.env.EMAIL_USER}>`,
-//       to,
-//       subject: 'Verify Your Email',
-//       html: htmlContent,
-//     });
 
-//     console.log(`✅ Email sent: ${info.messageId}`);
-//     return { success: true, messageId: info.messageId };
-//   } catch (error: any) {
-//     console.error("❌ Failed to send email:", error.message || error);
-//     return { success: false, error: error.message || error };
-//   }
-// };

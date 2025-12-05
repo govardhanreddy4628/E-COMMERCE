@@ -12,14 +12,12 @@ import SideDrawer from '../ui/drawer';
 import LeftMenu from './leftMenu';
 import CartSidebar from './cartSidebar';
 import Menu from '@mui/material/Menu';
-import { IoBagCheckOutline, IoLocationOutline } from 'react-icons/io5';
-import { FaRegHeart, FaRegUser } from 'react-icons/fa';
-
 
 
 import { FiLogOut } from 'react-icons/fi';
 import { useAuth } from '../context/authContext';
 import { useCart } from '../context/cartContext';
+import { accountMenu } from '../data/accountMenu';
 
 interface Category {
     name: string;
@@ -125,7 +123,7 @@ const Header = () => {
     };
 
     const { isLogin, user, logout } = useAuth();
-    const {cart} = useCart();
+    const { cart } = useCart();
     console.log(user)
 
     const toggleDrawer = (newOpen: boolean, side: 'left' | 'right' = "left") => {
@@ -167,7 +165,7 @@ const Header = () => {
                 </div>
             </section>
 
-
+            {/* secondary header */}
             <section className='row2 bg-background  border-b border-b-border border-solid'>
                 <div className='flex justify-between items-center p-2.5 w-[95%] mx-auto '>
                     <div className='col1 w-[30%]'><img src="https://serviceapi.spicezgold.com/download/1744255975457_logo.jpg" /></div>
@@ -188,7 +186,7 @@ const Header = () => {
                                 :
                                 <>
                                     <div className="flex items-center gap-4 p-2 bg-inherit max-w-56 cursor-pointer" onClick={handleClick}>
-                                        <div className="w-9 h-9 rounded-full overflow-hidden border border-gray-300 dark:border-gray-700"
+                                        <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-300 dark:border-gray-700"
                                             aria-controls={userMenuOpen ? 'account-menu' : undefined}
                                             aria-haspopup="true"
                                             aria-expanded={userMenuOpen ? 'true' : undefined}>
@@ -198,10 +196,7 @@ const Header = () => {
                                                 className="w-full h-full object-cover"
                                             />
                                         </div>
-                                        <div className='hidden lg:block'>
-                                            <p className="text-sm font-semibold text-muted-foreground">{user?.fullName || "john Doe"}</p>
-                                            <p className="text-xs text-muted-foreground">{user?.email || "johndoe@gmail.com"}</p>
-                                        </div>
+
                                     </div>
 
                                     <Menu
@@ -242,42 +237,28 @@ const Header = () => {
                                         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
                                     >
 
-                                        {/* <MenuItem onClick={handleClose}>
-                                            <ListItemIcon>
-                                                <FaRegUser fontSize="small" />
-                                            </ListItemIcon>
-                                            My Profile
-                                        </MenuItem>
-                                        <MenuItem onClick={handleClose}>
-                                            <ListItemIcon>
-                                                <IoLocationOutline fontSize="small" />
-                                            </ListItemIcon>
-                                            My Location
-                                        </MenuItem>
-                                        <MenuItem onClick={handleClose}>
-                                            <ListItemIcon>
-                                                <FaRegHeart fontSize="small" />
-                                            </ListItemIcon>
-                                            my List
-                                        </MenuItem>
-                                        <MenuItem onClick={handleClose}>
-                                            <ListItemIcon>
-                                                <IoBagCheckOutline fontSize="small" />
-                                            </ListItemIcon>
-                                            my Orders
-                                        </MenuItem>
-                                        <MenuItem onClick={handleClose}>
-                                            <ListItemIcon>
-                                                <FiLogOut fontSize="small" />
-                                            </ListItemIcon>
-                                            Logout
-                                        </MenuItem> */}
-                                        <div className=" flex gap-1 flex-col py-2 px-2 transition-all ease-in-out">
-                                            <Button className="!flex gap-3 !items-center !justify-start hover:bg-gray-100 p-2 rounded-sm "><FaRegUser /><span>My Profile</span></Button>
-                                            <Button className="!flex gap-3 !items-center !justify-start hover:bg-gray-100 p-2 rounded-sm "><FaRegHeart /><span>My List</span></Button>
-                                            <Button className="!flex gap-3 !items-center !justify-start hover:bg-gray-100 p-2 rounded-sm "><Link to="myorders"><IoBagCheckOutline /><span>My Orders</span></Link></Button>
-                                            <Button className="!flex gap-3 !items-center !justify-start hover:bg-gray-100 p-2 rounded-sm "><IoLocationOutline /><span>My Address</span></Button>
-                                            <Button className="!flex gap-3 !items-center !justify-start hover:bg-gray-100 p-2 rounded-sm " onClick={handleLogout}><FiLogOut /><span>Logout</span></Button>
+                                        <div className="flex flex-col py-2 px-2">
+
+                                            {accountMenu.map((item) => (
+                                                <Button
+                                                    key={item.id}
+                                                    className="!flex gap-3 !justify-start hover:bg-gray-100 p-2 rounded-sm"
+                                                >
+                                                    <Link to={`/myaccount/${item.path}`} className="flex items-center gap-3">
+                                                        {item.icon}
+                                                        <span>{item.label}</span>
+                                                    </Link>
+                                                </Button>
+                                            ))}
+
+                                            <Button
+                                                className="!flex gap-3 hover:bg-gray-100 p-2 rounded-sm justify-start"
+                                                onClick={handleLogout}
+                                            >
+                                                <FiLogOut />
+                                                <span>Logout</span>
+                                            </Button>
+
                                         </div>
                                     </Menu>
 
@@ -291,7 +272,7 @@ const Header = () => {
                                 </Badge>
                             </IconButton>
                             <IconButton aria-label="cart" onClick={() => toggleDrawer(true, "right")}>
-                                <Badge badgeContent={cart.length} color="primary">
+                                <Badge badgeContent={cart.length || 5} color="primary">
                                     <ShoppingCartCheckoutIcon className='!w-5 lg:!w-6 !h-5 lg:!h-6 text-muted-foreground' />
                                 </Badge>
                             </IconButton>
@@ -301,65 +282,13 @@ const Header = () => {
                 </div>
             </section>
 
+
+            {/* tertiary header*/}
             <section className='row3 bg-background border-b border-b-border border-solid w-full'>
                 <div className='flex justify-between items-center px-2.5 w-[95%] mx-auto'>
                     <div className='col1 w-[20%]'><Button className='flex items-center !text-gray-800' onClick={() => toggleDrawer(true, "left")}><MenuOutlinedIcon className='mr-2' /><span className='hidden lg:flex'>Shop By Category<ExpandMoreOutlinedIcon className='ml-6' /></span></Button></div>
                     <div className='col2 w-[60%] justify-center hidden lg:flex'>
 
-                        {/* <ul className='flex items-center gap-3 '>
-                            <li className={`list-none ${isHome ? "hidden" : ""}`}><NavLink to="/" className='link'><Button>Home</Button></NavLink></li>
-                            <li className='list-none group relative'>
-                                <div className='flex items-center justify-between relative'>
-                                    <Link to="/productcategory" className='link py-2.5'>
-                                        <Button className='!text-[14px] !font-[500] !text-muted-background hover:!text-red-500 transition '>fassion</Button>
-                                    </Link>
-                                    <div className="absolute left-0 top-[48px] w-[160px] z-50 bg-white border border-gray-200 shadow-lg rounded-[1] flex flex-col py-2 opacity-0 invisible translate-y-2
-                                    group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-00 ease-in-out"
-                                    >
-                                        <ul className='list-none flex flex-col items-start justify-center w-full'>
-                                            {["Men", "Women", "Girls", "kids"].map((item, index) => (
-                                                <div className="relative group/sub w-full" key={index}>
-                                                    <li
-                                                        key={index}
-                                                        className="p-2 capitalize hover:text-red-500 hover:bg-[rgba(147,101,101,0.1)] cursor-pointer transition relative group/sub"
-                                                    >
-                                                        {item}
-                                                        <div className="absolute left-[158px] top-[0px] w-[160px] z-50 bg-white border border-gray-200 shadow-lg rounded-[1] flex flex-col gap-1 py-2 opacity-0 invisible translate-x-4
-                                                         group-hover/sub:opacity-100 group-hover/sub:visible group-hover/sub:translate-x-0 transition-all duration-300 ease-in-out"
-                                                        >
-                                                            <ul className='list-none flex flex-col items-start justify-center gap-1'>
-                                                                {["Men", "Women", "Girls", "kids"].map((item, subindex) => (
-                                                                    <li
-                                                                        key={subindex}
-                                                                        className="p-2 capitalize hover:text-red-500 cursor-pointer hover:bg-[rgba(147,101,101,0.1)] w-full text-[14px] font-[500] text-gray-800 transition"
-                                                                    >
-                                                                        {item}
-                                                                    </li>
-                                                                ))}
-                                                            </ul>
-                                                        </div>
-                                                    </li>
-                                                </div>
-
-                                            ))}
-
-                                        </ul>
-                                    </div>
-                                </div>
-                            </li>
-
-
-                          
-
-
-                            <li className='list-none'><NavLink to="/" className='link'><Button>electronics</Button></NavLink></li>
-                            <li className='list-none'><NavLink to="/" className='link'><Button>bags</Button></NavLink></li>
-                            <li className='list-none'><NavLink to="/" className='link'><Button>footware</Button></NavLink></li>
-                            <li className='list-none'><NavLink to="/" className='link'><Button>groceries</Button></NavLink></li>
-                            <li className='list-none'><NavLink to="/" className='link'><Button>beauty</Button></NavLink></li>
-                            <li className='list-none'><NavLink to="/" className='link'><Button>wellness</Button></NavLink></li>
-                            <li className='list-none'><NavLink to="/" className='link'><Button>jewellery</Button></NavLink></li>
-                        </ul> */}
 
                         <ul className="flex items-center gap-3">
                             {!isHome && (
@@ -434,118 +363,3 @@ export default Header
 invisible(tailwind css) =====> visibility: hidden;(css)
 hidden(tailwind css) =====> display: none; (css) */}
 
-
-
-
-
-
-
-//     return (
-//         <>
-//             {/* Top Bar */}
-//             <section className="bg-gray-800 dark:bg-white text-white dark:text-black px-4 py-2 border-b border-gray-300">
-//                 <div className='flex flex-col sm:flex-row justify-between items-center w-full max-w-7xl mx-auto'>
-//                     <p className='text-sm font-medium text-center sm:text-left'>Get up to 50% off new season styles, limited time only</p>
-//                     <ul className='flex items-center gap-4 mt-2 sm:mt-0'>
-//                         <li><Link to="#" className='text-inherit hover:text-red-300 text-sm font-medium'>Help Center</Link></li>
-//                         <li><Link to="#" className='text-inherit hover:text-red-300 text-sm font-medium'>Order Tracking</Link></li>
-//                     </ul>
-//                 </div>
-//             </section>
-
-//             {/* Logo + Search + User Icons */}
-//             <section className='bg-white dark:bg-black border-b border-gray-300'>
-//                 <div className='flex flex-col md:flex-row items-center justify-between py-4 px-4 max-w-7xl mx-auto w-full gap-4'>
-//                     {/* Logo */}
-//                     <div className='w-full md:w-1/3 text-center md:text-left'>
-//                         <img src="https://serviceapi.spicezgold.com/download/1744255975457_logo.jpg" alt="Logo" className='h-10 mx-auto md:mx-0' />
-//                     </div>
-
-//                     {/* Search Bar */}
-//                     <div className='w-full md:w-1/3 flex items-center bg-slate-100 rounded-lg overflow-hidden'>
-//                         <TextField
-//                             variant='outlined'
-//                             size='small'
-//                             type="text"
-//                             fullWidth
-//                             placeholder='Search for Product'
-//                             className='bg-transparent'
-//                             InputProps={{
-//                                 className: 'bg-transparent text-base',
-//                             }}
-//                         />
-//                         <IconButton aria-label="search" className='text-red-600'>
-//                             <SearchIcon />
-//                         </IconButton>
-//                     </div>
-
-//                     {/* User/Profile + Cart + Wishlist */}
-//                     <div className='w-full md:w-1/3 flex justify-end items-center gap-3'>
-//                         {!isLogin ? (
-//                             <ul className='hidden sm:flex items-center gap-3'>
-//                                 <li><Link to="#" className='text-gray-800 hover:text-red-500 text-sm font-medium'>Login</Link></li>
-//                                 <span className='text-gray-400'>|</span>
-//                                 <li><Link to="#" className='text-gray-800 hover:text-red-500 text-sm font-medium'>Register</Link></li>
-//                             </ul>
-//                         ) : (
-//                             <div className='flex items-center gap-3'>
-//                                 <div className="w-9 h-9 rounded-full overflow-hidden border border-gray-300">
-//                                     <img
-//                                         src="https://i.pinimg.com/originals/2a/9a/a2/2a9aa2765b453d34bf23f0b253ebbcb3.jpg"
-//                                         alt="User"
-//                                         className="w-full h-full object-cover"
-//                                     />
-//                                 </div>
-//                                 <div className='hidden lg:block'>
-//                                     <p className="text-sm font-semibold text-gray-800">John Doe</p>
-//                                     <p className="text-xs text-gray-500">johndoe@gmail.com</p>
-//                                 </div>
-//                             </div>
-//                         )}
-
-//                         <IconButton aria-label="wishlist">
-//                             <Badge badgeContent={4} color="success">
-//                                 <FavoriteBorderIcon />
-//                             </Badge>
-//                         </IconButton>
-//                         <IconButton aria-label="cart" onClick={() => toggleDrawer(true, "right")}>
-//                             <Badge badgeContent={2} color="primary">
-//                                 <ShoppingCartCheckoutIcon />
-//                             </Badge>
-//                         </IconButton>
-//                         <ThemeToggle />
-//                     </div>
-//                 </div>
-//             </section>
-
-//             {/* Nav Section */}
-//             <section className='bg-white dark:bg-black border-b border-gray-300'>
-//                 <div className='flex items-center justify-between px-4 max-w-7xl mx-auto w-full py-2'>
-//                     {/* Category Menu (Hamburger on mobile) */}
-//                     <div className='w-auto'>
-//                         <Button className='flex items-center text-sm' onClick={() => toggleDrawer(true, "left")}>
-//                             <MenuOutlinedIcon className='mr-2' />
-//                             <span className='hidden lg:flex'>Shop By Category <ExpandMoreOutlinedIcon className='ml-2' /></span>
-//                         </Button>
-//                     </div>
-
-//                     {/* Navigation Links */}
-//                     <div className='hidden lg:flex items-center flex-wrap gap-2 justify-center w-full'>
-//                         {['home', 'fassion', 'electronics', 'bags', 'footware', 'groceries', 'beauty', 'wellness', 'jewellery'].map((label, index) => (
-//                             <NavLink key={index} to="/" className='link'>
-//                                 <Button className='!text-[14px] !font-[500] !text-gray-800 hover:!text-red-500 transition'>{label}</Button>
-//                             </NavLink>
-//                         ))}
-//                     </div>
-
-//                     {/* Right text (free delivery) */}
-//                     <div className='hidden md:flex items-center text-sm font-medium text-gray-600'>
-//                         <RocketLaunchOutlinedIcon className='mr-2' /> Free International Delivery
-//                     </div>
-//                 </div>
-//             </section>
-//         </>
-//     );
-// };
-
-// export default Header;

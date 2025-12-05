@@ -1,6 +1,6 @@
 import express from "express";
-import { auth } from "../middleware/authenticate.js";
 import { accessChat, createGroupChat } from "../controllers/chatController.js";
+import { authenticate } from "../middleware/authenticate.js";
 //import upload from "../middleware/multer";
 
 const chatRouter = express.Router();
@@ -9,7 +9,7 @@ const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
-chatRouter.use(auth(["user"]));
+chatRouter.use(authenticate());
 
 chatRouter.route("/").post(accessChat);
 // chatRouter.route("/").get(fetchChats);

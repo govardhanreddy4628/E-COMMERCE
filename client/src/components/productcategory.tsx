@@ -145,12 +145,10 @@ const Productcategory = () => {
 
                 <aside className='col1 lg:w-[16%] sm:w-[30%] w-full relative'>
 
-
                     <div className='flex items-center justify-between bg-white pt-5 pb-1'>
                         <h3 className='text-[16px] font-medium text-gray-700'>Shop By Category</h3>
                         <IconButton onClick={() => setIsCategoryScrollExpand(!isCategoryScrollExpand)} className='!w-8 !h-8'> <FaAngleDown className={isCategoryScrollExpand ? "" : "rotate-180 transition-all duration-300"} /></IconButton>
                     </div>
-
 
                     <div
                         className="transition-all duration-700 overflow-y-scroll flex flex-col"
@@ -249,16 +247,11 @@ const Productcategory = () => {
                             onClick={() => setFilters({ rating: [], categories: [], priceRange: [0, 1000] })}
                             variant="outlined"
                             color="secondary"
-
                         >
                             Clear Filters
                         </Button>
                     </div>
-
-
                 </aside>
-
-
 
 
 

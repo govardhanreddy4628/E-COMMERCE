@@ -21,13 +21,11 @@ import {
 import { Badge } from "../../../ui/badge";
 import { useCategories } from "../context/categoryContext";
 import { Category } from "../types/category";
-import { CreateCategory } from "./CreateCategory";
-import { EditCategory } from "./EditCategory";
-import { Trash2, Plus, ChevronRight } from "lucide-react";
-import { getCloudinaryImage } from "../../../utils/imgTransformation";
+import { Trash2, Plus, ChevronRight, Edit2 } from "lucide-react";
+import CategoryFormDialog from "./CategoryFormDialog";
+import { getCategoryId } from "./CategoryUtility";
 
-// ✅ Utility to safely get ID (works for both id and _id)
-const getCategoryId = (cat: Category) => String(cat.id ?? cat._id ?? Math.random().toString(36).substr(2, 9));
+
 
 interface CategoryCardProps {
   category: Category;
@@ -87,7 +85,12 @@ export function CategoryCard({ category, level = 0 }: CategoryCardProps) {
 
           {/* Edit + Delete Buttons */}
           <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <EditCategory category={category} />
+
+            <CategoryFormDialog mode="edit" category={category}
+              trigger={<Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-accent">
+                <Edit2 className="w-4 h-4" />
+              </Button>} />
+
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button
@@ -136,15 +139,15 @@ export function CategoryCard({ category, level = 0 }: CategoryCardProps) {
                 className="h-6 px-2 text-xs"
               >
                 <ChevronRight
-                  className={`w-3 h-3 mr-1 transition-transform ${
-                    showSubcategories ? "rotate-90" : ""
-                  }`}
+                  className={`w-3 h-3 mr-1 transition-transform ${showSubcategories ? "rotate-90" : ""
+                    }`}
                 />
                 {showSubcategories ? "Hide" : "Show"}
               </Button>
             )}
           </div>
-          <CreateCategory
+          <CategoryFormDialog
+            mode="create"
             parentCategoryId={getCategoryId(category)}
             trigger={
               <Button size="sm" variant="outline" className="h-6 px-2 text-xs">
@@ -231,13 +234,14 @@ function SubcategoryItem({ category, level }: { category: Category; level: numbe
               className="h-6 w-6 p-0"
             >
               <ChevronRight
-                className={`w-3 h-3 transition-transform ${
-                  showNested ? "rotate-90" : ""
-                }`}
+                className={`w-3 h-3 transition-transform ${showNested ? "rotate-90" : ""
+                  }`}
               />
             </Button>
           )}
-          <CreateCategory
+
+          <CategoryFormDialog
+            mode="create"
             parentCategoryId={getCategoryId(category)}
             trigger={
               <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
@@ -245,7 +249,17 @@ function SubcategoryItem({ category, level }: { category: Category; level: numbe
               </Button>
             }
           />
-          <EditCategory category={category} />
+
+          <CategoryFormDialog
+            mode="edit"
+            category={category}
+            trigger={
+              <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-foreground hover:bg-accent">
+                <Edit2 className="w-4 h-4" />
+              </Button>
+            }
+          />
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button

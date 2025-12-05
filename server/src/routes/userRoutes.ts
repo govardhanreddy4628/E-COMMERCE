@@ -11,6 +11,7 @@ import {
   userAvatarController,
   forgotPasswordController,
   getCurrentUserController,
+  resendOtpController,
 } from "../controllers/userController.js";
 import { uploadSingle } from "../middleware/multer.js";
 
@@ -24,6 +25,7 @@ function asyncHandler(fn: any) {
 
 router.post("/register", uploadSingle, registerController);
 router.post("/verify-email", verifyEmailController);
+router.post("/resend-otp", asyncHandler(resendOtpController));
 router.post("/login", loginController);
 router.get("/logout", authenticate(), asyncHandler(logoutController));
 router.get("/me", authenticate(), asyncHandler(getCurrentUserController));

@@ -66,7 +66,7 @@ const userSchema = new mongoose.Schema<IUserDocument>(
       default: null,
     },
 
-    authProvider: { type: String, enum: ["custom", "google"], required: true },
+    //authProvider: { type: String, enum: ["custom", "google"], required: true },
     googleId: { type: String, default: null },
 
     isVerified: {
