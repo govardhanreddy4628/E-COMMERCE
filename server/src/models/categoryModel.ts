@@ -55,8 +55,12 @@ const categorySchema = new Schema<ICategory>(
       url: {
         type: String,
         validate: {
-          validator: (v: string) =>
-            /^https?:\/\/.*\.(jpeg|jpg|png|webp|svg|gif)$/.test(v),
+          validator: function (v?: string) {
+            // ✅ allow empty / removed image
+            if (!v) return true;
+
+            return /^https?:\/\/.*\.(jpeg|jpg|png|webp|svg|gif)$/.test(v);
+          },
           message: "Invalid Image URL",
         },
       },

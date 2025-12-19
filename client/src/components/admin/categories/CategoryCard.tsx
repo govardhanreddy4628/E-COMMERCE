@@ -7,23 +7,12 @@ import {
   CardHeader,
   CardTitle,
 } from "../../../ui/card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "../../../ui/alert-dialog";
 import { Badge } from "../../../ui/badge";
-import { useCategories } from "../context/categoryContext";
 import { Category } from "../types/category";
 import { Trash2, Plus, ChevronRight, Edit2 } from "lucide-react";
 import CategoryFormDialog from "./CategoryFormDialog";
 import { getCategoryId } from "./CategoryUtility";
+import DeleteCategoryDialog from "./DeleteCategoryDialog";
 
 
 
@@ -33,8 +22,6 @@ interface CategoryCardProps {
 }
 
 export function CategoryCard({ category, level = 0 }: CategoryCardProps) {
-  console.log(category)
-  const { deleteCategory } = useCategories();
   const [showSubcategories, setShowSubcategories] = useState(false);
 
   //const dispatch = useDispatch<AppDispatch>();
@@ -43,11 +30,6 @@ export function CategoryCard({ category, level = 0 }: CategoryCardProps) {
     ? category.subcategories
     : [];
 
-  const handleDeleteCategory = () => {
-    const id = getCategoryId(category);
-    //if (id) dispatch(deleteCategory(id));
-    if (id) deleteCategory(id);
-  };
 
   const countAllSubcategories = (cat: Category): number => {
     const subs = Array.isArray(cat.subcategories) ? cat.subcategories : [];
@@ -64,8 +46,7 @@ export function CategoryCard({ category, level = 0 }: CategoryCardProps) {
             <div className="flex items-center gap-3">
               {category.image && (
                 <img
-                  src={category.image.url}
-                  //src={getCloudinaryImage(category.image.url, { width: 200, height: 200 })}  
+                  src={`${category.image.url}?v=${category.updatedAt}`}                  //src={getCloudinaryImage(category.image.url, { width: 200, height: 200 })}  
                   alt={category.name || "Category"}
                   className="w-16 h-16 object-cover rounded-lg border border-border shadow-sm"
                 />
@@ -91,8 +72,9 @@ export function CategoryCard({ category, level = 0 }: CategoryCardProps) {
                 <Edit2 className="w-4 h-4" />
               </Button>} />
 
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
+            <DeleteCategoryDialog
+              category={category}
+              trigger={
                 <Button
                   size="sm"
                   variant="ghost"
@@ -100,25 +82,9 @@ export function CategoryCard({ category, level = 0 }: CategoryCardProps) {
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete "{category.name}" and all its subcategories.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDeleteCategory}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+              }
+            />
+
           </div>
         </div>
       </CardHeader>
@@ -175,7 +141,6 @@ export function CategoryCard({ category, level = 0 }: CategoryCardProps) {
 }
 
 function SubcategoryItem({ category, level }: { category: Category; level: number }) {
-  const { deleteCategory } = useCategories();
   const [showNested, setShowNested] = useState(false);
 
   const safeSubcategories = Array.isArray(category.subcategories)
@@ -189,10 +154,7 @@ function SubcategoryItem({ category, level }: { category: Category; level: numbe
 
   const totalSubcategories = countAllSubcategories(category);
 
-  const handleDelete = () => {
-    const id = getCategoryId(category);
-    if (id) deleteCategory(id);
-  };
+
 
   return (
     <div className="space-y-2">
@@ -260,8 +222,9 @@ function SubcategoryItem({ category, level }: { category: Category; level: numbe
             }
           />
 
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
+          <DeleteCategoryDialog
+            category={category}
+            trigger={
               <Button
                 size="sm"
                 variant="ghost"
@@ -269,26 +232,9 @@ function SubcategoryItem({ category, level }: { category: Category; level: numbe
               >
                 <Trash2 className="w-3 h-3" />
               </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Category</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Delete "{category.name}" and all its subcategories? This action
-                  cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDelete}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            }
+          />
+
         </div>
       </div>
 

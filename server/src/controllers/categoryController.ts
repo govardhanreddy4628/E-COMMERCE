@@ -4,13 +4,19 @@ import fs from "fs/promises";
 import asyncHandler from "express-async-handler";
 import cloudinary from "../config/cloudinary.js";
 import CategoryModel from "../models/categoryModel.js";
-import { deleteTempFile, destroyCloudinaryById, uploadToCloudinary } from "../services/cloudinaryService.js";
+import {
+  destroyCloudinaryById,
+  uploadToCloudinary,
+} from "../services/cloudinaryService.js";
 import redisClient from "../config/connectRedis.js";
-import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_MB } from "../config/uploadConfig.js";
+import {
+  ALLOWED_MIME_TYPES,
+  MAX_FILE_SIZE_MB,
+} from "../config/uploadConfig.js";
 import { addAuditLog } from "../lib/audit.js";
 import slugify from "slugify";
 import productModel from "../models/productModel.js";
-
+import { deleteTempFile } from "../utils/deleteTempFile.js";
 
 const CATEGORY_TREE_KEY = "category_tree";
 
@@ -78,15 +84,14 @@ export const createCategoryController = async (req: Request, res: Response) => {
           uploadedAt: new Date(),
           alt: "",
         };
-      } catch (uploadErr: any) {
-        try {
-          await deleteTempFile(file.path);
-        } catch {}
-        console.error("Cloudinary upload error:", uploadErr);
+      } catch (err) {
+        await deleteTempFile(file.path);
         return res.status(500).json({
           success: false,
           message: "Failed to upload image to Cloudinary.",
         });
+      } finally {
+        await deleteTempFile(file.path);
       }
     }
 
@@ -135,7 +140,7 @@ export const createCategoryController = async (req: Request, res: Response) => {
 
     // ===== Invalidate Redis Cache =====
     try {
-      if (redisClient && redisClient.del) {
+      if (redisClient && typeof redisClient.del === "function") {
         await redisClient.del(CATEGORY_TREE_KEY);
       }
     } catch (redisErr) {
@@ -170,33 +175,42 @@ export const createCategoryController = async (req: Request, res: Response) => {
  * @route   PUT /api/v1/category/:id
  * @access  Admin
  */
-// controllers/categoryController.ts (replace updateCategoryController)
-
 
 const isValidObjectId = (id?: string) => !!(id && Types.ObjectId.isValid(id));
 
 export const updateCategoryController = async (req: Request, res: Response) => {
+  console.log("REQ.FILE:", req.file);
+  console.log("REQ.BODY:", req.body);
+
   const categoryId = req.params.id;
   const session = await mongoose.startSession();
   try {
     // 1) Basic validations
     if (!isValidObjectId(categoryId)) {
-      return res.status(400).json({ success: false, message: "Invalid category ID." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid category ID." });
     }
-
-    // destructure allowed fields from body
-    const { name, description, parentCategoryId, removeImage } = req.body;
 
     // 2) Load category (for update) with session
     session.startTransaction();
     const category = await CategoryModel.findById(categoryId).session(session);
     if (!category) {
       await session.abortTransaction();
-      return res.status(404).json({ success: false, message: "Category not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Category not found." });
     }
 
+    // destructure allowed fields from body
+    const { name, description, parentCategoryId, removeImage } = req.body;
+
     // 3) Duplicate name check (global unique, case-insensitive) - only if name changed
-    if (typeof name === "string" && name.trim() && name.trim() !== category.name) {
+    if (
+      typeof name === "string" &&
+      name.trim() &&
+      name.trim() !== category.name
+    ) {
       const existing = await CategoryModel.findOne({
         _id: { $ne: category._id },
         name: { $regex: `^${name.trim()}$`, $options: "i" },
@@ -206,7 +220,9 @@ export const updateCategoryController = async (req: Request, res: Response) => {
         .exec();
       if (existing) {
         await session.abortTransaction();
-        return res.status(400).json({ success: false, message: "Category name already exists." });
+        return res
+          .status(400)
+          .json({ success: false, message: "Category name already exists." });
       }
       // update name + slug
       category.name = name.trim();
@@ -229,18 +245,23 @@ export const updateCategoryController = async (req: Request, res: Response) => {
       if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
         await deleteTempFile(file.path);
         await session.abortTransaction();
-        return res.status(400).json({ success: false, message: "Unsupported file type." });
+        return res
+          .status(400)
+          .json({ success: false, message: "Unsupported file type." });
       }
       const sizeMB = file.size / (1024 * 1024);
       if (sizeMB > MAX_FILE_SIZE_MB) {
         await deleteTempFile(file.path);
         await session.abortTransaction();
-        return res.status(400).json({ success: false, message: `File exceeds ${MAX_FILE_SIZE_MB}MB limit.` });
+        return res.status(400).json({
+          success: false,
+          message: `File exceeds ${MAX_FILE_SIZE_MB}MB limit.`,
+        });
       }
 
       // upload
       try {
-        const uploadResult = await uploadToCloudinary(file.path,  "categories" );
+        const uploadResult = await uploadToCloudinary(file.path, "categories");
         // remove old cloudinary image if present
         if (category.image?.public_id) {
           try {
@@ -271,13 +292,16 @@ export const updateCategoryController = async (req: Request, res: Response) => {
           meta: { source: "upload" },
         });
       } catch (uploadErr: any) {
-        await deleteTempFile((req.file as any).path);
         await session.abortTransaction();
         console.error("Cloudinary upload error:", uploadErr);
-        return res.status(500).json({ success: false, message: "Failed to upload image." });
+        return res
+          .status(500)
+          .json({ success: false, message: "Failed to upload image." });
       } finally {
         // cleanup temp
-        await deleteTempFile((req.file as any).path);
+        if (req.file?.path) {
+          await deleteTempFile((req.file as any).path);
+        }
       }
     } else if (removeImageFlag) {
       // remove stored image if user asked (and delete from cloud)
@@ -303,81 +327,143 @@ export const updateCategoryController = async (req: Request, res: Response) => {
     // else keep existing image
 
     // 6) Parent update logic (normalize parent)
-    const normalizedParentId =
-      parentCategoryId === "null" || parentCategoryId === null || parentCategoryId === undefined
-        ? null
-        : String(parentCategoryId).trim();
+    const parentProvided = Object.prototype.hasOwnProperty.call(
+      req.body,
+      "parentCategoryId"
+    );
 
-    const currentParentId = category.parentCategoryId ? String(category.parentCategoryId) : null;
-    const parentChanged = (normalizedParentId || null) !== (currentParentId || null);
+    //Parent update logic — ONLY if parentCategoryId is provided
+    if (parentProvided) {
+      const normalizedParentId =
+        parentCategoryId === "null" ||
+        parentCategoryId === null ||
+        parentCategoryId === undefined
+          ? null
+          : String(parentCategoryId).trim();
 
-    if (parentChanged) {
-      // If removing parent (move to root)
-      if (!normalizedParentId) {
-        // remove from old parent's children if exists
-        if (category.parentCategoryId) {
-          await CategoryModel.findByIdAndUpdate(category.parentCategoryId, { $pull: { children: category._id } }).session(session).exec();
-        }
-        category.parentCategoryId = null;
-        category.parentCategoryName = null;
-        category.level = 0;
-      } else {
-        // validate id
-        if (!isValidObjectId(normalizedParentId)) {
-          await session.abortTransaction();
-          return res.status(400).json({ success: false, message: "Invalid parentCategoryId." });
-        }
-        // ensure parent exists
-        const newParent = await CategoryModel.findById(normalizedParentId).session(session);
-        if (!newParent) {
-          await session.abortTransaction();
-          return res.status(404).json({ success: false, message: "Parent category not found." });
-        }
+      const currentParentId = category.parentCategoryId
+        ? String(category.parentCategoryId)
+        : null;
+      const parentChanged =
+        (normalizedParentId || null) !== (currentParentId || null);
 
-        // Prevent cycle: ensure newParent is NOT a descendant of current category
-        const isDescendant = async (candidateId: Types.ObjectId, targetId: Types.ObjectId): Promise<boolean> => {
-          const node = await CategoryModel.findById(candidateId).select("children").lean().session(session).exec();
-          if (!node || !Array.isArray((node as any).children) || (node as any).children.length === 0) return false;
-          for (const childId of (node as any).children) {
-            if (String(childId) === String(targetId)) return true;
-            const deeper = await isDescendant(childId as Types.ObjectId, targetId);
-            if (deeper) return true;
+      if (parentChanged) {
+        // If removing parent (move to root)
+        if (!normalizedParentId) {
+          // remove from old parent's children if exists
+          if (category.parentCategoryId) {
+            await CategoryModel.findByIdAndUpdate(category.parentCategoryId, {
+              $pull: { children: category._id },
+            })
+              .session(session)
+              .exec();
           }
-          return false;
+          category.parentCategoryId = null;
+          category.parentCategoryName = null;
+          category.level = 0;
+        } else {
+          // validate id
+          if (!isValidObjectId(normalizedParentId)) {
+            await session.abortTransaction();
+            return res
+              .status(400)
+              .json({ success: false, message: "Invalid parentCategoryId." });
+          }
+          // ensure parent exists
+          const newParent = await CategoryModel.findById(
+            normalizedParentId
+          ).session(session);
+          if (!newParent) {
+            await session.abortTransaction();
+            return res
+              .status(404)
+              .json({ success: false, message: "Parent category not found." });
+          }
+
+          // Prevent cycle: ensure newParent is NOT a descendant of current category
+          const isDescendant = async (
+            candidateId: Types.ObjectId,
+            targetId: Types.ObjectId
+          ): Promise<boolean> => {
+            const node = await CategoryModel.findById(candidateId)
+              .select("children")
+              .lean()
+              .session(session)
+              .exec();
+            if (
+              !node ||
+              !Array.isArray((node as any).children) ||
+              (node as any).children.length === 0
+            )
+              return false;
+            for (const childId of (node as any).children) {
+              if (String(childId) === String(targetId)) return true;
+              if (await isDescendant(childId as Types.ObjectId, targetId))
+                return true;
+            }
+            return false;
+          };
+
+          if (await isDescendant(newParent._id, category._id)) {
+            await session.abortTransaction();
+            return res.status(400).json({
+              success: false,
+              message: "Cannot set a descendant as the parent category.",
+            });
+          }
+
+          // remove from old parent's children if changed
+          if (
+            category.parentCategoryId &&
+            String(category.parentCategoryId) !== normalizedParentId
+          ) {
+            await CategoryModel.findByIdAndUpdate(category.parentCategoryId, {
+              $pull: { children: category._id },
+            })
+              .session(session)
+              .exec();
+          }
+
+          // add to new parent's children (idempotent)
+          await CategoryModel.findByIdAndUpdate(newParent._id, {
+            $addToSet: { children: category._id },
+          })
+            .session(session)
+            .exec();
+
+          // set new parent & level
+          category.parentCategoryId = newParent._id;
+          category.parentCategoryName = newParent.name;
+          category.level = (newParent.level || 0) + 1;
+        }
+
+        // If moved levels, update descendant levels recursively
+        const updateDescendantLevels = async (
+          catId: Types.ObjectId,
+          baseLevel: number
+        ) => {
+          const node = await CategoryModel.findById(catId)
+            .select("children")
+            .lean()
+            .session(session)
+            .exec();
+          if (!node || !Array.isArray((node as any).children)) return;
+          for (const childId of (node as any).children) {
+            await CategoryModel.findByIdAndUpdate(childId, {
+              $set: { level: baseLevel + 1 },
+            })
+              .session(session)
+              .exec();
+            await updateDescendantLevels(
+              childId as Types.ObjectId,
+              baseLevel + 1
+            );
+          }
         };
 
-        const wouldCreateCycle = await isDescendant(newParent._id, category._id);
-        if (wouldCreateCycle) {
-          await session.abortTransaction();
-          return res.status(400).json({ success: false, message: "Cannot set a descendant as the parent category." });
-        }
-
-        // remove from old parent's children if changed
-        if (category.parentCategoryId && String(category.parentCategoryId) !== normalizedParentId) {
-          await CategoryModel.findByIdAndUpdate(category.parentCategoryId, { $pull: { children: category._id } }).session(session).exec();
-        }
-
-        // add to new parent's children (idempotent)
-        await CategoryModel.findByIdAndUpdate(newParent._id, { $addToSet: { children: category._id } }).session(session).exec();
-
-        // set new parent & level
-        category.parentCategoryId = newParent._id;
-        category.parentCategoryName = newParent.name;
-        category.level = (newParent.level || 0) + 1;
+        // update for this category's subtree
+        await updateDescendantLevels(category._id, category.level);
       }
-
-      // If moved levels, update descendant levels recursively
-      const updateDescendantLevels = async (catId: Types.ObjectId, baseLevel: number) => {
-        const node = await CategoryModel.findById(catId).select("children").lean().session(session).exec();
-        if (!node || !Array.isArray((node as any).children)) return;
-        for (const childId of (node as any).children) {
-          await CategoryModel.findByIdAndUpdate(childId, { $set: { level: baseLevel + 1 } }).session(session).exec();
-          await updateDescendantLevels(childId as Types.ObjectId, baseLevel + 1);
-        }
-      };
-
-      // update for this category's subtree
-      await updateDescendantLevels(category._id, category.level);
     }
 
     // 7) Save category
@@ -403,7 +489,10 @@ export const updateCategoryController = async (req: Request, res: Response) => {
         entityId: String(category._id),
         action: "update",
         userId: (req.user as any)?._id || undefined,
-        changes: { name: category.name, parentCategoryId: category.parentCategoryId },
+        changes: {
+          name: category.name,
+          parentCategoryId: category.parentCategoryId,
+        },
       });
     } catch (auditErr) {
       console.warn("Audit log error:", auditErr);
@@ -415,7 +504,11 @@ export const updateCategoryController = async (req: Request, res: Response) => {
       .lean()
       .exec();
 
-    return res.status(200).json({ success: true, message: "Category updated successfully.", category: updatedCategory });
+    return res.status(200).json({
+      success: true,
+      message: "Category updated successfully.",
+      category: updatedCategory,
+    });
   } catch (err: any) {
     try {
       await session.abortTransaction();
@@ -426,16 +519,18 @@ export const updateCategoryController = async (req: Request, res: Response) => {
     console.error("Unhandled error in updateCategoryController:", err);
     // Duplicate key (name/slug) handled
     if (err?.code === 11000) {
-      return res.status(409).json({ success: false, message: "Duplicate key error, category already exists." });
+      return res.status(409).json({
+        success: false,
+        message: "Duplicate key error, category already exists.",
+      });
     }
     // return message
-    return res.status(500).json({ success: false, message: err?.message || "Internal server error." });
+    return res.status(500).json({
+      success: false,
+      message: err?.message || "Internal server error.",
+    });
   }
 };
-
-
-
-
 
 /**
  * @desc    Get hierarchical category tree (cached)
@@ -738,15 +833,10 @@ export async function deleteCategoryController(req: Request, res: Response) {
   }
 }
 
-
-
-
-
-
-
-
-
-export const permanentDeleteCategoryController = async (req: Request, res: Response) => {
+export const permanentDeleteCategoryController = async (
+  req: Request,
+  res: Response
+) => {
   const { id } = req.params;
 
   try {
@@ -842,24 +932,23 @@ export const permanentDeleteCategoryController = async (req: Request, res: Respo
   }
 };
 
-
-
-
-
-
-
 /**
  * @desc    Soft delete a category
  * @route   DELETE /api/v1/category/:id
  * @access  Admin
  */
-export const softDeleteCategoryController = async (req: Request, res: Response) => {
+export const softDeleteCategoryController = async (
+  req: Request,
+  res: Response
+) => {
   const categoryId = req.params.id;
   const session = await mongoose.startSession();
 
   try {
     if (!categoryId || !Types.ObjectId.isValid(categoryId)) {
-      return res.status(400).json({ success: false, message: "Invalid category ID." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid category ID." });
     }
 
     session.startTransaction();
@@ -867,13 +956,18 @@ export const softDeleteCategoryController = async (req: Request, res: Response) 
     const category = await CategoryModel.findById(categoryId).session(session);
     if (!category) {
       await session.abortTransaction();
-      return res.status(404).json({ success: false, message: "Category not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Category not found." });
     }
 
     // ✅ Prevent delete if category has children
     if (category.children && category.children.length > 0) {
       await session.abortTransaction();
-      return res.status(400).json({ success: false, message: "Cannot delete category with subcategories." });
+      return res.status(400).json({
+        success: false,
+        message: "Cannot delete category with subcategories.",
+      });
     }
 
     // Optional: Soft delete instead of hard delete
@@ -920,33 +1014,35 @@ export const softDeleteCategoryController = async (req: Request, res: Response) 
       categoryId,
     });
   } catch (err: any) {
-    try { await session.abortTransaction(); session.endSession(); } catch {}
+    try {
+      await session.abortTransaction();
+      session.endSession();
+    } catch {}
     console.error("Delete category error:", err);
-    return res.status(500).json({ success: false, message: err?.message || "Internal server error." });
+    return res.status(500).json({
+      success: false,
+      message: err?.message || "Internal server error.",
+    });
   }
 };
-
-
-
-
-
-
-
-
-
 
 /**
  * @desc    Restore a soft-deleted category
  * @route   PATCH /api/v1/category/:id/restore
  * @access  Admin
  */
-export const restoreCategoryController = async (req: Request, res: Response) => {
+export const restoreCategoryController = async (
+  req: Request,
+  res: Response
+) => {
   const categoryId = req.params.id;
   const session = await mongoose.startSession();
 
   try {
     if (!categoryId || !Types.ObjectId.isValid(categoryId)) {
-      return res.status(400).json({ success: false, message: "Invalid category ID." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid category ID." });
     }
 
     session.startTransaction();
@@ -954,12 +1050,16 @@ export const restoreCategoryController = async (req: Request, res: Response) => 
     const category = await CategoryModel.findById(categoryId).session(session);
     if (!category) {
       await session.abortTransaction();
-      return res.status(404).json({ success: false, message: "Category not found." });
+      return res
+        .status(404)
+        .json({ success: false, message: "Category not found." });
     }
 
     if (!category.isDeleted) {
       await session.abortTransaction();
-      return res.status(400).json({ success: false, message: "Category is not deleted." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Category is not deleted." });
     }
 
     // Restore the category
@@ -1006,8 +1106,153 @@ export const restoreCategoryController = async (req: Request, res: Response) => 
       categoryId,
     });
   } catch (err: any) {
-    try { await session.abortTransaction(); session.endSession(); } catch {}
+    try {
+      await session.abortTransaction();
+      session.endSession();
+    } catch {}
     console.error("Restore category error:", err);
-    return res.status(500).json({ success: false, message: err?.message || "Internal server error." });
+    return res.status(500).json({
+      success: false,
+      message: err?.message || "Internal server error.",
+    });
   }
+};
+
+export const checkCategoryHasProducts = async (req: Request, res: Response) => {
+  const { categoryId } = req.params;
+
+  if (!categoryId) {
+    return res.status(400).json({
+      success: false,
+      message: "Category ID is required",
+    });
+  }
+
+  // Check if category exists
+  const category = await CategoryModel.findById(categoryId);
+  if (!category) {
+    return res.status(404).json({
+      success: false,
+      message: "Category not found",
+    });
+  }
+
+  // Check products referencing this category
+  const hasProducts = await productModel.exists({
+    category: categoryId,
+  });
+
+  return res.json({
+    success: true,
+    data: { hasProducts: !!hasProducts },
+  });
+};
+
+export const moveProductsToCategory = async (req: Request, res: Response) => {
+  const { fromCategoryId, newCategoryId } = req.body;
+
+  if (!fromCategoryId || !newCategoryId) {
+    return res.status(400).json({
+      success: false,
+      message: "Both fromCategoryId and newCategoryId are required",
+    });
+  }
+
+  if (fromCategoryId === newCategoryId) {
+    return res.status(400).json({
+      success: false,
+      message: "Cannot move products into the same category",
+    });
+  }
+
+  // Validate both categories exist
+  const fromExists = await CategoryModel.exists({ _id: fromCategoryId });
+  const toExists = await CategoryModel.exists({ _id: newCategoryId });
+
+  if (!fromExists || !toExists) {
+    return res.status(404).json({
+      success: false,
+      message: "One or both categories do not exist",
+    });
+  }
+
+  // Update products
+  const result = await productModel.updateMany(
+    { category: fromCategoryId },
+    { $set: { category: newCategoryId } }
+  );
+
+  return res.json({
+    success: true,
+    message: "Products moved successfully",
+    data: {
+      movedCount: result.modifiedCount,
+    },
+  });
+};
+
+export const moveSubcategories = async (req: Request, res: Response) => {
+  const { fromCategoryId, newParentId } = req.body;
+
+  if (!fromCategoryId) {
+    return res.status(400).json({
+      success: false,
+      message: "fromCategoryId is required",
+    });
+  }
+
+  // Validate from category exists
+  const fromCategory = await CategoryModel.findById(fromCategoryId);
+  if (!fromCategory) {
+    return res.status(404).json({
+      success: false,
+      message: "Source category not found",
+    });
+  }
+
+  // If newParentId is provided, validate it
+  if (newParentId) {
+    const newParent = await CategoryModel.findById(newParentId);
+    if (!newParent) {
+      return res.status(404).json({
+        success: false,
+        message: "Target parent category not found",
+      });
+    }
+
+    // Prevent moving to self
+    if (newParentId === fromCategoryId) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot move subcategories into the same category",
+      });
+    }
+  }
+
+  // Move subcategories
+  const subcategories = await CategoryModel.find({
+    parentCategoryId: fromCategoryId,
+  });
+
+  if (subcategories.length === 0) {
+    return res.json({
+      success: true,
+      message: "No subcategories to move",
+      data: { movedCount: 0 },
+    });
+  }
+
+  // Update subcategories to point to new parent
+  const result = await CategoryModel.updateMany(
+    { parentCategoryId: fromCategoryId },
+    { $set: { parentCategoryId: newParentId || null } }
+  );
+
+  return res.json({
+    success: true,
+    message: "Subcategories moved successfully",
+    data: {
+      movedCount: result.modifiedCount,
+    },
+  });
 };

@@ -11,6 +11,9 @@ interface CategoryContextType {
   loading: boolean;
   findCategoryById: (id: string, categories?: Category[]) => Category | null;
   getAllCategories: () => Category[];
+  moveSubcategories: (fromId: string, newParentId: string | null) => Promise<void>;
+  checkCategoryHasProducts: (categoryId: string) => Promise<boolean>;
+  moveProductsToCategory: (fromId: string, newCategoryId: string) => Promise<any>;
 }
 
 const CategoryContext = createContext<CategoryContextType | undefined>(undefined);
@@ -29,41 +32,40 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     updatedAt: cat.updatedAt ? new Date(cat.updatedAt) : new Date(),
   });
 
+  const fetchCategories = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/category/tree`);
+
+      const data = await res.json();
+      console.log("Fetched category tree:", data);
+
+      if (data.success) {
+        // Defensive check: try multiple possible locations for the array
+        const rawList = Array.isArray(data.data)
+          ? data.data
+          : Array.isArray(data.categories)
+            ? data.categories
+            : Array.isArray(data.data?.categories)
+              ? data.data.categories
+              : [];
+
+        // 🧩 Convert "children" to "subcategories" recursively and normalize dates recursively
+        const normalizedList = rawList.map(normalizeCategoryTree);
+        setCategories(normalizedList);
+      } else {
+        console.error("Failed to fetch categories:", data.message);
+        setCategories([]);
+      }
+    } catch (err) {
+      console.error("Error fetching categories:", err);
+      setCategories([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      setLoading(true);
-      try {
-        const res = await fetch(`${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/category/tree`);
-
-        const data = await res.json();
-        console.log("Fetched category tree:", data);
-
-        if (data.success) {
-          // Defensive check: try multiple possible locations for the array
-          const rawList = Array.isArray(data.data)
-            ? data.data
-            : Array.isArray(data.categories)
-              ? data.categories
-              : Array.isArray(data.data?.categories)
-                ? data.data.categories
-                : [];
-
-          // 🧩 Convert "children" to "subcategories" recursively and normalize dates recursively
-          const normalizedList = rawList.map(normalizeCategoryTree);
-          setCategories(normalizedList);
-        } else {
-          console.error("Failed to fetch categories:", data.message);
-          setCategories([]);
-        }
-      } catch (err) {
-        console.error("Error fetching categories:", err);
-        setCategories([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchCategories();
   }, []);
 
@@ -102,7 +104,7 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     if (data.imageFile) formData.append("image", data.imageFile);
 
 
-    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/category/create-category`, {
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/category/create`, {
       method: "POST",
       body: formData,
     });
@@ -145,14 +147,29 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     return normalized;
   };
 
-   // ------------------ Update Category ------------------
+  // ------------------ Update Category ------------------
   const updateCategory = async (id: string, data: Partial<CategoryFormData>): Promise<Category> => {
+
+    const formData = new FormData();
+
+    Object.entries(data).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+
+      // map imageFile -> image
+      if (key === "imageFile" && value instanceof File) {
+        formData.append("image", value);
+      } else if (key === "removeImage") {
+        formData.append("removeImage", value ? "true" : "false");
+      } else {
+        formData.append(key, String(value));
+      }
+    });
+
     const res = await fetch(
       `${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/category/update/${id}`,
       {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: formData, // ❌ NO Content-Type header
       }
     );
 
@@ -163,29 +180,54 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     }
 
     const updated = body.category ?? body.data;
-    
-     const normalized: Category = {
+
+    const normalized: Category = {
       ...updated,
       id: String(updated.id ?? updated._id),
-      createdAt: updated.createdAt ? new Date(updated.createdAt) : new Date(),
-      updatedAt: updated.updatedAt ? new Date(updated.updatedAt) : new Date(),
+      image: updated.image ?? null,
+      createdAt: updated.createdAt
+        ? new Date(updated.createdAt)
+        : new Date(),
+      updatedAt: updated.updatedAt
+        ? new Date(updated.updatedAt)
+        : new Date(),
       subcategories: updated.subcategories || [],
     };
 
     const updateInTree = (cats: Category[]): Category[] =>
       cats.map(cat => {
         if (getCategoryId(cat) === id) {
-          return { ...cat, ...normalized };
+          return {
+            ...cat,
+            ...normalized,
+
+            // ✅ PRESERVE CHILDREN
+            subcategories:
+              updated.subcategories ??
+              updated.children ??     // backend uses `children`
+              cat.subcategories ?? [],
+          };
         }
-        return { ...cat, subcategories: updateInTree(cat.subcategories || []) };
+
+        return {
+          ...cat,
+          subcategories: updateInTree(cat.subcategories || []),
+        };
       });
 
     setCategories(prev => updateInTree(prev));
 
-    return normalized;
+    return {
+      ...normalized,
+      subcategories:
+        updated.subcategories ??
+        updated.children ??
+        [],
+    };
   };
 
-// ------------------ Delete Category ------------------
+
+  // ------------------ Delete Category ------------------
   const deleteCategory = async (id: string): Promise<void> => {
     const res = await fetch(
       `${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/category/delete/${id}`,
@@ -206,8 +248,71 @@ export function CategoryProvider({ children }: { children: React.ReactNode }) {
     setCategories(prev => deleteFromTree(prev));
   };
 
+
+  // Move subcategories before delete
+  const moveSubcategories = async (fromId: string, newParentId: string | null) => {
+    const res = await fetch(
+      `${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/category/move-subcategories`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromCategoryId: fromId, newParentId }),
+      }
+    );
+
+    const body = await res.json();
+
+    if (!res.ok || !body.success) {
+      throw new Error(body.message || "Failed to move subcategories");
+    }
+
+    // Refresh entire tree (easier + accurate)
+    fetchCategories();
+  };
+
+
+  const checkCategoryHasProducts = async (categoryId: string) => {
+    const res = await fetch(
+      `${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/category/${categoryId}/has-products`,
+    );
+
+    const body = await res.json();
+
+    if (!res.ok || !body.success) {
+      throw new Error(body.message || "Failed to move subcategories");
+    }
+
+    console.log(body)
+    console.log(body.data)
+    console.log(body.data.hasProducts)
+    return body.data.hasProducts; // boolean
+
+  };
+
+
+  const moveProductsToCategory = async (fromId: string, newCategoryId: string) => {
+    const res = await fetch(
+      `${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/category/move-products`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromCategoryId: fromId, newCategoryId }),
+      }
+    );
+
+    const body = await res.json();
+
+    if (!res.ok || !body.success) {
+      throw new Error(body.message || "Failed to move products");
+    }
+
+    return body.data;
+  };
+
+
+
   return (
-    <CategoryContext.Provider value={{ categories, addCategory, updateCategory, deleteCategory, loading, findCategoryById, getAllCategories }}>
+    <CategoryContext.Provider value={{ categories, addCategory, updateCategory, deleteCategory, loading, findCategoryById, getAllCategories, moveSubcategories, checkCategoryHasProducts, moveProductsToCategory }}>
       {children}
     </CategoryContext.Provider>
   );

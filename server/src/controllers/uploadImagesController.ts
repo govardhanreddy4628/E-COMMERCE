@@ -39,10 +39,11 @@ export const uploadImages1 = async (req: Request, res: Response) => {
 
 
 // src/controllers/uploadController.ts
-import { uploadToCloudinary, deleteTempFile } from "../services/cloudinaryService.js";
+import { uploadToCloudinary } from "../services/cloudinaryService.js";
 import { uploadSingle } from "../middleware/multer.js";
 import { inngest } from "../inngest/client.js";
 import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_MB, MAX_FILES } from "../config/uploadConfig.js";
+import { deleteTempFile } from "../utils/deleteTempFile.js";
 
 /**
  * Backend single upload (e.g. category image) -> multer handles req.file

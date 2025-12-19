@@ -5,7 +5,6 @@ import cloudinary from "../config/cloudinary.js";
 import mongoose from "mongoose";
 import { Types } from "mongoose";
 import couponModel from "../models/couponModel.js";
-import { deleteTempFile } from "../services/cloudinaryService.js";
 import { inngest } from "../inngest/client.js"; // optional: only if you’re using inngest
 
 //  or use following validation

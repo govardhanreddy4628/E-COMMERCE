@@ -311,7 +311,7 @@ export default function CategoryFormDialog({
 
             <div className="flex justify-end space-x-2 pt-4">
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-              <Button type="submit" className={isEdit ? "bg-gradient-primary text-primary-foreground" : "bg-primary text-primary-foreground"} disabled={isSubmitting}>
+              <Button type="submit" className="bg-primary text-primary-foreground" disabled={isSubmitting}>
                 {isSubmitting ? (isEdit ? "Updating..." : "Creating...") : (isEdit ? "Update Category" : "Create Category")}
               </Button>
             </div>

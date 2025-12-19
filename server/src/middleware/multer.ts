@@ -3,7 +3,11 @@ import multer, { StorageEngine } from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
-import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_MB, MAX_FILES } from "../config/uploadConfig.js";
+import {
+  ALLOWED_MIME_TYPES,
+  MAX_FILE_SIZE_MB,
+  MAX_FILES,
+} from "../config/uploadConfig.js";
 
 // ===== Fix for __dirname in ESM =====
 const __filename = fileURLToPath(import.meta.url);
@@ -13,11 +17,15 @@ const __dirname = path.dirname(__filename);
 const storage: StorageEngine = multer.diskStorage({
   destination: function (req: any, file, cb) {
     const folder = req?.folder || "uploads";
-    const destPath = path.join(__dirname, "../../public", folder);
-    // Ensure directory exists
-    fs.mkdir(destPath, { recursive: true }, (err) => {
-      cb(err, destPath);
-    });
+    const destPath = path.resolve(process.cwd(), "public", folder);
+
+    try {
+      // ✅ Make directory synchronously to ensure multer waits
+      fs.mkdirSync(destPath, { recursive: true });
+      cb(null, destPath);
+    } catch (err) {
+      cb(err as Error, destPath);
+    }
   },
   filename: function (req, file, cb) {
     cb(null, `${Date.now()}_${file.originalname}`);
