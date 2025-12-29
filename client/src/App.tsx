@@ -28,7 +28,6 @@ import ResetPassword from "./components/auth/resetPassword";
 import ForgotPassword from "./components/auth/forgotPassword";
 import Toaster from "./ui/Toaster";
 import CreateProduct from "./components/admin/products/CreateProduct/createProduct";
-import Orders from "./components/admin/orders";
 import AdminLayout from "./components/admin/layout";
 import CustomersTable from "./components/admin/customers/index.tsx";
 import GuestRoute from "./routes/GuestRoutes";
@@ -39,7 +38,7 @@ import Calendar3 from "./components/admin/calendar3/Calendar3";
 //import Cp from "./components/admin/cp";
 import CreateProduct3 from "./components/admin/products/CreateProduct/CreateProduct3";
 //import { CreateProduct2 } from "./components/admin/products/CreateProduct";
-import AdminAgentLayout from "./components/admin/Agents/chatBot";
+import AdminAgentLayout2 from "./components/admin/Agents/chatBot";
 import { CategoryProvider } from './components/admin/context/categoryContext.tsx'
 import SubCategory from "./components/admin/categories/subCategory";
 import CustomerSupport from "./pages/CustomerSupport";
@@ -63,6 +62,8 @@ import MyAccount from "./pages/MyAccount.tsx";
 import MyOrders from "./components/myAccount/myOrders.tsx";
 import Checkout from "./pages/Checkout.tsx";
 import OrderConfirmation from "./pages/OrderConfirmation.tsx";
+import { AdminAgentLayout } from "./components/admin/AI/AdminAgentLayout.tsx";
+import Orders from "./components/admin/orders/Orders.tsx";
 //import Counter from "./move/counter.tsx";
 
 
@@ -125,8 +126,9 @@ const App = () => {
                   <Route path="adminchangepassword" element={<AdminChangePassword />} />
                   <Route path="categories/manage" element={<CategoryManager />} />
                   <Route path="categories/create-subcategory" element={<SubCategory />} />
-                  <Route path="orders" element={<Orders />}></Route>
+                  <Route path="orders" element={<Orders/>}></Route>
                   <Route path="/customers" element={<CustomersTable />} />
+                  <Route path="/agents" element={<AdminAgentLayout />} />
                   <Route path="admin-profile" element={<AdminProfile />} />
                   <Route path="chat" element={<Chat />} />
                   <Route path="calendar2" element={<Calendar2 />} />
@@ -135,7 +137,7 @@ const App = () => {
                   <Route path="products/create" element={<CreateProduct3 />} />
                   <Route path="products/edit/:id" element={<CreateProduct3 />} />
                   <Route path="createproduct3" element={<CreateProduct />} />
-                  <Route path="adminagent" element={<AdminAgentLayout />} />
+                  <Route path="adminagents" element={<AdminAgentLayout2 />} />
                   <Route path="/reviews" element={<AdminReviewPage />} />
                   <Route path="underconstruction" element={<UnderConstruction />} />
                   {/* <Route path="createproduct" element={<CreateProduct2/>} /> */}

@@ -2,9 +2,9 @@
 import React, { useEffect, useRef, useState } from "react";
 
 
-export default function AdminAgentLayout() {
+export default function AdminAgentLayout2() {
   return (
-    <div className="h-screen bg-gray-50 flex">
+    <div className="h-[calc(100vh-4.2rem)] flex bg-gray-50">
       <AgentSidebar />
       <main className="flex-1 p-6">
         <div className="h-full bg-white rounded-2xl shadow-md overflow-hidden flex flex-col">
@@ -152,7 +152,7 @@ function AgentChat() {
           {messages.map((m) => (
             <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[80%] md:max-w-[60%] ${m.role === "user" ? "text-right" : "text-left"}`}>
-                <div className={`${m.role === "user" ? "bg-sky-600 text-white" : "bg-gray-100 text-gray-900"} inline-block rounded-2xl px-4 py-2 leading-relaxed`}> 
+                <div className={`${m.role === "user" ? "bg-sky-600 text-white" : "bg-gray-100 text-gray-900"} inline-block rounded-2xl px-4 py-2 leading-relaxed`}>
                   <div className="whitespace-pre-wrap">{m.text}</div>
                 </div>
                 <div className="text-xs text-gray-400 mt-1">{formatTime(m.time)}</div>
