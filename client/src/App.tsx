@@ -19,7 +19,6 @@ import BlogDetail from "./components/BlogDetails";
 import BlogSection from "./components/BlogSection";
 import { Dashboard } from "./components/admin/dashboard";
 import { AuthProvider } from "./context/authContext";
-import CartPage from "./components/cartPage";
 import AddressForm from "./components/addressForm";
 import OtpVerify from "./components/auth/otpVerify.tsx";
 import AddressPage from "./components/addAddress";
@@ -30,7 +29,7 @@ import Toaster from "./ui/Toaster";
 import CreateProduct from "./components/admin/products/CreateProduct/createProduct";
 import AdminLayout from "./components/admin/layout";
 import CustomersTable from "./components/admin/customers/index.tsx";
-import GuestRoute from "./routes/GuestRoutes";
+import GuestRoute from "./routes/GuestRoute";
 //import ProtectedRoute from "./routes/ProtectedRoute";
 import Chat from "./components/admin/chat/chat";
 import Calendar2 from "./components/admin/calendar2/calendar2";
@@ -53,7 +52,8 @@ import ProductDetailsPage from "./pages/ProductDetailsPage.tsx";
 import UnderConstruction from "./components/admin/components/underConstruction.tsx";
 import ProductCategories from "./pages/ProductCategories.tsx";
 import AdminReviewPage from "./components/admin/reviews/ReviewPage.tsx";
-import Products from "./components/admin/products/AllProducts/Products.tsx";
+//import Products from "./components/admin/products/AllProducts/Products.tsx";
+import Products2 from "./components/admin/products/AllProducts/Products2.tsx";
 import { CartProvider } from "./context/cartContext.tsx";
 import MyProfile from "./components/myAccount/myProfile.tsx";
 import MyList from "./components/myAccount/myList.tsx";
@@ -64,29 +64,34 @@ import Checkout from "./pages/Checkout.tsx";
 import OrderConfirmation from "./pages/OrderConfirmation.tsx";
 import { AdminAgentLayout } from "./components/admin/AI/AdminAgentLayout.tsx";
 import Orders from "./components/admin/orders/Orders.tsx";
+//import { ProductProvider } from "./components/admin/context/productsContext.tsx";
 //import Counter from "./move/counter.tsx";
-
-
-
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { WishlistProvider } from "./context/wishlistContext.tsx";
+import AdminRoute from "./routes/AdminRoute.tsx";
+import CartPage from "./pages/cartPage.tsx";
 
 const App = () => {
-
+  const queryClient = new QueryClient();
 
   return (
     <>
       {/* <FormikComponent/> */}
       {/* <ThemeProvider theme={theme}> */}
       <ThemeProvider defaultTheme="system" storageKey="marketpulse-ui-theme">
-        <AuthProvider>
-          <CartProvider>
-            <CategoryProvider>
-              {/* <RegisterForm/> */}
+          <AuthProvider>
+        <CartProvider>
+            <WishlistProvider>
+              <CategoryProvider>
+                <QueryClientProvider client={queryClient}>
 
-              {/* <Counter/> */}
+                  {/* <RegisterForm/> */}
 
-              {/* <Suspense fallback={<h1>Loading....</h1>}> */}
-              <Routes>
-                {/* <Route path='/' element={<Layout/>}>
+                  {/* <Counter/> */}
+
+                  {/* <Suspense fallback={<h1>Loading....</h1>}> */}
+                  <Routes>
+                    {/* <Route path='/' element={<Layout/>}>
         <Route index element={<Hero/>} />
       </Route>
       <Route path='formikfieldarray' element={<FormikFieldArray/>}></Route>
@@ -96,77 +101,80 @@ const App = () => {
       <Route path='drawCircle' element={<DrawCircle/>}></Route>
 
               {/* <Route element={<ProtectedRoute />}> */}
-                {/* <Route path='/' element={<Header />}></Route> */}
-                <Route path='/home' element={<Home />}></Route>
-                <Route path="/address" element={<AddressForm />}></Route>
-                <Route path='productdetails/:id' element={<ProductDetailsPage />}></Route>
-                <Route path="productcategories" element={<ProductCategories />}></Route>
-                <Route path="/blogsection" element={<BlogSection />}></Route>
-                <Route path="/blog/:id" element={<BlogDetail />} />
-                <Route path="cartPage" element={<CartPage />}></Route>
-                <Route path="/myaccount" element={<MyAccount />}>
-                  <Route index element={<MyProfile />} />
-                  <Route path="profile" element={<MyProfile />} />
-                  <Route path="list" element={<MyList />} />
-                  <Route path="orders" element={<MyOrders />} />
-                  <Route path="address" element={<MyAddress />} />
-                </Route>
-                <Route path="addaddress" element={<AddressPage />}></Route>
-                <Route path="checkout" element={<Checkout/>}></Route>
-                <Route path="order-confirmation" element={<OrderConfirmation/>}></Route>
-                <Route path="category-chart" element={<Testh />}></Route>
-                <Route path="customersupport" element={<CustomerSupport />}></Route>
-                <Route path="rating"></Route>
-                {/* </Route> */}
+                    {/* <Route path='/' element={<Header />}></Route> */}
+                    <Route path='/' element={<Home />}></Route>
+                    <Route path="/address" element={<AddressForm />}></Route>
+                    <Route path='productdetails/:id' element={<ProductDetailsPage />}></Route>
+                    <Route path="products" element={<ProductCategories />}></Route>
+                    <Route path="/blogsection" element={<BlogSection />}></Route>
+                    <Route path="/blog/:id" element={<BlogDetail />} />
+                    <Route path="cartPage" element={<CartPage />}></Route>
+                    <Route path="/myaccount" element={<MyAccount />}>
+                      <Route index element={<MyProfile />} />
+                      <Route path="profile" element={<MyProfile />} />
+                      <Route path="list" element={<MyList />} />
+                      <Route path="orders" element={<MyOrders />} />
+                      <Route path="address" element={<MyAddress />} />
+                    </Route>
+                    <Route path="addaddress" element={<AddressPage />}></Route>
+                    <Route path="checkout" element={<Checkout />}></Route>
+                    <Route path="order-confirmation" element={<OrderConfirmation />}></Route>
+                    <Route path="category-chart" element={<Testh />}></Route>
+                    <Route path="customersupport" element={<CustomerSupport />}></Route>
+                    <Route path="rating"></Route>
+                    {/* </Route> */}
 
-                <Route path="/" element={<AdminLayout />}>
-                  <Route path="dashboard" element={<Dashboard />}></Route>
-                  <Route path="adminprofile" element={<AdminProfile />} />
-                  <Route path="adminsettings" element={<AdminSettings />} />
-                  <Route path="adminchangepassword" element={<AdminChangePassword />} />
-                  <Route path="categories/manage" element={<CategoryManager />} />
-                  <Route path="categories/create-subcategory" element={<SubCategory />} />
-                  <Route path="orders" element={<Orders/>}></Route>
-                  <Route path="/customers" element={<CustomersTable />} />
-                  <Route path="/agents" element={<AdminAgentLayout />} />
-                  <Route path="admin-profile" element={<AdminProfile />} />
-                  <Route path="chat" element={<Chat />} />
-                  <Route path="calendar2" element={<Calendar2 />} />
-                  <Route path="calendar3" element={<Calendar3 />} />
-                  <Route path="products/all" element={<Products />} />
-                  <Route path="products/create" element={<CreateProduct3 />} />
-                  <Route path="products/edit/:id" element={<CreateProduct3 />} />
-                  <Route path="createproduct3" element={<CreateProduct />} />
-                  <Route path="adminagents" element={<AdminAgentLayout2 />} />
-                  <Route path="/reviews" element={<AdminReviewPage />} />
-                  <Route path="underconstruction" element={<UnderConstruction />} />
-                  {/* <Route path="createproduct" element={<CreateProduct2/>} /> */}
+                    {/* <Route element={<AdminRoute />}> */}
+                    <Route path="/" element={<AdminLayout />}>
+                      <Route path="dashboard" element={<Dashboard />}></Route>
+                      <Route path="adminprofile" element={<AdminProfile />} />
+                      <Route path="adminsettings" element={<AdminSettings />} />
+                      <Route path="adminchangepassword" element={<AdminChangePassword />} />
+                      <Route path="categories/manage" element={<CategoryManager />} />
+                      <Route path="categories/create-subcategory" element={<SubCategory />} />
+                      <Route path="orders" element={<Orders />}></Route>
+                      <Route path="/customers" element={<CustomersTable />} />
+                      <Route path="/agents" element={<AdminAgentLayout />} />
+                      <Route path="admin-profile" element={<AdminProfile />} />
+                      <Route path="chat" element={<Chat />} />
+                      <Route path="calendar2" element={<Calendar2 />} />
+                      <Route path="calendar3" element={<Calendar3 />} />
+                      {/* <Route path="products/all" element={<Products />} /> */}
+                      <Route path="products/all" element={<Products2 />} />
+                      <Route path="products/create" element={<CreateProduct3 />} />
+                      <Route path="products/edit/:id" element={<CreateProduct3 />} />
+                      <Route path="createproduct3" element={<CreateProduct />} />
+                      <Route path="adminagents" element={<AdminAgentLayout2 />} />
+                      <Route path="reviews" element={<AdminReviewPage />} />
+                      <Route path="underconstruction" element={<UnderConstruction />} />
+                      {/* <Route path="createproduct" element={<CreateProduct2/>} /> */}
 
+                    </Route>
+                    {/* </Route> */}
 
+                    <Route element={<GuestRoute />}>
+                      <Route path="signup" element={<SignUpPage />}></Route>
+                      <Route path="login" element={<LoginPage />}></Route>
+                      <Route path="otpverify" element={<OtpVerify />}></Route>
+                      <Route path="forgot-password/:email" element={<ForgotPassword />}></Route>
+                      <Route path="reset-password" element={<ResetPassword />}></Route>
+                    </Route>
 
-                </Route>
+                    {/* <Route path='*' element={<NotFound />}></Route>  */}
+                    {/* or */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
 
-                <Route element={<GuestRoute />}>
-                  <Route path="signup" element={<SignUpPage />}></Route>
-                  <Route path="login" element={<LoginPage />}></Route>
-                  <Route path="otpverify" element={<OtpVerify />}></Route>
-                  <Route path="forgot-password/:email" element={<ForgotPassword />}></Route>
-                  <Route path="reset-password" element={<ResetPassword />}></Route>
-                </Route>
-
-                {/* <Route path='*' element={<NotFound />}></Route>  */}
-                {/* or */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-
-              </Routes>
-              {/* </Suspense>
+                  </Routes>
+                  {/* </Suspense>
     </ThemeProvider> */}
-              <Toaster />
-            </CategoryProvider>
-          </CartProvider>
-        </AuthProvider>
-      </ThemeProvider>
+                  <Toaster />
 
+                </QueryClientProvider>
+              </CategoryProvider>
+            </WishlistProvider>
+        </CartProvider>
+          </AuthProvider>
+      </ThemeProvider >
 
     </>
   )

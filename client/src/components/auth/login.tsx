@@ -2,221 +2,328 @@ import { useState } from "react";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import Loader from "../../ui/Loader";
-import { useAuth } from "../../context/authContext";
 import * as Yup from "yup";
 
-const LoginSchema = Yup.object().shape({
-  role: Yup.string().oneOf(["user", "admin"]).required("Role is required"),
-  email: Yup.string().email("Invalid email").required("Email is required"),
+import Loader from "../../ui/Loader";
+import { useAuth } from "../../context/authContext";
+import api, { setAccessToken } from "../../api/api_utility";
+import { useCart } from "../../context/cartContext";
+
+/* ======================
+   Validation schema
+====================== */
+
+const LoginSchema = Yup.object({
+  role: Yup.string()
+    .oneOf(["user", "admin"])
+    .required("Role is required"),
+  email: Yup.string()
+    .email("Invalid email")
+    .required("Email is required"),
   password: Yup.string().required("Password is required"),
 });
 
+/* ======================
+   Demo Credentials
+====================== */
+
+const DEMO_USER = {
+  email: "userexplorer@gmail.com",
+  password: "123456",
+};
+
+const DEMO_ADMIN = {
+  email: "adminexplorer@gmail.com",
+  password: "123456",
+};
+
+/* ======================
+   Component
+====================== */
+
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showDemoModal, setShowDemoModal] = useState(true);
+
   const [form, setForm] = useState({
     role: "user",
     email: "",
     password: "",
   });
 
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const navigate = useNavigate();
-  const { fetchUser } = useAuth();
+  const { setUser } = useAuth();
+  const { mergeCartOnLogin } = useCart();
 
-  // -----------------------
-  // Validate Form
-  // -----------------------
+  /* ======================
+     Validate
+  ====================== */
+
   const validate = async () => {
     try {
       await LoginSchema.validate(form, { abortEarly: false });
       setErrors({});
       return true;
     } catch (err: any) {
-      const formErrors: any = {};
+      const formErrors: Record<string, string> = {};
       err.inner.forEach((e: any) => {
-        formErrors[e.path] = e.message;
+        if (e.path) formErrors[e.path] = e.message;
       });
       setErrors(formErrors);
       return false;
     }
   };
 
-  // -----------------------
-  // Controlled Input
-  // -----------------------
+  /* ======================
+     Handlers
+  ====================== */
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // -----------------------
-  // Submit Handler
-  // -----------------------
+  // 🔥 Fill based on role (FIXED)
+  const fillDemo = (role: "user" | "admin") => {
+    const creds = role === "admin" ? DEMO_ADMIN : DEMO_USER;
+
+    setForm({
+      role,
+      email: creds.email,
+      password: creds.password,
+    });
+
+    setShowDemoModal(false);
+    toast.success(`${role.toUpperCase()} demo loaded 🚀`);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const isValid = await validate();
-    if (!isValid) return;
+    if (!(await validate())) return;
 
     setIsLoading(true);
-    const API_BASE =
-      import.meta.env.VITE_BACKEND_URL_LOCAL ||
-      import.meta.env.VITE_BACKEND_URL_PRODUCTION;
 
     try {
-      const res = await fetch(`${API_BASE}/api/v1/user/login`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+      const res = await api.post("/api/v1/user/login", form);
+
+      const { accessToken, user } = res.data?.data || {};
+
+      if (!accessToken || !user) {
+        throw new Error("Invalid login response");
+      }
+
+      setAccessToken(accessToken);
+      setUser(user);
+      await mergeCartOnLogin();
+
+      sessionStorage.removeItem("didLogout");
+
+      toast.success(res.data?.message || "Login successful");
+
+      const role = user.role.toUpperCase();
+
+      navigate(role === "ADMIN" ? "/dashboard" : "/", {
+        replace: true,
       });
-
-      const result = await res.json();
-
-      if (!res.ok) throw new Error(result.message || "Login failed");
-      toast.success(result.message || "Login successful!");
-      await fetchUser();
-      navigate("/home");
     } catch (err: any) {
-      toast.error(err.message || "Something went wrong");
+      const message =
+        err?.response?.data?.message ||
+        err.message ||
+        "Login failed";
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
   };
-console.log(form)
-  // -----------------------
-  // Forgot Password
-  // -----------------------
+
   const handleForgotPassword = () => {
     navigate(`/forgot-password/${form.email || "email"}`);
   };
 
-  return isLoading ? (
-    <Loader />
-  ) : (
-    <section className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4 py-4">
-      <div className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md">
+  if (isLoading) return <Loader />;
 
-        <h2 className="text-2xl font-bold text-center mb-2">Welcome Back 👋</h2>
-        <p className="text-center text-gray-500 mb-6">Login to your account</p>
+  /* ======================
+     UI
+  ====================== */
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          
-          {/* ROLE SWITCH */}
-          <div className="relative w-64 mx-auto bg-gray-100 dark:bg-gray-800 rounded-xl flex p-1 shadow-inner">
-            <div
-              className={`absolute h-10 w-1/2 bg-white dark:bg-gray-700 rounded-lg shadow-md transition-all duration-300 ease-out ${
-                form.role === "user" ? "translate-x-0" : "translate-x-full"
-              }`}
-            />
+  return (
+    <>
+      {/* ================= DEMO MODAL ================= */}
+      {showDemoModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-[90%] max-w-md shadow-xl">
+            <h2 className="text-xl font-bold mb-2 text-center">
+              🚀 Quick Explore
+            </h2>
+
+            <p className="text-gray-600 text-center mb-4">
+              Skip email verification using demo accounts
+            </p>
+
+            {/* USER DEMO */}
+            <div className="bg-gray-100 p-3 rounded-lg text-sm mb-3">
+              <p className="font-semibold">👤 User Demo</p>
+              <p>Email: {DEMO_USER.email}</p>
+              <p>Password: {DEMO_USER.password}</p>
+              <button
+                onClick={() => fillDemo("user")}
+                className="mt-2 w-full bg-red-600 text-white py-1.5 rounded-md"
+              >
+                Use User Demo
+              </button>
+            </div>
+
+            {/* ADMIN DEMO */}
+            <div className="bg-gray-100 p-3 rounded-lg text-sm mb-3">
+              <p className="font-semibold">🛠 Admin Demo</p>
+              <p>Email: {DEMO_ADMIN.email}</p>
+              <p>Password: {DEMO_ADMIN.password}</p>
+              <button
+                onClick={() => fillDemo("admin")}
+                className="mt-2 w-full bg-black text-white py-1.5 rounded-md"
+              >
+                Use Admin Demo
+              </button>
+            </div>
 
             <button
-              type="button"
-              onClick={() => setForm({ ...form, role: "user" })}
-              className={`flex-1 z-10 py-2.5 font-semibold text-sm rounded-lg transition-colors duration-200 ${
-                form.role === "user"
-                  ? "text-gray-900 dark:text-white"
-                  : "text-gray-500 dark:text-gray-400"
-              }`}
+              onClick={() => setShowDemoModal(false)}
+              className="w-full border py-2 rounded-md font-semibold mt-2"
             >
-              User
+              Login / Signup
             </button>
 
+            <p className="text-xs text-center text-gray-500 mt-3">
+              You can also explore products without logging in.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* ================= LOGIN FORM ================= */}
+      <section className="flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4">
+        <div className="bg-white shadow-xl rounded-2xl p-8 w-full max-w-md mt-6">
+          <h2 className="text-2xl font-bold text-center mb-2">
+            Welcome Back 👋
+          </h2>
+          <p className="text-center text-gray-500 mb-6">
+            Login to your account
+          </p>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* QUICK DEMO BUTTON */}
             <button
               type="button"
-              onClick={() => setForm({ ...form, role: "admin" })}
-              className={`flex-1 z-10 py-2.5 font-semibold text-sm rounded-lg transition-colors duration-200 ${
-                form.role === "admin"
-                  ? "text-gray-900 dark:text-white"
-                  : "text-gray-500 dark:text-gray-400"
-              }`}
+              onClick={() => fillDemo(form.role)}
+              className="w-full border border-dashed border-gray-400 py-2 rounded-md text-sm hover:bg-gray-50"
             >
-              Admin
+              ⚡ Use {form.role === "admin" ? "Admin" : "User"} Demo
             </button>
-          </div>
-          {errors.role && (
-            <p className="text-red-500 text-sm text-center">{errors.role}</p>
-          )}
 
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Email Address
-            </label>
-            <input
-              id="email"
-              type="email"
-              name="email"
-              value={form.email}
-              onChange={handleChange}
-              placeholder="Enter your email"
-              className="w-full border border-gray-300 p-2 rounded-md focus:ring-2 focus:ring-red-500 focus:outline-none"
-            />
-            {errors.email && (
-              <p className="text-red-500 text-sm mt-1">{errors.email}</p>
-            )}
-          </div>
-
-          {/* Password */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Password
-            </label>
-            <div className="flex items-center border border-gray-300 p-2 rounded-md">
-              <input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                name="password"
-                value={form.password}
-                onChange={handleChange}
-                placeholder="Enter password"
-                className="flex-grow focus:outline-none"
+            {/* Role switch */}
+            <div className="relative w-64 mx-auto bg-gray-100 rounded-xl flex p-1 shadow-inner">
+              <div
+                className={`absolute h-10 w-1/2 bg-white rounded-lg shadow-md transition-transform ${
+                  form.role === "user"
+                    ? "translate-x-0"
+                    : "translate-x-full"
+                }`}
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="text-gray-600 hover:text-black"
+                onClick={() => setForm({ ...form, role: "user" })}
+                className={`flex-1 z-10 py-2.5 font-semibold text-sm ${
+                  form.role === "user"
+                    ? "text-gray-900"
+                    : "text-gray-500"
+                }`}
               >
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
+                User
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, role: "admin" })}
+                className={`flex-1 z-10 py-2.5 font-semibold text-sm ${
+                  form.role === "admin"
+                    ? "text-gray-900"
+                    : "text-gray-500"
+                }`}
+              >
+                Admin
               </button>
             </div>
-            {errors.password && (
-              <p className="text-red-500 text-sm mt-1">{errors.password}</p>
-            )}
-          </div>
 
-          {/* Forgot password */}
-          <div
-            onClick={handleForgotPassword}
-            className="text-sm text-red-500 text-right cursor-pointer hover:underline"
-          >
-            Forgot password?
-          </div>
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium">
+                Email
+              </label>
+              <input
+                name="email"
+                type="email"
+                value={form.email}
+                onChange={handleChange}
+                className="w-full border rounded-md p-2"
+                placeholder="Enter email"
+              />
+              {errors.email && (
+                <p className="text-red-500 text-sm">{errors.email}</p>
+              )}
+            </div>
 
-          {/* Submit */}
-          <button
-            type="submit"
-            className="w-full py-2 rounded-md flex items-center justify-center gap-2 transition-all bg-red-600 hover:bg-red-700 text-white font-semibold"
-          >
-            Login
-          </button>
+            {/* Password */}
+            <div>
+              <label className="block text-sm font-medium">
+                Password
+              </label>
+              <div className="flex items-center border rounded-md p-2">
+                <input
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={handleChange}
+                  className="flex-1 outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="text-red-500 text-sm">{errors.password}</p>
+              )}
+            </div>
 
-          {/* Signup link */}
-          <p className="text-center text-sm text-gray-600 mt-2">
-            Don't have an account?{" "}
-            <Link
-              to="/signup"
-              className="text-red-600 font-medium hover:underline"
+            <div
+              onClick={handleForgotPassword}
+              className="text-sm text-red-500 text-right cursor-pointer"
             >
-              Sign Up
-            </Link>
-          </p>
-        </form>
-      </div>
-    </section>
+              Forgot password?
+            </div>
+
+            <button
+              disabled={isLoading}
+              className="w-full bg-red-600 text-white py-2 rounded-md font-semibold disabled:opacity-60"
+            >
+              Login
+            </button>
+
+            <p className="text-center text-sm">
+              Don’t have an account?{" "}
+              <Link to="/signup" className="text-red-600 font-medium">
+                Sign up
+              </Link>
+            </p>
+          </form>
+        </div>
+      </section>
+    </>
   );
 };
 

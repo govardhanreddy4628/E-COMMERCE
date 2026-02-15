@@ -11,6 +11,7 @@ interface IUser extends Document {
   isVerified: boolean;
 
   role: "USER" | "ADMIN" | "SUPER-ADMIN" | "VENDOR";
+  isDemo: boolean;
   status: "ACTIVE" | "INACTIVE" | "SUSPENDED";
 
   otp?: string | null;
@@ -122,6 +123,11 @@ const userSchema = new mongoose.Schema<IUserDocument>(
       type: String,
       enum: ["ADMIN", "USER", "SUPER-ADMIN", "VENDOR"],
       default: "USER",
+    },
+
+    isDemo: {
+      type: Boolean,
+      default: false,
     },
 
     tempMFASecret: {

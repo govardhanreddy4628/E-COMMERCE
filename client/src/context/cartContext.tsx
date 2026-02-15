@@ -1,145 +1,243 @@
-import {createContext, useState, useEffect, useContext, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { useAuth } from "./authContext"; // ✅ USE AUTH CONTEXT
 
-interface Product {
-  _id: string;
-  name: string;
-  price: number;
-  images: string[];
-}
+const API_BASE_URL = "http://localhost:8080/api/v1/cart";
 
-interface CartItem {
-  _id: string;
-  productId: Product;
+type CartItem = {
   quantity: number;
-}
+  cartItemId?: string;
+  product?: any;
+};
 
-interface CartContextType {
-  cart: CartItem[];
-  fetchCart: () => Promise<void>;
-  addToCart: (productId: string) => Promise<void>;
-  updateQuantity: (
-    productId: string,
-    action: "increase" | "decrease"
-  ) => Promise<void>;
-  deleteItem: (cartItemId: string) => Promise<void>;
-}
+type CartMap = {
+  [productId: string]: CartItem;
+};
 
-const CartContext = createContext<CartContextType | undefined>(undefined);
+type CartContextType = {
+  cart: CartMap;
+  addToCart: (product: any, quantity?: number) => void;
+  updateQuantity: (productId: string, action: "inc" | "dec") => void;
+  deleteItem: (productId: string) => void;
+  mergeCartOnLogin: () => Promise<void>;
+  getCartCount: number; // ✅ FIXED
+};
 
-export const CartProvider = ({ children }: { children: ReactNode }) => {
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const API_BASE_URL = "http://localhost:8080/api/v1/cart";
+const CartContext = createContext<CartContextType | null>(null);
 
-  // ✅ Fetch user cart
-  const fetchCart = async (): Promise<void> => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/getCart`, {
-        method: "GET",
-        credentials: "include",
-      });
-      const data = await res.json();
+export const CartProvider = ({ children }: any) => {
+  const [cart, setCart] = useState<CartMap>({});
 
-      if (data.success && Array.isArray(data.data)) {
-        setCart(data.data);
-      } else {
-        setCart([]);
-      }
-    } catch (err) {
-      console.error("Failed to fetch cart:", err);
-      setCart([]);
+  // ✅ GET AUTH STATE
+  const { isAuthenticated } = useAuth();
+
+  // 🔁 Load from localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem("cart");
+    if (stored) {
+      setCart(JSON.parse(stored));
     }
-  };
+  }, []);
 
-  // ✅ Add item to cart
-  const addToCart = async (productId: string): Promise<void> => {
+  // 💾 Persist cart
+  useEffect(() => {
+    localStorage.setItem("cart", JSON.stringify(cart));
+  }, [cart]);
+
+  // =========================
+  // ✅ ADD TO CART
+  // =========================
+  const addToCart = async (product: any, quantity: number = 1) => {
+    const productId = product._id;
+    const existing = cart[productId];
+
+    const prevCart = cart; // ✅ for rollback
+
+    const updatedCart: CartMap = {
+      ...cart,
+      [productId]: {
+        ...existing,
+        quantity: (existing?.quantity || 0) + quantity,
+        product,
+      },
+    };
+
+    setCart(updatedCart);
+
+    // ❌ NOT LOGGED IN → only local
+    if (!isAuthenticated) return;
+
     try {
-      const res = await fetch(`${API_BASE_URL}/createCart`, {
+      const res = await fetch(`${API_BASE_URL}/add`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ productId, quantity: 1 }),
+        body: JSON.stringify({ productId, quantity }),
       });
+
       const data = await res.json();
+
       if (data.success) {
-        await fetchCart();
-      } else {
-        console.error("Add to cart failed:", data.message);
+        setCart((prev) => ({
+          ...prev,
+          [productId]: {
+            ...prev[productId],
+            cartItemId: data.cartItemId,
+          },
+        }));
       }
     } catch (err) {
-      console.error("Error adding to cart:", err);
+      console.error("rollback add");
+      setCart(prevCart); // ✅ FIXED rollback
     }
   };
 
-  // ✅ Update quantity (handles both increase & decrease)
+  // =========================
+  // ✅ UPDATE QUANTITY
+  // =========================
   const updateQuantity = async (
     productId: string,
-    action: "increase" | "decrease"
-  ): Promise<void> => {
-    const item = cart.find((i) => i.productId._id === productId);
+    action: "inc" | "dec"
+  ) => {
+    const item = cart[productId];
     if (!item) return;
 
-    let newQty = item.quantity;
-    if (action === "increase") newQty += 1;
-    if (action === "decrease") newQty -= 1;
+    const newQty =
+      action === "inc" ? item.quantity + 1 : item.quantity - 1;
 
-    if (newQty <= 0) {
-      return deleteItem(item._id); // reuse delete function
-    }
+    if (newQty <= 0) return deleteItem(productId);
+
+    const prevCart = cart;
+
+    const updatedCart = {
+      ...cart,
+      [productId]: { ...item, quantity: newQty },
+    };
+
+    setCart(updatedCart);
+
+    if (!isAuthenticated || !item.cartItemId) return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/updateCartItem/${item._id}`, {
-        method: "PUT",
+      await fetch(
+        `${API_BASE_URL}/updateCartItem/${item.cartItemId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ quantity: newQty }),
+        }
+      );
+    } catch {
+      setCart(prevCart); // ✅ FIXED rollback
+    }
+  };
+
+  // =========================
+  // ✅ DELETE ITEM
+  // =========================
+  const deleteItem = async (productId: string) => {
+    const item = cart[productId];
+
+    const prevCart = cart;
+
+    const updatedCart = { ...cart };
+    delete updatedCart[productId];
+
+    setCart(updatedCart);
+
+    if (!isAuthenticated || !item?.cartItemId) return;
+
+    try {
+      await fetch(
+        `${API_BASE_URL}/deleteCartItem/${item.cartItemId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+    } catch {
+      setCart(prevCart); // ✅ FIXED rollback
+    }
+  };
+
+  // =========================
+  // 🔥 MERGE CART ON LOGIN
+  // =========================
+  const mergeCartOnLogin = async () => {
+    try {
+      const localCart = Object.entries(cart).map(
+        ([productId, item]) => ({
+          productId,
+          quantity: item.quantity,
+        })
+      );
+
+      if (localCart.length === 0) return;
+
+      const res = await fetch(`${API_BASE_URL}/merge`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ quantity: newQty }),
+        body: JSON.stringify({ items: localCart }),
       });
 
       const data = await res.json();
-      if (data.success) {
-        await fetchCart();
-      } else {
-        console.error("Update quantity failed:", data.message);
+
+      if (data.success && Array.isArray(data.data)) {
+        const newCart: CartMap = {};
+
+        data.data.forEach((item: any) => {
+          newCart[item.productId._id] = {
+            quantity: item.quantity,
+            cartItemId: item._id,
+            product: item.productId,
+          };
+        });
+
+        setCart(newCart);
       }
     } catch (err) {
-      console.error("Error updating quantity:", err);
+      console.error("merge failed", err);
     }
   };
 
-  // ✅ Delete item
-  const deleteItem = async (cartItemId: string): Promise<void> => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/deleteCartItem/${cartItemId}`, {
-        method: "DELETE",
-        credentials: "include",
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        await fetchCart();
-      } else {
-        console.error("Delete failed:", data.message);
-      }
-    } catch (err) {
-      console.error("Error deleting item:", err);
-    }
-  };
-
-  useEffect(() => {
-    fetchCart();
-  }, []);
+  // =========================
+  // 🧮 CART COUNT (FIXED)
+  // =========================
+  const getCartCount = useMemo(() => {
+    return Object.values(cart).reduce(
+      (acc, item) => acc + item.quantity,
+      0
+    );
+  }, [cart]);
 
   return (
     <CartContext.Provider
-      value={{ cart, fetchCart, addToCart, updateQuantity, deleteItem }}
+      value={{
+        cart,
+        addToCart,
+        updateQuantity,
+        deleteItem,
+        mergeCartOnLogin,
+        getCartCount, // ✅ FIXED
+      }}
     >
       {children}
     </CartContext.Provider>
   );
 };
 
-export const useCart = (): CartContextType => {
-  const context = useContext(CartContext);
-  if (!context)
-    throw new Error("useCart must be used within a CartProvider");
-  return context;
+// =========================
+// ✅ HOOK
+// =========================
+export const useCart = () => {
+  const ctx = useContext(CartContext);
+  if (!ctx) throw new Error("CartContext missing");
+  return ctx;
 };

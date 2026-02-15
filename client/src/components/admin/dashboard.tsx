@@ -142,7 +142,9 @@ export function Dashboard() {
               <h1 className="text-3xl font-bold mb-1 text-black">Welcome,</h1>
               <h1 className='text-3xl font-bold text-primary'>John Doe 👋</h1>
               <p className="text-gray-600 mt-4">Here’s What happening on your store today. See the statistics at once.</p>
+              <Link to="/products/create">
               <Button className='!mt-6 bg-primary text-white hover:bg-primary/90 transition-colors flex gap-2' variant='contained'><FaPlus /> Add Product</Button>
+              </Link>
             </div>
             <img src="https://ecommerce-admin-view.netlify.app/shop-illustration.webp" className='w-[200px]' />
           </div>
@@ -152,28 +154,28 @@ export function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 animate-slide-up h-full" style={{ '--delay': '100ms' } as React.CSSProperties}>
               <StatsCard
                 title="Total Sales"
-                value="$13.400"
+                value="$42,250"
                 trend={0.47}
                 icon={<Wallet2 />}
                 className="bg-primary/5 bg-gradient-to-br from-blue-500/50 to-pink-300/50 rounded-lg shadow hover:opacity-80 transition-opacity duration-300"
               />
               <StatsCard
                 title="Orders"
-                value="240.32M"
+                value="1,040"
                 description="Today's volume"
                 icon={<BarChart3 />}
                 className="bg-primary/5 bg-gradient-to-br from-violet-500/50 to-green-300/50 rounded-lg shadow hover:opacity-80 transition-opacity duration-300"
               />
               <StatsCard
                 title="Revenue"
-                value="730.32M"
+                value="$9,800"
                 trendLabel=""
                 icon={<TrendingUp />}
                 className="bg-success/5 bg-gradient-to-br from-green-500/50 to-blue-300/80 rounded-lg shadow hover:opacity-80 transition-opacity duration-300"
               />
               <StatsCard
                 title="Customers"
-                value="$13.200"
+                value="3,200"
                 trendLabel=""
                 icon={<TrendingDown />}
                 className="bg-danger/5 bg-gradient-to-br from-red-500/50 to-slate-600/50 rounded-lg shadow hover:opacity-80 transition-opacity duration-300"
@@ -191,16 +193,8 @@ export function Dashboard() {
         <main className="flex-1 p-8 overflow-y-auto">
           
 
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
-            <Card title="Total Sales" value="$52,400" color="from-blue-500 to-indigo-600" isDark={isDark} />
-            <Card title="Orders" value="1,240" color="from-green-400 to-green-600" isDark={isDark} />
-            <Card title="Revenue" value="$9,730" color="from-yellow-400 to-yellow-500" isDark={isDark} />
-            <Card title="Customers" value="3,200" color="from-pink-400 to-pink-600" isDark={isDark} />
-          </div>
-
           {/* orders Chart */}
-          <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-1 !h-96 gap-6 mb-8">
             <div className={`${cardBg} p-6 rounded-lg shadow`}>
               <div className="flex justify-between items-center">
                 <h2 className={`text-xl font-semibold ${textColor}`}>Orders Overview</h2>

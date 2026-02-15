@@ -44,3 +44,18 @@ export const getBase64 = (file: FileData): string => {
 
 // export const getBase64 = (file) =>
 //   `data:${file.mimetype};base64,${file.buffer.toString("base64")}`;       
+
+
+
+
+
+import mongoose from "mongoose";
+import CategoryModel from "../models/categoryModel.js";
+
+interface Category {
+  _id: mongoose.Types.ObjectId;
+  isActive: boolean;
+  children?: any[];
+}
+
+

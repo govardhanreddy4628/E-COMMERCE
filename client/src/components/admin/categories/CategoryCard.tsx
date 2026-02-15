@@ -154,8 +154,6 @@ function SubcategoryItem({ category, level }: { category: Category; level: numbe
 
   const totalSubcategories = countAllSubcategories(category);
 
-
-
   return (
     <div className="space-y-2">
       <div className="flex items-start justify-between p-3 rounded-lg bg-muted/30 group/sub border border-border/30 hover:border-border/60 transition-all">

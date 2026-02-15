@@ -6,8 +6,12 @@ import {
   deleteProductController,
   filters,
   getAllProductController,
+  getProductsByCategoryId,
+  getProductsByCategorySlug,
   getSingleProductByIdController,
+  getTopRatedProducts,
   productFiltersController,
+  updateProductController,
   //updateProductController,
 } from "../controllers/productController.js";
 import { authenticate } from "../middleware/authenticate.js";
@@ -22,6 +26,7 @@ const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
 
 //productRouter.post('/uploadImages', auth, upload.array('images'), uploadImages);
 productRouter.post("/create", createProductController);
+productRouter.put("/update/:id", asyncHandler(updateProductController));
 
 // Frontend direct upload path (client sends product JSON with images array)
 productRouter.post("/createproduct", createProduct);
@@ -29,17 +34,22 @@ productRouter.post("/createproduct", createProduct);
 // Backend upload path (multipart form -> multer -> createProduct)
 //productRouter.post("/createproduct-server", uploadMultiple, asyncHandler(createProduct));
 
-productRouter.get("/getallproducts", getAllProductController);
+productRouter.get("/getallproducts", asyncHandler(getAllProductController));
 //productRouter.get("/getAllproductsByCatId/:id", getAllProductsByCatIdController);
 //productRouter.get("/getAllproductsByCatName", getAllProductsByCatIdController);
 
-//productRouter.get("/getSingleproduct/:id", getSingleProductByIdController);
+productRouter.get("/getproductdetails/:id", asyncHandler(getSingleProductByIdController));
 // router.put("/updateproduct", updateProductController)
-productRouter.delete("/deleteproduct", deleteProductController);
+productRouter.delete("/delete/:id", asyncHandler(deleteProductController));
 productRouter.post("/checkout", asyncHandler(checkoutController));
 
 //productRouter.post('/filters', productFiltersController);
 
+productRouter.get("/category/:slug", asyncHandler(getProductsByCategorySlug));
+productRouter.get("/category/id/:id", asyncHandler(getProductsByCategoryId));
+
 productRouter.post('/filters', filters)
+
+productRouter.get("/top-rated", asyncHandler(getTopRatedProducts));
 
 export default productRouter;

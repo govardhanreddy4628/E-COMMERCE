@@ -7,7 +7,8 @@
     "test": "jest",
     "build": "tsc",
     "dev": "nodemon --watch src --exec tsx src/index.ts",
-    "start": "tsx src/index.ts"
+    "start": "tsx src/index.ts",
+    "seed": "tsx src/scripts/seedSuperAdmin.ts" 
   },
   "author": "",
   "license": "ISC",

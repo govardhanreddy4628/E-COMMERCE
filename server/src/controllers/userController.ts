@@ -16,34 +16,29 @@ import fs from "fs";
 import cloudinary from "../config/cloudinary.js";
 import validator from "validator";
 import redisClient from "../config/connectRedis.js";
-import { storeSession } from "../utils/redisSessions.js";
+import {
+  storeSession,
+  findSessionByRawToken,
+  blacklistRawToken,
+  clearAllSessionsForUser,
+} from "../utils/redisSessions.js";
 import logger from "../utils/logger.js";
 import { hashToken } from "../utils/hash.js";
-import { sendVerificationEmailUsingResend } from "../utils/sendEmailUsingResend.js";
 import { sendVerificationEmailUsingNodeMailer } from "../utils/sendEmailUsingNodeMailer.js";
-
-// helper cookie opts
-const cookieOptionsBase: CookieOptions = {
-  httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
-  sameSite: (process.env.NODE_ENV === "production" ? "none" : "lax") as
-    | "none"
-    | "lax"
-    | "strict",
-  path: "/",
-};
+import { getAuthCookieOptions } from "../config/cookies.js";
+import { sendVerificationEmailUsingResend } from "../utils/sendVerificationEmailUsingResend.js";
 
 // ===================== registration =======================
 export const registerController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void | any> => {
   try {
     // console.log("BODY:", req.body);
     console.log("FILE:", req.file);
 
-    const { email, password, fullName, confirmPassword } = req.body;
+    const { email, password, fullName, confirmPassword, inviteToken } = req.body;
     const avatar = req.file?.path || undefined; // Assuming you're using multer for file uploads
     console.log(avatar);
 
@@ -66,8 +61,42 @@ export const registerController = async (
     }
     //add validations for remaining fields
 
+
+    /**
+     * -----------------------------------------
+     * 🧠 INVITE HANDLING (ADMIN / VENDOR)
+     * -----------------------------------------
+     */
+    let role: "user" | "admin" | "super-admin" = "user";
+    let isVerified = false;
+    let mfaRequired = false;
+    let invitedBy: any = null;
+
+    if (inviteToken) {
+      const inviteKey = `admin:invite:${inviteToken}`;
+      const inviteRaw = await redisClient.get(inviteKey);
+       if (!inviteRaw) {
+        return res.status(400).json({ message: "Invalid or expired invite link" });
+      }
+
+      const invite = JSON.parse(inviteRaw);
+
+      if (invite.email !== email) {
+        return res.status(403).json({ message: "Invite email mismatch" });
+      }
+
+      role = invite.role; // admin / vendor
+      isVerified = true; // email ownership already proven
+      mfaRequired = true;
+      invitedBy = invite.invitedBy;
+
+      // single-use invite
+      await redisClient.del(inviteKey);
+    }
+
+    //existing user check (by email)
     const existingUser = await UserModel.findOne({ email }).select(
-      "+otp +otpExpiresAt"
+      "+otp +otpExpiresAt",
     );
 
     //const verificationToken = crypto.randomBytes(32).toString("hex");
@@ -92,6 +121,13 @@ export const registerController = async (
         //     .json({ message: "OTP recently sent. Try again in a minute." });
         // }
 
+        // 🔐 Do NOT allow re-register via invite if user already exists
+        if (inviteToken) {
+          return res.status(409).json({
+            message: "Account already exists. Contact support.",
+          });
+        }
+
         existingUser.otp = hashedOtp;
         existingUser.otpExpiresAt = new Date(Date.now() + otpExpiryMs);
         await existingUser.save();
@@ -100,14 +136,15 @@ export const registerController = async (
         const intentToken = jwt.sign(
           { email: existingUser.email, userId: existingUser.id.toString() }, //actually here no need to use toString() method because mongoose.Document has a built-in getter for .id, and it returns a string by default. ✅ existingUser.id is already a string. ❌ existingUser._id is an ObjectId, and would need .toString()
           process.env.LOGIN_INTENT_SECRET!,
-          { expiresIn: "15m" }
+          { expiresIn: "15m" },
         );
 
         //await sendVerificationEmailUsingResend(existingUser.email, otp);
         await sendVerificationEmailUsingNodeMailer(existingUser.email, otp);
 
         return res.status(200).json({
-          message: "User already exists but is not verified. Verification email resent.",
+          message:
+            "User already exists but is not verified. Verification email resent.",
           intentToken,
         });
       }
@@ -121,16 +158,28 @@ export const registerController = async (
       fullName,
       email,
       password: hashedPassword,
-      otp: hashedOtp,
-      otpExpiresAt: new Date(Date.now() + otpExpiryMs),
       avatar,
-      isVerified: false,
+      role,
+      invitedBy,
+      mfaRequired,
+      isVerified,
+      otp: inviteToken ? undefined : hashedOtp,
+      otpExpiresAt: inviteToken
+        ? undefined
+        : new Date(Date.now() + otpExpiryMs),
     });
+
+    if (inviteToken) {
+      return res.status(201).json({
+        message: "Admin account created. Please setup MFA to continue.",
+        success: true,
+      });
+    }
 
     const intentToken = jwt.sign(
       { email: newUser.email, userId: newUser.id.toString() },
       process.env.LOGIN_INTENT_SECRET!,
-      { expiresIn: "15m" }
+      { expiresIn: "15m" },
     );
 
     await sendVerificationEmailUsingResend(newUser.email, otp);
@@ -142,7 +191,7 @@ export const registerController = async (
       error: false,
       isVerified: false,
     });
-} catch (err) {
+  } catch (err) {
     next(err);
   }
 };
@@ -151,7 +200,7 @@ export const registerController = async (
 export const verifyEmailController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void | any> => {
   try {
     const { otp, intentToken } = req.body;
@@ -162,7 +211,7 @@ export const verifyEmailController = async (
 
     const decoded = jwt.verify(
       intentToken,
-      process.env.LOGIN_INTENT_SECRET!
+      process.env.LOGIN_INTENT_SECRET!,
     ) as { email: string; userId: string };
 
     const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
@@ -197,23 +246,22 @@ export const verifyEmailController = async (
     //   last_login_date: new Date(),
     // });
 
-    res.cookie("accessToken", accessToken, {
-      ...cookieOptionsBase,
-      maxAge: ACCESS_EXPIRES_SEC * 1000,
-    });
+    // res.cookie("accessToken", accessToken, {
+    //   ...cookieOptionsBase,
+    //   maxAge: ACCESS_EXPIRES_SEC * 1000,
+    // });
 
     res.cookie("refreshToken", refreshToken, {
-      ...cookieOptionsBase,
-      maxAge: REFRESH_EXPIRES_SEC * 1000, // usually days
+      ...getAuthCookieOptions(req),
+      maxAge: REFRESH_EXPIRES_SEC * 1000,
     });
 
     res.status(200).json({
       success: true,
       message: "Email verified and login successful",
-      // data: {
-      //   accessToken,
-      //   refreshToken,
-      // },
+      data: {
+        accessToken,
+      },
     });
   } catch (err) {
     next(err);
@@ -224,7 +272,7 @@ export const verifyEmailController = async (
 export const loginController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     console.log("BODY:", req.body);
@@ -239,11 +287,11 @@ export const loginController = async (
     }
 
     const user = await UserModel.findOne({ email }).select(
-      "+password +otp +otpExpiresAt"
+      "+password +otp +otpExpiresAt",
     );
 
     if (!user) {
-      throw new ApiError(400, "User Does not Exist.");
+      throw new ApiError(400, "Invalid credentials.");
     }
 
     if (user.status !== "ACTIVE") {
@@ -257,6 +305,11 @@ export const loginController = async (
 
     // case 1: If email not verified — resend OTP and return intent token
     if (!user.isVerified) {
+      // 🛑 OTP cooldown check (ADD THIS HERE)
+      if (user.otpExpiresAt && user.otpExpiresAt > new Date()) {
+        throw new ApiError(429, "OTP already sent. Please wait.");
+      }
+
       //const verificationToken = crypto.randomBytes(32).toString("hex");
       const otp = crypto.randomInt(100000, 999999).toString();
       const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
@@ -271,7 +324,7 @@ export const loginController = async (
       const intentToken = jwt.sign(
         { userId: user.id, email: user.email },
         process.env.LOGIN_INTENT_SECRET!,
-        { expiresIn: "15m" }
+        { expiresIn: "15m" },
       );
 
       res.status(200).json({
@@ -279,6 +332,21 @@ export const loginController = async (
         message: "Please verify your email with the OTP sent to your email.",
         intentToken: intentToken,
         needVerify: true,
+      });
+      return;
+    }
+
+    /* ✅ ADD MFA CHECK RIGHT HERE */
+
+    // 🔐 Admin MFA enforcement
+    if (
+      ["ADMIN", "SUPER-ADMIN"].includes(user.role) &&
+      (!user.mfa?.enabled || !user.mfa?.verified)
+    ) {
+      res.status(403).json({
+        success: false,
+        message: "MFA_SETUP_REQUIRED",
+        mfaRequired: true,
       });
       return;
     }
@@ -300,22 +368,28 @@ export const loginController = async (
     });
 
     // Access Token
-    res.cookie("accessToken", accessToken, {
-      ...cookieOptionsBase,
-      maxAge: ACCESS_EXPIRES_SEC * 1000, // 15 minutes
-    });
+    // res.cookie("accessToken", accessToken, {
+    //   ...cookieOptionsBase,
+    //   maxAge: ACCESS_EXPIRES_SEC * 1000, // 15 minutes
+    // });
 
     // Refresh Token
     res.cookie("refreshToken", refreshToken, {
-      ...cookieOptionsBase,
+      ...getAuthCookieOptions(req),
       maxAge: REFRESH_EXPIRES_SEC * 1000,
     });
 
+    // ✅ Access token ONLY in response
     res.status(200).json({
       success: true,
       message: "Login successful",
       data: {
         accessToken,
+        user: {
+          id: user.id,
+          role: user.role,
+          email: user.email,
+        },
       },
     });
   } catch (err) {
@@ -329,6 +403,7 @@ export const getNewAccessToken = async (req: Request, res: Response) => {
     const rawRefresh =
       (req.cookies?.refresh_token as string) ||
       (req.cookies?.refreshToken as string);
+
     if (!rawRefresh) {
       return res.status(401).json({ message: "No refresh token provided" });
     }
@@ -370,7 +445,7 @@ export const getNewAccessToken = async (req: Request, res: Response) => {
     await redisClient.del(redisKey);
 
     const { token: newRefreshToken, sid: newSid } = generateRefreshToken(
-      decoded.id
+      decoded.id,
     );
 
     // store new refresh token (use your storeSession helper to ensure same format/hashing)
@@ -408,7 +483,7 @@ export const getNewAccessToken = async (req: Request, res: Response) => {
 export const getCurrentUserController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const userId = req.user;
@@ -420,7 +495,7 @@ export const getCurrentUserController = async (
     }
 
     const user = await UserModel.findById(userId).select(
-      "-password -otp -otpExpiresAt -refresh_token"
+      "-password -otp -otpExpiresAt -refresh_token",
     );
 
     if (!user) {
@@ -441,79 +516,34 @@ export const getCurrentUserController = async (
 const getUserSessionKey = (userId: string) => `user_sessions:${userId}`;
 const getBlacklistKey = (token: string) => `bl_refresh:${token}`;
 
-export const logoutController = async (
-  req: Request,
-  res: Response
-): Promise<Response> => {
-  try {
-    const userId = req.user;
-    const refreshToken = req.cookies?.refreshToken;
+export async function logoutController(req: Request, res: Response) {
+  const rawRefreshToken = req.cookies?.refreshToken;
 
-    if (!userId || !refreshToken) {
-      return res.status(401).json({
-        message: "Unauthorized: Missing user or token",
-        error: true,
-        success: false,
-      });
-    }
-
-    // Redis keys
-    const sessionKey = getUserSessionKey(userId.id);
-    const blacklistKey = getBlacklistKey(refreshToken);
-
-    // Cookie options (must match login!)
-    const cookieOptions = {
-      httpOnly: true,
-      secure: process.env.NODE_ENV_MODE === "production",
-      sameSite:
-        process.env.NODE_ENV_MODE === "production"
-          ? ("none" as "none")
-          : ("strict" as "strict"),
-      path: "/", // 🔑 important to match original cookie
-    };
-
-    // Clear cookies
-    res.clearCookie("accessToken", cookieOptions);
-    res.clearCookie("refreshToken", cookieOptions);
-
-    // Remove refresh token from user's active session list
-    const removed = await redisClient.sRem(sessionKey, refreshToken);
-    if (removed === 0) {
-      logger.warn(
-        `Logout: Refresh token not found in session set. User: ${userId}`
-      );
-    }
-
-    // Blacklist refresh token to prevent reuse
-    await redisClient.setEx(
-      blacklistKey,
-      7 * 24 * 60 * 60, // 7 days
-      "blacklisted"
-    );
-
-    logger.info(`User ${userId} logged out. Refresh token invalidated.`);
-
-    return res.status(200).json({
-      message: "Logout successful",
-      error: false,
-      success: true,
-    });
-  } catch (err: any) {
-    console.error("Logout error:", err);
-    return res.status(500).json({
-      message: "Internal server error during logout",
-      error: true,
-      success: false,
-    });
+  if (!rawRefreshToken) {
+    return res.status(200).json({ message: "Logged out" });
   }
-};
 
+  // Decode just to get sid
+  const payload = jwt.decode(rawRefreshToken) as { sid?: string };
+
+  // Blacklist token
+  await blacklistRawToken(rawRefreshToken);
+
+  // 🔥 REMOVE SESSION META (THIS IS WHAT MATTERS)
+  if (payload?.sid) {
+    await redisClient.del(`session_meta:${payload.sid}`);
+  }
+
+  res.clearCookie("refreshToken", getAuthCookieOptions(req));
+
+  return res.status(200).json({ message: "Logout successful" });
+}
 
 //================forgot password======================
 export const forgotPasswordController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { email } = req.body;
@@ -521,7 +551,7 @@ export const forgotPasswordController = async (
     if (!email) throw new ApiError(400, "Email is required");
 
     const user = await UserModel.findOne({ email }).select(
-      "+otp +otpExpiresAt"
+      "+otp +otpExpiresAt",
     );
 
     // Always respond with success message to avoid email enumeration
@@ -553,7 +583,7 @@ export const forgotPasswordController = async (
 export const resetPasswordController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const authHeader = req.headers.authorization;
@@ -563,7 +593,7 @@ export const resetPasswordController = async (
 
     const { userId, email } = jwt.verify(
       token,
-      process.env.LOGIN_INTENT_SECRET!
+      process.env.LOGIN_INTENT_SECRET!,
     ) as { userId: string; email: string };
 
     const { newPassword, confirmPassword } = req.body;
@@ -577,7 +607,7 @@ export const resetPasswordController = async (
     }
 
     const user = await UserModel.findById(userId).select(
-      "+password +otp +otpExpiresAt"
+      "+password +otp +otpExpiresAt",
     );
 
     if (!user || user.email !== email) {
@@ -604,7 +634,7 @@ export const resetPasswordController = async (
 export const verifyForgotPasswordOtpController = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ): Promise<void> => {
   try {
     const { otp, email } = req.body;
@@ -632,7 +662,7 @@ export const verifyForgotPasswordOtpController = async (
     const intentToken = jwt.sign(
       { userId: user.id.toString(), email: user.email },
       process.env.LOGIN_INTENT_SECRET!,
-      { expiresIn: "10m" }
+      { expiresIn: "10m" },
     );
 
     res.status(200).json({
@@ -677,7 +707,7 @@ export const userAvatarController = async (req: Request, res: Response) => {
     if (imageName) {
       const res = await cloudinary.uploader.destroy(
         imageName,
-        (error, result) => {}
+        (error, result) => {},
       );
     }
 
@@ -702,7 +732,7 @@ export const userAvatarController = async (req: Request, res: Response) => {
     };
 
     const uploadPromises = files.map((file) =>
-      cloudinary.uploader.upload(file.path, options)
+      cloudinary.uploader.upload(file.path, options),
     );
 
     const uploadResults = await Promise.all(uploadPromises);
@@ -711,7 +741,9 @@ export const userAvatarController = async (req: Request, res: Response) => {
     const deletePromises = files.map((file) =>
       fs.promises
         .unlink(file.path)
-        .catch((err) => console.error(`Error deleting file ${file.path}:`, err))
+        .catch((err) =>
+          console.error(`Error deleting file ${file.path}:`, err),
+        ),
     );
     await Promise.all(deletePromises);
 
@@ -832,7 +864,7 @@ export async function updateUserDetails(req: Request, res: Response) {
         otp: otp !== "" ? otp : null,
         otpExpires: otp !== "" ? Date.now() + 600000 : "",
       },
-      { new: true }
+      { new: true },
     );
 
     if (email !== userExist.email) {
@@ -853,12 +885,6 @@ export async function updateUserDetails(req: Request, res: Response) {
     });
   }
 }
-
-
-
-
-
-
 
 export const resendOtpController = async (req: Request, res: Response) => {
   try {
@@ -939,5 +965,131 @@ export const resendOtpController = async (req: Request, res: Response) => {
   }
 };
 
+// export const refreshController = async (
+//   req: Request,
+//   res: Response,
+//   next: NextFunction,
+// ) => {
+//   try {
+//     const rawRefreshToken = req.cookies?.refreshToken;
+//     if (!rawRefreshToken) throw new ApiError(401, "No refresh token");
 
+//     let payload: { id: string; sid: string };
+//     try {
+//       payload = jwt.verify(
+//         rawRefreshToken,
+//         process.env.JWT_REFRESH_SECRET!,
+//       ) as any;
+//     } catch (err) {
+//       throw new ApiError(401, "Expired or invalid refresh token");
+//     }
 
+//     const session = await findSessionByRawToken(rawRefreshToken);
+
+//     // 🛡️ REUSE DETECTION
+//     const hashed = hashToken(rawRefreshToken);
+//     const isBlacklisted = await redisClient.get(`bl_refresh:${hashed}`);
+
+//     if (!session && isBlacklisted) {
+//       await clearAllSessionsForUser(payload.id);
+//       res.clearCookie("refreshToken", getAuthCookieOptions(req));
+//       throw new ApiError(403, "Token reuse detected");
+//     }
+
+//     if (!session) {
+//       throw new ApiError(401, "Session expired");
+//     }
+
+//     // 🔁 ROTATION
+//     await blacklistRawToken(rawRefreshToken);
+
+//     const user = await UserModel.findById(payload.id).select("role");
+//     if (!user) throw new ApiError(401, "User not found");
+
+//     const accessToken = generateAccessToken(payload.id, user.role);
+
+//     const { token: newRefreshToken, sid: newSid } = generateRefreshToken(
+//       payload.id,
+//     );
+
+//     await storeSession({
+//       rawRefreshToken: newRefreshToken,
+//       userId: payload.id,
+//       sid: newSid,
+//       meta: { ip: req.ip, ua: req.get("user-agent") },
+//     });
+
+//     res.cookie("refreshToken", newRefreshToken, {
+//       ...getAuthCookieOptions(req),
+//       maxAge: REFRESH_EXPIRES_SEC * 1000,
+//     });
+
+//     res.status(200).json({ success: true, accessToken });
+//   } catch (err) {
+//     next(err);
+//   }
+// };
+
+const sessionMetaKey = (sid: string) => `session_meta:${sid}`;
+
+interface RefreshJwtPayload {
+  id: string;
+  sid: string;
+  role: string;
+}
+
+export async function refreshController(req: Request, res: Response) {
+  const rawRefreshToken = req.cookies?.refreshToken;
+
+  if (!rawRefreshToken) {
+    return res.status(401).json({ message: "Refresh token missing" });
+  }
+
+  let payload: { id: string; sid: string };
+
+  // 1️⃣ Verify refresh JWT
+  try {
+    payload = jwt.verify(rawRefreshToken, process.env.JWT_REFRESH_SECRET!) as {
+      id: string;
+      sid: string;
+    };
+  } catch {
+    return res.status(401).json({ message: "Invalid refresh token" });
+  }
+
+  // 2️⃣ Redis validation
+  const session = await findSessionByRawToken(rawRefreshToken);
+  if (!session) {
+    return res.status(401).json({ message: "Session expired or revoked" });
+  }
+
+  // 3️⃣ ROTATE
+  await blacklistRawToken(rawRefreshToken);
+
+  // 4️⃣ Load user (ROLE SOURCE OF TRUTH)
+  const user = await UserModel.findById(payload.id);
+  if (!user || user.status !== "ACTIVE") {
+    return res.status(403).json({ message: "Account inactive" });
+  }
+
+  // 5️⃣ Issue new tokens
+  const accessToken = generateAccessToken(user.id, user.role);
+  const { token: newRefreshToken, sid: newSid } = generateRefreshToken(user.id);
+
+  await storeSession({
+    rawRefreshToken: newRefreshToken,
+    userId: user.id,
+    sid: newSid,
+    meta: {
+      ip: req.ip,
+      ua: req.get("user-agent"),
+    },
+  });
+
+  res.cookie("refreshToken", newRefreshToken, getAuthCookieOptions(req));
+
+  return res.status(200).json({
+    success: true,
+    accessToken,
+  });
+}

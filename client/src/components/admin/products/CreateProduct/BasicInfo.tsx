@@ -1,4 +1,3 @@
-import { Plus } from 'lucide-react';
 import { Button } from '../../../../ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../../ui/card";
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "../../../../ui/form";
@@ -8,10 +7,10 @@ import { Input } from "../../../../ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../../../ui/select';
 //import { Plus } from "lucide-react";
 import { Textarea } from "../../../../ui/textarea";
-import OffersInput from './Offers';
+import RecursiveCategorySelector from './RecursiveCategorySelector';
 
 
-const BasicInfo = ({ validateSection, tab, form, generateSKU, categories, handleCategoryChange, selectedCategory }) => {
+const BasicInfo = ({ validateSection, tab, form, generateSKU, categories, }) => {
   const [highlightInput, setHighlightInput] = useState("");
   const highlights = form.watch("highlights");
 
@@ -51,86 +50,30 @@ const BasicInfo = ({ validateSection, tab, form, generateSKU, categories, handle
                 </FormItem>
               )}
             />
+          </div>
 
-
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}
               name="category"
-              render={({ field }) => (
+              render={() => (
                 <FormItem>
                   <FormLabel>Category *</FormLabel>
-                  <Select onValueChange={(value) => handleCategoryChange(value)} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a category" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category._id} value={category._id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                      {/* <div className="border-t mt-2 pt-2">
-                        <CreateCategory
-                          trigger={
-                            <Button variant="ghost" size="sm" className="w-full justify-start">
-                              <Plus className="w-4 h-4 mr-2" />
-                              Add New Category
-                            </Button>
-                          }
-                        />
-                      </div> */}
-                    </SelectContent>
-                  </Select>
+
+                  <RecursiveCategorySelector
+                    categories={categories}
+                    form={form}
+                    fieldName="category"
+                  />
+
                   <FormMessage />
                 </FormItem>
               )}
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FormField
-              control={form.control}
-              name="subcategory"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Subcategory</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} disabled={!selectedCategory}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a subcategory" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {categories
-                        .find(cat => String(cat._id) === String(selectedCategory))
-                        ?.subcategories.map((subcategory) => (
-                          <SelectItem key={subcategory._id} value={subcategory._id}>
-                            {subcategory.name}
-                          </SelectItem>
-                        ))}
-                      {/* {selectedCategory && (
-                        <div className="border-t mt-2 pt-2">
-                          <CreateCategory
-                            mode="subcategory"
-                            parentCategoryId={categories.find(cat => cat.name === selectedCategory)?.id}
-                            trigger={
-                              <Button variant="ghost" size="sm" className="w-full justify-start">
-                                <Plus className="w-4 h-4 mr-2" />
-                                Add New Subcategory
-                              </Button>
-                            }
-                          />
-                        </div>
-                      )} */}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <FormField
               control={form.control}
               name="sku"
@@ -191,10 +134,6 @@ const BasicInfo = ({ validateSection, tab, form, generateSKU, categories, handle
             )}
           />
 
-
-
-
-
           <FormField
             control={form.control}
             name="barcode"
@@ -211,7 +150,6 @@ const BasicInfo = ({ validateSection, tab, form, generateSKU, categories, handle
               </FormItem>
             )}
           />
-
 
           <div className="space-y-4">
             <div>
@@ -250,31 +188,67 @@ const BasicInfo = ({ validateSection, tab, form, generateSKU, categories, handle
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Product Color */}
+            <FormField
+              control={form.control}
+              name="productColor"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Product Color</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Enter primary product color (e.g. Red)"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="availableColorsForProduct"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Available Colors</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="Enter colors separated by comma (e.g. Red, Blue)"
+                      value={field.value?.join(", ") || ""}
+                      onChange={(e) =>
+                        field.onChange(
+                          e.target.value
+                            .split(",")
+                            .map((c) => c.trim())
+                            .filter(Boolean)
+                        )
+                      }
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
 
-          <div className='rounded-sm'>
-            <div className="bg-gray-100 grid grid-cols-1 md:grid-cols-2 gap-6 p-4">
-              <div>
-                <label className="block mb-1 font-medium text-sm">Color</label>
-                <input
-                  type="text"
-                  placeholder="Enter product color"
-                  onChange={(e) => validateSection(tab.id, e.target.value.length > 0)}
-                  className="w-full p-2 border rounded"
-                />
-              </div>
-              <div>
-                <label className="block mb-1 font-medium text-sm">Brand Name *</label>
-                <input
-                  type="text"
-                  placeholder="product name"
-                  onChange={(e) => validateSection(tab.id, e.target.value.length > 0)}
-                  className="w-full p-2 border rounded"
-                />
-              </div>
-            </div>
-
+            {/* Brand Name */}
+            <FormField
+              control={form.control}
+              name="brand"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Brand Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Brand name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
+
 
         </CardContent>
       </Card>

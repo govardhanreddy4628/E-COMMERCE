@@ -14,7 +14,6 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator, BreadcrumbPage } from "../../../../ui/breadcrumb";
 import { Skeleton } from "../../../../ui/skeleton";
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "../../../../ui/pagination";
-import axios from "axios";
 //import { toast } from "sonner";
 
 
@@ -58,26 +57,6 @@ const Products = () => {
   // }, [dispatch]);
 
 
-
-
-  const fetchProducts = async () => {
-    try {
-      setLoading(true);
-      const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/v1/product/getallproducts`); // adjust URL if needed
-      console.log(data)
-      //setProducts(data.products || []);
-      setError(null);
-    } catch (err: any) {
-      console.error("Fetch products error:", err);
-      setError(err.response?.data?.message || "Failed to load products");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchProducts();
-  }, []);
 
   const categories = useMemo(
     () => Array.from(new Set(products.map((p) => p.category))),
@@ -173,9 +152,6 @@ const Products = () => {
   if (error) {
     return <h1 className="text-red-500">{error}</h1>;
   }
-
-
-
 
 
   return (

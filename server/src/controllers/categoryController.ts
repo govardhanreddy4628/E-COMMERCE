@@ -3,7 +3,7 @@ import mongoose, { Types } from "mongoose";
 import fs from "fs/promises";
 import asyncHandler from "express-async-handler";
 import cloudinary from "../config/cloudinary.js";
-import CategoryModel from "../models/categoryModel.js";
+import CategoryModel, { ICategory } from "../models/categoryModel.js";
 import {
   destroyCloudinaryById,
   uploadToCloudinary,
@@ -17,15 +17,17 @@ import { addAuditLog } from "../lib/audit.js";
 import slugify from "slugify";
 import productModel from "../models/productModel.js";
 import { deleteTempFile } from "../utils/deleteTempFile.js";
+import { getCategoryBreadcrumb } from "../services/getBreadCrumb.js";
 
 const CATEGORY_TREE_KEY = "category_tree";
+const isValidObjectId = (id?: string) => !!(id && Types.ObjectId.isValid(id));
 
 export const createCategoryController = async (req: Request, res: Response) => {
   try {
     console.log("incoming data:", req.body);
     const { name, description, parentCategoryId } = req.body;
 
-    // ===== Validation =====
+    // ===== 1.Basic Validation =====
     if (!name || typeof name !== "string" || !name.trim()) {
       return res.status(400).json({
         success: false,
@@ -45,7 +47,7 @@ export const createCategoryController = async (req: Request, res: Response) => {
     }
 
     // ===== Image Upload (optional) =====
-    let imageData: any = undefined;
+    let imageData: ICategory["image"] | undefined;
 
     if (req.file) {
       console.log(req.file);
@@ -95,59 +97,72 @@ export const createCategoryController = async (req: Request, res: Response) => {
       }
     }
 
-    // ===== Category Data =====
-    const categoryData: any = {
+    // =======================
+    // 3️⃣ Parent Category Lookup
+    // =======================
+    let parentCategory: ICategory | null = null;
+
+    if (isValidObjectId(parentCategoryId)) {
+      parentCategory = await CategoryModel.findById(parentCategoryId);
+
+      if (!parentCategory) {
+        return res.status(404).json({
+          success: false,
+          message: "Parent category not found.",
+        });
+      }
+    }
+
+    // =====  4.Build Category Data =====
+    const categoryData: Partial<ICategory> = {
       name: name.trim(),
       slug: slugify(name, { lower: true, strict: true }),
       description: description || null,
-      image: imageData || undefined,
+      image: imageData,
       isActive: true,
       isFeatured: false,
-      level: 0,
-      parentCategoryId: null,
+
+      parentCategoryId: parentCategory
+        ? (parentCategory._id as Types.ObjectId)
+        : null,
+
+      // ✅ CORE FIX
+      path: parentCategory
+        ? ([...parentCategory.path, parentCategory._id] as Types.ObjectId[])
+        : [],
+
+      level: parentCategory ? parentCategory.path.length + 1 : 0,
       parentCategoryName: null,
     };
 
-    // ===== Parent Category Handling =====
-    let parentId: string | undefined;
-    if (parentCategoryId && parentCategoryId !== "null") {
-      parentId = String(parentCategoryId);
-    }
-
-    if (parentId && parentId !== "null") {
-      const parentCategory = await CategoryModel.findById(parentId);
-      if (!parentCategory) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Parent category not found." });
-      }
-
-      categoryData.parentCategoryId = parentCategory._id;
-      categoryData.parentCategoryName = parentCategory.name;
-      categoryData.level = parentCategory.level + 1;
-    }
-
-    // ===== Create Category =====
+    // ===== 5.Create Category =====
     const newCategory = new CategoryModel(categoryData);
     await newCategory.save();
 
-    // Add child reference to parent
-    if (parentId) {
-      await CategoryModel.findByIdAndUpdate(parentId, {
+    // 6.Add child reference to parent
+    if (parentCategory) {
+      await CategoryModel.findByIdAndUpdate(parentCategory._id, {
         $addToSet: { children: newCategory._id },
       });
     }
 
-    // ===== Invalidate Redis Cache =====
+    // ===== 7.Invalidate Redis Cache =====
     try {
-      if (redisClient && typeof redisClient.del === "function") {
-        await redisClient.del(CATEGORY_TREE_KEY);
-      }
-    } catch (redisErr) {
-      console.warn("Redis del error:", redisErr);
+      await redisClient?.del?.(CATEGORY_TREE_KEY);
+    } catch (err) {
+      console.warn("Redis cache delete failed:", err);
     }
 
-    // ===== Response =====
+    // (or)
+    // try {
+    //   if (redisClient && typeof redisClient.del === "function") {
+    //     await redisClient.del(CATEGORY_TREE_KEY);
+    //   }
+    // } catch (redisErr) {
+    //   console.warn("Redis del error:", redisErr);
+    // }
+
+    // ===== 8.Response =====
     return res.status(201).json({
       success: true,
       message: "Category created successfully.",
@@ -169,14 +184,6 @@ export const createCategoryController = async (req: Request, res: Response) => {
     });
   }
 };
-
-/**
- * @desc    Update a category
- * @route   PUT /api/v1/category/:id
- * @access  Admin
- */
-
-const isValidObjectId = (id?: string) => !!(id && Types.ObjectId.isValid(id));
 
 export const updateCategoryController = async (req: Request, res: Response) => {
   console.log("REQ.FILE:", req.file);
@@ -329,7 +336,7 @@ export const updateCategoryController = async (req: Request, res: Response) => {
     // 6) Parent update logic (normalize parent)
     const parentProvided = Object.prototype.hasOwnProperty.call(
       req.body,
-      "parentCategoryId"
+      "parentCategoryId",
     );
 
     //Parent update logic — ONLY if parentCategoryId is provided
@@ -370,9 +377,8 @@ export const updateCategoryController = async (req: Request, res: Response) => {
               .json({ success: false, message: "Invalid parentCategoryId." });
           }
           // ensure parent exists
-          const newParent = await CategoryModel.findById(
-            normalizedParentId
-          ).session(session);
+          const newParent =
+            await CategoryModel.findById(normalizedParentId).session(session);
           if (!newParent) {
             await session.abortTransaction();
             return res
@@ -383,7 +389,7 @@ export const updateCategoryController = async (req: Request, res: Response) => {
           // Prevent cycle: ensure newParent is NOT a descendant of current category
           const isDescendant = async (
             candidateId: Types.ObjectId,
-            targetId: Types.ObjectId
+            targetId: Types.ObjectId,
           ): Promise<boolean> => {
             const node = await CategoryModel.findById(candidateId)
               .select("children")
@@ -440,7 +446,7 @@ export const updateCategoryController = async (req: Request, res: Response) => {
         // If moved levels, update descendant levels recursively
         const updateDescendantLevels = async (
           catId: Types.ObjectId,
-          baseLevel: number
+          baseLevel: number,
         ) => {
           const node = await CategoryModel.findById(catId)
             .select("children")
@@ -456,7 +462,7 @@ export const updateCategoryController = async (req: Request, res: Response) => {
               .exec();
             await updateDescendantLevels(
               childId as Types.ObjectId,
-              baseLevel + 1
+              baseLevel + 1,
             );
           }
         };
@@ -532,11 +538,6 @@ export const updateCategoryController = async (req: Request, res: Response) => {
   }
 };
 
-/**
- * @desc    Get hierarchical category tree (cached)
- * @route   GET /api/v1/categories/tree
- * @access  Public/Admin
- */
 export const getCategoryTree = asyncHandler(
   async (req: Request, res: Response) => {
     try {
@@ -593,12 +594,12 @@ export const getCategoryTree = asyncHandler(
         message: err.message || "Internal server error",
       });
     }
-  }
+  },
 );
 
 export const getAllCategoryController = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<Response> => {
   try {
     const categoryList: any[] = await CategoryModel.find().lean().exec(); // .lean() is a Mongoose query method that tells Mongoose NOT to create full Mongoose documents, but instead return plain JavaScript objects. Normally, queries like Model.find() return Mongoose documents with lots of extra methods and features (like .save(), getters/setters, virtuals, etc.).
@@ -669,24 +670,6 @@ export async function getCategoriesCount(req: Request, res: Response) {
   }
 }
 
-// export async function getSubCategoriesCount(req: Request, res: Response) {
-//   try {
-//     const categoryCount = await CategoryModel.find();
-//     if (!categoryCount) {
-//       res.status(500).json({ success: false, error: true });
-//     }
-//     const subCatList = [];
-//     for (let cat of categoryCount) {
-//       if (cat.parentCategoryId !== undefined) {
-//         subCatList.push(cat);
-//       }
-//     }
-//     res.send({
-//       subCategoryCount: subCatList.length,
-//     });
-//   } catch (error) {}
-// }
-
 export async function getSubCategoriesCount(req: Request, res: Response) {
   try {
     const subCategoryCount = await CategoryModel.countDocuments({
@@ -710,7 +693,7 @@ export async function getSubCategoriesCount(req: Request, res: Response) {
 
 export const getSingleCategoryByIdController = async (
   req: Request,
-  res: Response
+  res: Response,
 ): Promise<Response> => {
   const { id } = req.params;
 
@@ -743,99 +726,147 @@ export const getSingleCategoryByIdController = async (
   }
 };
 
-export async function deleteCategoryController(req: Request, res: Response) {
+async function deleteCategoryRecursive(categoryId: Types.ObjectId) {
+  // 1️⃣ Fetch category
+  const category = await CategoryModel.findById(categoryId);
+  if (!category) return;
+
+  // 2️⃣ Recursively delete children
+  if (category.children && category.children.length > 0) {
+    for (const childId of category.children) {
+      await deleteCategoryRecursive(childId);
+    }
+  }
+
+  // 3️⃣ Delete image from Cloudinary
+  if (category.image?.public_id) {
+    try {
+      await cloudinary.uploader.destroy(category.image.public_id);
+    } catch (err) {
+      console.warn(
+        `Cloudinary delete failed for category ${category._id}`,
+        err,
+      );
+    }
+  }
+
+  // 4️⃣ Remove reference from parent
+  if (category.parentCategoryId) {
+    await CategoryModel.findByIdAndUpdate(category.parentCategoryId, {
+      $pull: { children: category._id },
+    }).exec();
+  }
+
+  // 5️⃣ Delete category itself
+  await CategoryModel.findByIdAndDelete(category._id);
+}
+
+export const deleteCategoryController = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
+    // ===== Validate ID =====
+    if (!id || !isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID",
+      });
+    }
+
+    // ===== Check existence =====
     const category = await CategoryModel.findById(id);
     if (!category) {
       return res.status(404).json({
-        message: "Category not found!",
         success: false,
-        error: true,
+        message: "Category not found",
       });
     }
 
-    // 🧹 Delete images from Cloudinary (individually wrapped)
-    if (category.image && category.image.length > 0) {
-      for (const imgUrl of category.image) {
-        try {
-          const parts = imgUrl.split("/");
-          const imageWithExt = parts[parts.length - 1];
-          const publicId = imageWithExt.split(".")[0];
-
-          if (publicId) {
-            await cloudinary.uploader.destroy(publicId);
-          }
-        } catch (err) {
-          console.error("Cloudinary delete failed for image:", imgUrl, err);
-          // Optional: collect errors and return partial failure
-        }
-      }
-    }
-
-    // 🧹 Delete subcategories and third-level subcategories
-    const subCategories = await CategoryModel.find({ parentId: id });
-
-    for (const subCat of subCategories) {
-      const thirdLevel = await CategoryModel.find({ parentId: subCat._id });
-
-      for (const thirdCat of thirdLevel) {
-        try {
-          await CategoryModel.findByIdAndDelete(thirdCat._id);
-        } catch (err) {
-          console.error(
-            "Failed to delete third-level subcategory:",
-            thirdCat._id,
-            err
-          );
-        }
-      }
-
-      try {
-        await CategoryModel.findByIdAndDelete(subCat._id);
-      } catch (err) {
-        console.error("Failed to delete subcategory:", subCat._id, err);
-      }
-    }
-
-    // 🧹 Delete main category
-    try {
-      const deletedCat = await CategoryModel.findByIdAndDelete(id);
-      if (!deletedCat) {
-        res.status(404).json({
-          message: "Category not found!",
-          success: false,
-          error: true,
-        });
-      }
-    } catch (err) {
-      console.error("Failed to delete root category:", id, err);
-      return res.status(500).json({
-        message: "Failed to delete root category",
-        success: false,
-        error: true,
-      });
-    }
+    // ===== Recursive cascade delete =====
+    await deleteCategoryRecursive(new Types.ObjectId(id));
 
     return res.status(200).json({
       success: true,
-      message: "Category and related subcategories deleted successfully!",
-      error: false,
+      message: "Category and all nested subcategories deleted successfully",
     });
   } catch (error) {
     console.error("Delete Category Error:", error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
-      error: true,
     });
   }
-}
+};
+
+export const deleteCategoryController2 = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const { categoryId } = req.params;
+
+    if (!categoryId) {
+      return res.status(400).json({
+        success: false,
+        message: "Category ID is required",
+      });
+    }
+
+    // 1️⃣ Category must exist
+    const category = await CategoryModel.findById(categoryId);
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Category not found",
+      });
+    }
+
+    // 2️⃣ HARD BLOCK — products still linked
+    const hasProducts = await productModel.exists({
+      category: categoryId,
+    });
+
+    if (hasProducts) {
+      return res.status(409).json({
+        success: false,
+        code: "CATEGORY_HAS_PRODUCTS",
+        message: "Category contains products. Move them before deleting.",
+      });
+    }
+
+    // 3️⃣ HARD BLOCK — subcategories still linked
+    const hasSubcategories = await CategoryModel.exists({
+      parentCategoryId: categoryId,
+    });
+
+    if (hasSubcategories) {
+      return res.status(409).json({
+        success: false,
+        code: "CATEGORY_HAS_SUBCATEGORIES",
+        message: "Category contains subcategories. Move them before deleting.",
+      });
+    }
+
+    // 4️⃣ SAFE DELETE
+    await CategoryModel.findByIdAndDelete(categoryId);
+
+    return res.json({
+      success: true,
+      message: "Category deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete category error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete category",
+    });
+  }
+};
 
 export const permanentDeleteCategoryController = async (
   req: Request,
-  res: Response
+  res: Response,
 ) => {
   const { id } = req.params;
 
@@ -932,108 +963,206 @@ export const permanentDeleteCategoryController = async (
   }
 };
 
-/**
- * @desc    Soft delete a category
- * @route   DELETE /api/v1/category/:id
- * @access  Admin
- */
+// export const softDeleteCategoryController = async (
+//   req: Request,
+//   res: Response,
+// ) => {
+//   const categoryId = req.params.id;
+//   const session = await mongoose.startSession();
+
+//   try {
+//     if (!categoryId || !Types.ObjectId.isValid(categoryId)) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: "Invalid category ID." });
+//     }
+
+//     session.startTransaction();
+
+//     const category = await CategoryModel.findById(categoryId).session(session);
+//     if (!category) {
+//       await session.abortTransaction();
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Category not found." });
+//     }
+
+//     // ✅ Prevent delete if category has children
+//     if (category.children && category.children.length > 0) {
+//       await session.abortTransaction();
+//       return res.status(400).json({
+//         success: false,
+//         message: "Cannot delete category with subcategories.",
+//       });
+//     }
+
+//     // Optional: Soft delete instead of hard delete
+//     category.deletedAt = new Date();
+//     category.isActive = false;
+//     await category.save({ session });
+
+//     // Remove from parent's children array if exists
+//     if (category.parentCategoryId) {
+//       await CategoryModel.findByIdAndUpdate(
+//         category.parentCategoryId,
+//         { $pull: { children: category._id } },
+//         { session },
+//       );
+//     }
+
+//     await session.commitTransaction();
+//     session.endSession();
+
+//     // Invalidate Redis cache
+//     try {
+//       if (redisClient && typeof redisClient.del === "function") {
+//         await redisClient.del(CATEGORY_TREE_KEY);
+//       }
+//     } catch (err) {
+//       console.warn("Redis del error:", err);
+//     }
+
+//     // Optional: audit log
+//     try {
+//       await addAuditLog?.({
+//         entity: "category",
+//         entityId: categoryId,
+//         action: "delete",
+//         userId: (req.user as any)?._id,
+//         changes: { deletedAt: new Date(), isActive: false }
+//       });
+//     } catch (auditErr) {
+//       console.warn("Audit log error:", auditErr);
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Category deleted successfully.",
+//       categoryId,
+//     });
+//   } catch (err: any) {
+//     try {
+//       await session.abortTransaction();
+//       session.endSession();
+//     } catch {}
+//     console.error("Delete category error:", err);
+//     return res.status(500).json({
+//       success: false,
+//       message: err?.message || "Internal server error.",
+//     });
+//   }
+// };
+
+
+
+
+
 export const softDeleteCategoryController = async (
   req: Request,
-  res: Response
-) => {
-  const categoryId = req.params.id;
+  res: Response,
+): Promise<Response> => {
   const session = await mongoose.startSession();
 
   try {
-    if (!categoryId || !Types.ObjectId.isValid(categoryId)) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid category ID." });
-    }
-
     session.startTransaction();
 
+    const { categoryId } = req.params;
+
     const category = await CategoryModel.findById(categoryId).session(session);
+
     if (!category) {
       await session.abortTransaction();
-      return res
-        .status(404)
-        .json({ success: false, message: "Category not found." });
-    }
-
-    // ✅ Prevent delete if category has children
-    if (category.children && category.children.length > 0) {
-      await session.abortTransaction();
-      return res.status(400).json({
+      return res.status(404).json({
         success: false,
-        message: "Cannot delete category with subcategories.",
+        message: "Category not found",
       });
     }
 
-    // Optional: Soft delete instead of hard delete
-    category.isDeleted = true;
+    if (!category.isActive || category.deletedAt) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Category is already deleted",
+      });
+    }
+
+    // 1️⃣ Block delete if category has active subcategories
+    const hasActiveChildren = await CategoryModel.exists({
+      parentCategoryId: category._id,
+      isActive: true,
+    }).session(session);
+
+    if (hasActiveChildren) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Category has subcategories. Move or delete them first.",
+      });
+    }
+
+    // 2️⃣ Block delete if products are linked
+    const hasProducts = await productModel.exists({
+      category: category._id,
+    }).session(session);
+
+    if (hasProducts) {
+      await session.abortTransaction();
+      return res.status(400).json({
+        success: false,
+        message: "Category has products. Move them before deleting.",
+      });
+    }
+
+    // 3️⃣ Soft delete category
+    category.isActive = false;
+    category.deletedAt = new Date();
+    category.isLeaf = true;
+
     await category.save({ session });
 
-    // Remove from parent's children array if exists
+    // 4️⃣ Update parent isLeaf if needed
     if (category.parentCategoryId) {
-      await CategoryModel.findByIdAndUpdate(
-        category.parentCategoryId,
-        { $pull: { children: category._id } },
-        { session }
-      );
+      const remainingSiblings = await CategoryModel.exists({
+        parentCategoryId: category.parentCategoryId,
+        isActive: true,
+        _id: { $ne: category._id },
+      }).session(session);
+
+      if (!remainingSiblings) {
+        await CategoryModel.findByIdAndUpdate(
+          category.parentCategoryId,
+          { isLeaf: true },
+          { session },
+        );
+      }
     }
 
     await session.commitTransaction();
     session.endSession();
 
-    // Invalidate Redis cache
-    try {
-      if (redisClient && typeof redisClient.del === "function") {
-        await redisClient.del(CATEGORY_TREE_KEY);
-      }
-    } catch (err) {
-      console.warn("Redis del error:", err);
-    }
-
-    // Optional: audit log
-    try {
-      await addAuditLog?.({
-        entity: "category",
-        entityId: categoryId,
-        action: "delete",
-        userId: (req.user as any)?._id,
-        changes: { isDeleted: true },
-      });
-    } catch (auditErr) {
-      console.warn("Audit log error:", auditErr);
-    }
+    // 5️⃣ Invalidate cached category tree
+    await redisClient.del(CATEGORY_TREE_KEY);
 
     return res.status(200).json({
       success: true,
-      message: "Category deleted successfully.",
-      categoryId,
+      message: "Category deleted successfully",
     });
-  } catch (err: any) {
-    try {
-      await session.abortTransaction();
-      session.endSession();
-    } catch {}
-    console.error("Delete category error:", err);
+  } catch (error: any) {
+    await session.abortTransaction();
+    session.endSession();
+
+    console.error("Soft delete category error:", error);
+
     return res.status(500).json({
       success: false,
-      message: err?.message || "Internal server error.",
+      message: "Failed to delete category",
     });
   }
 };
 
-/**
- * @desc    Restore a soft-deleted category
- * @route   PATCH /api/v1/category/:id/restore
- * @access  Admin
- */
 export const restoreCategoryController = async (
   req: Request,
-  res: Response
+  res: Response,
 ) => {
   const categoryId = req.params.id;
   const session = await mongoose.startSession();
@@ -1055,7 +1184,7 @@ export const restoreCategoryController = async (
         .json({ success: false, message: "Category not found." });
     }
 
-    if (!category.isDeleted) {
+    if (!category.deletedAt) {
       await session.abortTransaction();
       return res
         .status(400)
@@ -1063,7 +1192,8 @@ export const restoreCategoryController = async (
     }
 
     // Restore the category
-    category.isDeleted = false;
+    category.deletedAt = null;
+    category.isActive = true;
     await category.save({ session });
 
     // Re-add to parent's children array if parent exists
@@ -1071,7 +1201,7 @@ export const restoreCategoryController = async (
       await CategoryModel.findByIdAndUpdate(
         category.parentCategoryId,
         { $addToSet: { children: category._id } },
-        { session }
+        { session },
       );
     }
 
@@ -1094,7 +1224,7 @@ export const restoreCategoryController = async (
         entityId: categoryId,
         action: "restore",
         userId: (req.user as any)?._id,
-        changes: { isDeleted: false },
+        changes: { deletedAt: null, isActive: true }
       });
     } catch (auditErr) {
       console.warn("Audit log error:", auditErr);
@@ -1179,7 +1309,7 @@ export const moveProductsToCategory = async (req: Request, res: Response) => {
   // Update products
   const result = await productModel.updateMany(
     { category: fromCategoryId },
-    { $set: { category: newCategoryId } }
+    { $set: { category: newCategoryId } },
   );
 
   return res.json({
@@ -1193,66 +1323,215 @@ export const moveProductsToCategory = async (req: Request, res: Response) => {
 
 export const moveSubcategories = async (req: Request, res: Response) => {
   const { fromCategoryId, newParentId } = req.body;
-
-  if (!fromCategoryId) {
-    return res.status(400).json({
-      success: false,
-      message: "fromCategoryId is required",
-    });
-  }
-
-  // Validate from category exists
-  const fromCategory = await CategoryModel.findById(fromCategoryId);
-  if (!fromCategory) {
-    return res.status(404).json({
-      success: false,
-      message: "Source category not found",
-    });
-  }
-
-  // If newParentId is provided, validate it
-  if (newParentId) {
-    const newParent = await CategoryModel.findById(newParentId);
-    if (!newParent) {
-      return res.status(404).json({
-        success: false,
-        message: "Target parent category not found",
-      });
-    }
-
-    // Prevent moving to self
-    if (newParentId === fromCategoryId) {
+  
+  if (newParentId === fromCategoryId) {
       return res.status(400).json({
         success: false,
         message: "Cannot move subcategories into the same category",
       });
     }
-  }
+    
+    const session = await mongoose.startSession();
 
-  // Move subcategories
-  const subcategories = await CategoryModel.find({
-    parentCategoryId: fromCategoryId,
+    try {
+    session.startTransaction();
+
+    const fromCategory = await CategoryModel.findById(fromCategoryId).session(session);
+    if (!fromCategory) throw new Error("Source category not found");
+
+    let newParent = null;
+    if (newParentId) {
+      newParent = await CategoryModel.findById(newParentId).session(session);
+      if (!newParent) throw new Error("Target parent not found");
+    }
+
+     const subcategories = await CategoryModel.find({
+      parentCategoryId: fromCategoryId,
+      isActive: true,
+    }).session(session);
+
+    for (const sub of subcategories) {
+      sub.parentCategoryId = newParent ? newParent._id : null;
+      sub.parentCategoryName = newParent ? newParent.name : null;
+      sub.path = newParent
+        ? [...newParent.path, newParent._id]
+        : [];
+      sub.level = newParent ? newParent.level + 1 : 0;
+      await sub.save({ session });
+    }
+
+     await CategoryModel.findByIdAndUpdate(
+      fromCategoryId,
+      { $set: { children: [] } },
+      { session },
+    );
+
+    if (newParent) {
+      await CategoryModel.findByIdAndUpdate(
+        newParent._id,
+        { $addToSet: { children: subcategories.map(s => s._id) } },
+        { session },
+      );
+    }
+
+    await session.commitTransaction();
+    session.endSession();
+
+     await redisClient.del(CATEGORY_TREE_KEY);
+
+    res.json({ success: true, movedCount: subcategories.length });
+  } catch (err: any) {
+    await session.abortTransaction();
+    session.endSession();
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+
+
+export const getProductsByCategory = async (req: Request, res: Response) => {
+  const { slug } = req.params;
+
+  const category = await CategoryModel.findOne({ slug });
+  if (!category) return res.status(404).json({ message: "Category not found" });
+
+  const categoryIds = await CategoryModel.find({
+    $or: [{ _id: category._id }, { path: category._id }],
+  }).select("_id");
+
+  const products = await productModel.find({
+    category: { $in: categoryIds.map((c) => c._id) },
+    status: "active",
   });
 
-  if (subcategories.length === 0) {
-    return res.json({
-      success: true,
-      message: "No subcategories to move",
-      data: { movedCount: 0 },
-    });
+  res.json(products);
+};
+
+// @ GET /api/categories/:slug
+// @ GET /api/categories/smartphones
+
+export const getCategoryBySlug = async (req: Request, res: Response) => {
+  const category = await CategoryModel.findOne({ slug: req.params.slug });
+
+  if (!category) {
+    return res.status(404).json({ message: "Category not found" });
   }
 
-  // Update subcategories to point to new parent
-  const result = await CategoryModel.updateMany(
-    { parentCategoryId: fromCategoryId },
-    { $set: { parentCategoryId: newParentId || null } }
-  );
+  const breadcrumb = await getCategoryBreadcrumb(category._id);
 
-  return res.json({
-    success: true,
-    message: "Subcategories moved successfully",
-    data: {
-      movedCount: result.modifiedCount,
-    },
+  const products = await productModel.find({ category: category._id });
+
+  res.json({
+    category,
+    breadcrumb,
+    products,
   });
 };
+
+// export async function deleteCategoryController(req: Request, res: Response) {
+//   try {
+//     const { id } = req.params;
+
+//     const category = await CategoryModel.findById(id);
+//     if (!category) {
+//       return res.status(404).json({
+//         message: "Category not found!",
+//         success: false,
+//         error: true,
+//       });
+//     }
+
+//     // 🧹 Delete images from Cloudinary (individually wrapped)
+//     if (category.image && category.image.length > 0) {
+//       for (const imgUrl of category.image) {
+//         try {
+//           const parts = imgUrl.split("/");
+//           const imageWithExt = parts[parts.length - 1];
+//           const publicId = imageWithExt.split(".")[0];
+
+//           if (publicId) {
+//             await cloudinary.uploader.destroy(publicId);
+//           }
+//         } catch (err) {
+//           console.error("Cloudinary delete failed for image:", imgUrl, err);
+//           // Optional: collect errors and return partial failure
+//         }
+//       }
+//     }
+
+//     // 🧹 Delete subcategories and third-level subcategories
+//     const subCategories = await CategoryModel.find({ parentId: id });
+
+//     for (const subCat of subCategories) {
+//       const thirdLevel = await CategoryModel.find({ parentId: subCat._id });
+
+//       for (const thirdCat of thirdLevel) {
+//         try {
+//           await CategoryModel.findByIdAndDelete(thirdCat._id);
+//         } catch (err) {
+//           console.error(
+//             "Failed to delete third-level subcategory:",
+//             thirdCat._id,
+//             err
+//           );
+//         }
+//       }
+
+//       try {
+//         await CategoryModel.findByIdAndDelete(subCat._id);
+//       } catch (err) {
+//         console.error("Failed to delete subcategory:", subCat._id, err);
+//       }
+//     }
+
+//     // 🧹 Delete main category
+//     try {
+//       const deletedCat = await CategoryModel.findByIdAndDelete(id);
+//       if (!deletedCat) {
+//         res.status(404).json({
+//           message: "Category not found!",
+//           success: false,
+//           error: true,
+//         });
+//       }
+//     } catch (err) {
+//       console.error("Failed to delete root category:", id, err);
+//       return res.status(500).json({
+//         message: "Failed to delete root category",
+//         success: false,
+//         error: true,
+//       });
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "Category and related subcategories deleted successfully!",
+//       error: false,
+//     });
+//   } catch (error) {
+//     console.error("Delete Category Error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Internal Server Error",
+//       error: true,
+//     });
+//   }
+// }
+
+// export async function getSubCategoriesCount(req: Request, res: Response) {
+//   try {
+//     const categoryCount = await CategoryModel.find();
+//     if (!categoryCount) {
+//       res.status(500).json({ success: false, error: true });
+//     }
+//     const subCatList = [];
+//     for (let cat of categoryCount) {
+//       if (cat.parentCategoryId !== undefined) {
+//         subCatList.push(cat);
+//       }
+//     }
+//     res.send({
+//       subCategoryCount: subCatList.length,
+//     });
+//   } catch (error) {}
+// }

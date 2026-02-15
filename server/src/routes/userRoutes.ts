@@ -12,8 +12,11 @@ import {
   forgotPasswordController,
   getCurrentUserController,
   resendOtpController,
+  refreshController,
 } from "../controllers/userController.js";
 import { uploadSingle } from "../middleware/multer.js";
+import { acceptInviteController, inviteAdminController, resendInviteController, revokeInviteController } from "../controllers/adminController.js";
+import { requireSuperAdmin } from "../middleware/requireSuperAdmin.js";
 
 const router = Router();
 
@@ -27,9 +30,10 @@ router.post("/register", uploadSingle, registerController);
 router.post("/verify-email", verifyEmailController);
 router.post("/resend-otp", asyncHandler(resendOtpController));
 router.post("/login", loginController);
-router.get("/logout", authenticate(), asyncHandler(logoutController));
+router.post("/logout", asyncHandler(logoutController));
 router.get("/me", authenticate(), asyncHandler(getCurrentUserController));
-router.get("/auth/refresh", authenticate(), asyncHandler(getNewAccessToken));
+router.get("/auth/refresh", asyncHandler(refreshController))
+//router.get("/auth/refresh", authenticate(), asyncHandler(getNewAccessToken));
 // router.put('/user-avatar', auth, upload.array('avatar'), userAvatarController)   // the name(avatar) should match the name in the frontend form and in database
 router.delete("/deleteImage", authenticate(), asyncHandler(removeImgFromCloudinary));
 // router.put(':/id', authorize, updateUserDetails)
@@ -46,5 +50,12 @@ router.delete("/deleteImage", authenticate(), asyncHandler(removeImgFromCloudina
 // router.get('/admin-data', authorize('ADMIN'), (req, res) => {
 //   res.json({ msg: 'Confidential Admin Info' });
 // });
+
+
+
+router.post("/admin/invite", authenticate(), requireSuperAdmin(), asyncHandler(inviteAdminController));
+router.post("/admin/accept-invite", asyncHandler(acceptInviteController));
+router.post("/admin/invite/resend", authenticate(), requireSuperAdmin(), asyncHandler(resendInviteController));
+router.post("/admin/invite/revoke", authenticate(), requireSuperAdmin(), asyncHandler(revokeInviteController));
 
 export default router;

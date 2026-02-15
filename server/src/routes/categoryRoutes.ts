@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   checkCategoryHasProducts,
   createCategoryController,
+  deleteCategoryController2,
   getAllCategoryController,
   getCategoryTree,
   getSingleCategoryByIdController,
@@ -31,6 +32,7 @@ categoryRouter.get("/:categoryId/has-products", asyncHandler(checkCategoryHasPro
 
 categoryRouter.patch("/move-products", asyncHandler(moveProductsToCategory));
 categoryRouter.patch("/move-subcategories", asyncHandler(moveSubcategories));
+categoryRouter.delete("/delete/:id", asyncHandler(deleteCategoryController2))
 
 export default categoryRouter;
 

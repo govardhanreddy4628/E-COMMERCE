@@ -2,7 +2,7 @@ import { Badge, Box, Button, IconButton, TextField } from '@mui/material'
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ShoppingCartCheckoutIcon from '@mui/icons-material/ShoppingCartCheckout';
 import SearchIcon from '@mui/icons-material/Search';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import RocketLaunchOutlinedIcon from '@mui/icons-material/RocketLaunchOutlined';
 import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined';
 import ExpandMoreOutlinedIcon from '@mui/icons-material/ExpandMoreOutlined';
@@ -12,13 +12,14 @@ import SideDrawer from '../ui/drawer';
 import LeftMenu from './leftMenu';
 import CartSidebar from './cartSidebar';
 import Menu from '@mui/material/Menu';
-
-
 import { FiLogOut } from 'react-icons/fi';
 import { useAuth } from '../context/authContext';
-import { useCart } from '../context/cartContext';
 import { accountMenu } from '../data/accountMenu';
+import { useCart } from '../context/cartContext';
+import { useWishlist } from '../context/wishlistContext'; // ✅ new
+import { useCategories } from './admin/context/categoryContext';
 
+const HIDDEN_SLUGS = ["miscellaneous"];
 interface Category {
     name: string;
     path: string;
@@ -28,28 +29,15 @@ interface Category {
     }[];
 }
 
-
 const categories: Category[] = [
     {
         name: "fashion",
         path: "/productcategory",
         subcategories: [
-            {
-                name: "Men",
-                children: ["Shirts", "Trousers", "Shoes"]
-            },
-            {
-                name: "Women",
-                children: ["Dresses", "Heels", "Bags"]
-            },
-            {
-                name: "Girls",
-                children: ["Tops", "Jeans", "Shoes"]
-            },
-            {
-                name: "Kids",
-                children: ["Toys", "Clothing", "Accessories"]
-            },
+            { name: "Men", children: ["Shirts", "Trousers", "Shoes"] },
+            { name: "Women", children: ["Dresses", "Heels", "Bags"] },
+            { name: "Girls", children: ["Tops", "Jeans", "Shoes"] },
+            { name: "Kids", children: ["Toys", "Clothing", "Accessories"] },
         ]
     },
     {
@@ -100,20 +88,30 @@ const categories: Category[] = [
             { name: "Fitness", children: ["Yoga", "Gym Equipment"] },
         ]
     },
-    {
-        name: "jewellery",
-        path: "/jewellery",
-        subcategories: [
-            { name: "Gold", children: ["Necklace", "Rings"] },
-            { name: "Silver", children: ["Bracelets", "Earrings"] },
-        ]
-    }
+
 ];
+
 
 const Header = () => {
     const [open, setOpen] = useState(false);
     const [anchor, setAnchor] = useState<'left' | 'right'>('left');
     const [accanchorEl, setAccAnchorEl] = useState<null | HTMLElement>(null);
+
+    const { getCartCount } = useCart();
+    const { wishlist } = useWishlist(); // assuming your context exposes `wishlist` array
+    const { user, logout } = useAuth();
+
+
+    console.log(user)
+    const { categories, loading } = useCategories();
+
+    const visibleCategories = categories.filter(
+        (cat) => cat.isActive && !HIDDEN_SLUGS.includes(cat.slug) && !cat.parentCategoryId
+    ) ?? [];
+
+    const navigate = useNavigate();
+
+
     const userMenuOpen = Boolean(accanchorEl);
     const handleClick = (event: React.MouseEvent<HTMLElement>) => {
         setAccAnchorEl(event.currentTarget);
@@ -122,8 +120,6 @@ const Header = () => {
         setAccAnchorEl(null);
     };
 
-    const { isLogin, user, logout } = useAuth();
-    const { cart } = useCart();
     console.log(user)
 
     const toggleDrawer = (newOpen: boolean, side: 'left' | 'right' = "left") => {
@@ -149,21 +145,24 @@ const Header = () => {
     const handleLogout = async () => {
         await logout();
         handleClose();
+        navigate("/login", { replace: true });
     };
 
-
+    const userInitial = user?.email?.charAt(0).toUpperCase() ?? "";
     return (
         <div className='relative'>
-            {/* Top Bar */}
-            <section className="row1 max-w-8xl bg-foreground text-muted px-4 py-3 flex border-b border-border border-solid">
-                <div className='flex flex-col sm:flex-row items-center justify-between lg:w-[95%] w-full mx-auto'>
-                    <p className='text-sm font-medium'>Get up to 50% off new season styles, limited time only</p>
-                    <ul className='flex items-center gap-4  mt-2 sm:mt-0'>
-                        <li><Link to="#" className='text-inherit hover:text-red-300 text-sm font-medium'>Help Center</Link></li>
-                        <li><Link to="#" className='text-inherit hover:text-red-300 text-sm font-medium'>Order Tracking</Link></li>
-                    </ul>
-                </div>
-            </section>
+            {/* Top Header */}
+            {isHome &&
+                <section className="row1 max-w-8xl bg-foreground text-muted px-4 py-3 flex border-b border-border border-solid">
+                    <div className='flex flex-col sm:flex-row items-center justify-between lg:w-[95%] w-full mx-auto'>
+                        <p className='text-sm font-medium'>Get up to 50% off new season styles, limited time only</p>
+                        <ul className='flex items-center gap-4  mt-2 sm:mt-0'>
+                            <li><Link to="#" className='text-inherit hover:text-red-300 text-sm font-medium'>Help Center</Link></li>
+                            <li><Link to="#" className='text-inherit hover:text-red-300 text-sm font-medium'>Order Tracking</Link></li>
+                        </ul>
+                    </div>
+                </section>
+            }
 
             {/* secondary header */}
             <section className='row2 bg-background  border-b border-b-border border-solid'>
@@ -179,72 +178,95 @@ const Header = () => {
                     </div>
                     <div className='col3 w-[30%] flex justify-center p-4 items-center'>
                         <div className='flex items-center justify-end w-full gap-4'>
-                            {!isLogin ? <ul className='flex items-center gap-4'>
-                                <li className='list-none'><Link to="/Login" className='text-gray-950 hover:text-red-500 text-[16px] font-[500] transition'>Login</Link></li> |
-                                <li className='list-none'><Link to="/signup" className='text-gray-950 hover:text-red-500 text-[16px] font-[500] transition'>Register</Link></li>
-                            </ul>
-                                :
+                            {!user ? (
+                                <ul className="flex items-center gap-4">
+                                    <li className="list-none">
+                                        <Link
+                                            to="/login"
+                                            className="hover:text-red-500 text-[16px] font-[500] transition"
+                                        >
+                                            Login
+                                        </Link>
+                                    </li>
+                                    |
+                                    <li className="list-none">
+                                        <Link
+                                            to="/signup"
+                                            className="hover:text-red-500 text-[16px] font-[500] transition"
+                                        >
+                                            Signup
+                                        </Link>
+                                    </li>
+                                </ul>
+                            ) : (
                                 <>
-                                    <div className="flex items-center gap-4 p-2 bg-inherit max-w-56 cursor-pointer" onClick={handleClick}>
-                                        <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-300 dark:border-gray-700"
-                                            aria-controls={userMenuOpen ? 'account-menu' : undefined}
-                                            aria-haspopup="true"
-                                            aria-expanded={userMenuOpen ? 'true' : undefined}>
-                                            <img
-                                                src={user?.avatar || "https://i.pinimg.com/originals/2a/9a/a2/2a9aa2765b453d34bf23f0b253ebbcb3.jpg"}
-                                                alt="User Avatar"
-                                                className="w-full h-full object-cover"
-                                            />
-                                        </div>
-
+                                    {/* Avatar / Initial */}
+                                    <div
+                                        className="flex items-center gap-4 p-2 cursor-pointer"
+                                        onClick={handleClick}
+                                        aria-controls={userMenuOpen ? "account-menu" : undefined}
+                                        aria-haspopup="true"
+                                        aria-expanded={userMenuOpen ? "true" : undefined}
+                                    >
+                                        {user.avatar ? (
+                                            <div className="w-8 h-8 rounded-full overflow-hidden border border-gray-300 dark:border-gray-700">
+                                                <img
+                                                    src={user.avatar}
+                                                    alt="User Avatar"
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <div className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center font-semibold uppercase">
+                                                {userInitial}
+                                            </div>
+                                        )}
                                     </div>
 
+                                    {/* Account Menu */}
                                     <Menu
                                         anchorEl={accanchorEl}
                                         id="account-menu"
                                         open={userMenuOpen}
                                         onClose={handleClose}
                                         onClick={handleClose}
-                                        disableScrollLock={true}
+                                        disableScrollLock
+                                        transformOrigin={{ horizontal: "right", vertical: "top" }}
+                                        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
                                         slotProps={{
                                             paper: {
                                                 elevation: 0,
                                                 sx: {
-                                                    overflow: 'visible',
-                                                    filter: 'drop-shadow(0px 2px 8px rgba(0,0,0,0.32))',
+                                                    overflow: "visible",
+                                                    filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
                                                     mt: 1.5,
                                                     minWidth: 180,
-                                                    '& .MuiMenuItem-root': {
-                                                        py: 1, // reduce vertical padding
-                                                    },
-
-                                                    '&::before': {
+                                                    "&::before": {
                                                         content: '""',
-                                                        display: 'block',
-                                                        position: 'absolute',
+                                                        display: "block",
+                                                        position: "absolute",
                                                         top: 0,
                                                         right: 14,
                                                         width: 10,
                                                         height: 10,
-                                                        bgcolor: 'background.paper',
-                                                        transform: 'translateY(-50%) rotate(45deg)',
+                                                        bgcolor: "background.paper",
+                                                        transform: "translateY(-50%) rotate(45deg)",
                                                         zIndex: 0,
                                                     },
                                                 },
                                             },
                                         }}
-                                        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-                                        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
                                     >
-
                                         <div className="flex flex-col py-2 px-2">
-
                                             {accountMenu.map((item) => (
                                                 <Button
                                                     key={item.id}
                                                     className="!flex gap-3 !justify-start hover:bg-gray-100 p-2 rounded-sm"
                                                 >
-                                                    <Link to={`/myaccount/${item.path}`} className="flex items-center gap-3">
+                                                    <Link
+                                                        to={`/myaccount/${item.path}`}
+                                                        className="flex items-center gap-3"
+                                                    >
                                                         {item.icon}
                                                         <span>{item.label}</span>
                                                     </Link>
@@ -258,21 +280,26 @@ const Header = () => {
                                                 <FiLogOut />
                                                 <span>Logout</span>
                                             </Button>
-
                                         </div>
                                     </Menu>
-
                                 </>
+                            )}
 
-                            }
 
                             <IconButton aria-label="favorite">
-                                <Badge badgeContent={4} color="success">
+                                <Badge badgeContent={wishlist.length || 0} color="success">
                                     <FavoriteBorderIcon className='!w-5 lg:!w-6 !h-5 lg:!h-6 text-muted-foreground' />
                                 </Badge>
                             </IconButton>
+                            {/* or */}
+                            {/* <IconButton aria-label="favorite" onClick={() => toggleDrawer(true, "left")}>
+                                <Badge badgeContent={wishlist.length} color="success">
+                                    <FavoriteBorderIcon className='!w-5 lg:!w-6 !h-5 lg:!h-6 text-muted-foreground' />
+                                </Badge>
+                            </IconButton> */}
+
                             <IconButton aria-label="cart" onClick={() => toggleDrawer(true, "right")}>
-                                <Badge badgeContent={cart.length || 5} color="primary">
+                                <Badge badgeContent={getCartCount} color="primary">
                                     <ShoppingCartCheckoutIcon className='!w-5 lg:!w-6 !h-5 lg:!h-6 text-muted-foreground' />
                                 </Badge>
                             </IconButton>
@@ -286,11 +313,25 @@ const Header = () => {
             {/* tertiary header*/}
             <section className='row3 bg-background border-b border-b-border border-solid w-full'>
                 <div className='flex justify-between items-center px-2.5 w-[95%] mx-auto'>
-                    <div className='col1 w-[20%]'><Button className='flex items-center !text-gray-800' onClick={() => toggleDrawer(true, "left")}><MenuOutlinedIcon className='mr-2' /><span className='hidden lg:flex'>Shop By Category<ExpandMoreOutlinedIcon className='ml-6' /></span></Button></div>
+
+                    {/* LEFT */}
+                    <div className='col1 w-[20%]'>
+                        <Button
+                            className='flex items-center !text-gray-800 dark:!text-slate-300'
+                            onClick={() => toggleDrawer(true, "left")}
+                        >
+                            <MenuOutlinedIcon className='mr-2' />
+                            <span className='hidden lg:flex'>
+                                Shop By Category
+                                <ExpandMoreOutlinedIcon className='ml-6' />
+                            </span>
+                        </Button>
+                    </div>
+
+                    {/* CENTER */}
                     <div className='col2 w-[60%] justify-center hidden lg:flex'>
-
-
                         <ul className="flex items-center gap-3">
+
                             {!isHome && (
                                 <li className="list-none">
                                     <NavLink to="/" className="link">
@@ -299,45 +340,81 @@ const Header = () => {
                                 </li>
                             )}
 
-                            {categories.map((category, idx) => (
-                                <li key={idx} className="list-none group relative">
+                            {!loading && visibleCategories.map((category) => (
+                                <li key={category._id} className="list-none group relative">
+
                                     <div className="flex items-center justify-between relative">
-                                        <Link to={category.path} className="link py-2.5">
-                                            <Button className="!text-[14px] !font-[500] !text-muted-background hover:!text-red-500 transition">
+
+                                        {/* LEVEL 0 */}
+                                        <Link
+                                            to={`/products?catId=${category._id}`}
+                                            className="link py-2.5"
+                                        >
+                                            <Button className="!text-[14px] !font-[500] text-gray-800 dark:text-gray-100 hover:!text-red-500 transition">
                                                 {category.name}
                                             </Button>
                                         </Link>
 
-                                        <div className="absolute left-0 top-[48px] w-[160px] z-50 bg-white border border-gray-200 shadow-lg rounded-[1] flex flex-col py-2 opacity-0 invisible translate-y-2 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-300 ease-in-out">
-                                            <ul className="list-none flex flex-col items-start justify-center w-full">
-                                                {category.subcategories.map((sub, subIndex) => (
-                                                    <div key={subIndex} className="relative group/sub w-full">
-                                                        <li className="p-2 capitalize hover:text-red-500 hover:bg-[rgba(147,101,101,0.1)] cursor-pointer transition relative group/sub">
-                                                            {sub.name}
+                                        {/* LEVEL 1 */}
+                                        {category.children?.length > 0 && (
+                                            <div className="absolute left-0 top-[48px] w-[160px] z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-[1] flex flex-col py-2 opacity-0 invisible translate-y-2 group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 transition-all duration-300 ease-in-out">
 
-                                                            <div className="absolute left-[158px] top-0 w-[160px] z-50 bg-white border border-gray-200 shadow-lg rounded-[1] flex flex-col gap-1 py-2 opacity-0 invisible translate-x-4 group-hover/sub:opacity-100 group-hover/sub:visible group-hover/sub:translate-x-0 transition-all duration-300 ease-in-out">
-                                                                <ul className="list-none flex flex-col items-start justify-center gap-1">
-                                                                    {sub.children.map((child, childIndex) => (
-                                                                        <li
-                                                                            key={childIndex}
-                                                                            className="p-2 capitalize hover:text-red-500 cursor-pointer hover:bg-[rgba(147,101,101,0.1)] w-full text-[14px] font-[500] text-gray-800 transition"
-                                                                        >
-                                                                            {child}
-                                                                        </li>
-                                                                    ))}
-                                                                </ul>
-                                                            </div>
-                                                        </li>
-                                                    </div>
-                                                ))}
-                                            </ul>
-                                        </div>
+                                                <ul className="list-none flex flex-col items-start justify-center w-full">
+
+                                                    {category.children.map((sub) => (
+                                                        <div key={sub._id} className="relative group/sub w-full">
+
+                                                            <li className="p-2 capitalize hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition text-gray-800 dark:text-gray-100">
+
+                                                                <Link
+                                                                    to={`/products?catId=${sub._id}`}
+                                                                    className="w-full"
+                                                                >
+                                                                    {sub.name}
+                                                                </Link>
+
+                                                                {/* LEVEL 2 */}
+                                                                {sub.children?.length > 0 && (
+                                                                    <div className="absolute left-[158px] top-0 w-[160px] z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-lg rounded-[1] flex flex-col gap-1 py-2 opacity-0 invisible translate-x-4 group-hover/sub:opacity-100 group-hover/sub:visible group-hover/sub:translate-x-0 transition-all duration-300 ease-in-out">
+
+                                                                        <ul className="list-none flex flex-col items-start justify-center gap-1">
+
+                                                                            {sub.children.map((child) => (
+                                                                                <li
+                                                                                    key={child._id}
+                                                                                    className="p-2 capitalize hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer w-full text-[14px] font-[500] text-gray-800 dark:text-gray-100 transition"
+                                                                                >
+                                                                                    <Link to={`/products?catId=${child._id}`}>
+                                                                                        {child.name}
+                                                                                    </Link>
+                                                                                </li>
+                                                                            ))}
+
+                                                                        </ul>
+                                                                    </div>
+                                                                )}
+
+                                                            </li>
+                                                        </div>
+                                                    ))}
+
+                                                </ul>
+                                            </div>
+                                        )}
+
                                     </div>
                                 </li>
                             ))}
+
                         </ul>
                     </div>
-                    <div className='col3 w-[20%] flex justify-center text-muted-foreground text-nowrap py-3 lg:py-0'><RocketLaunchOutlinedIcon className='mr-2' /> Free International Delivery</div>
+
+                    {/* RIGHT */}
+                    <div className='col3 w-[20%] flex justify-center text-slate-800 dark:text-slate-300 text-nowrap py-3 lg:py-0'>
+                        <RocketLaunchOutlinedIcon className='mr-2' />
+                        Super Fast Delivery
+                    </div>
+
                 </div>
             </section>
 

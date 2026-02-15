@@ -17,6 +17,8 @@ import { PieChart, LineChart, Settings, ChevronRight, ChevronDown } from 'lucide
 import "./admin.css";
 import { useIsMobile } from '../../hooks/useMobile';
 import LogoutDialog from './logoutDialog';
+import { SiBloglovin } from "react-icons/si";
+import { PiApplePodcastsLogo } from "react-icons/pi";
 
 
 type NavItem = {
@@ -41,7 +43,8 @@ export const navItems: NavItem[] = [
       { title: 'Archived Products', icon: RiProductHuntLine, href: '/products/archived' },
     ],
   },
-  { title: 'Categories', icon: BiCategory, href: '/categories/manage' },
+  { title: 'Blogs', icon: SiBloglovin, href: '/blogs' },
+  { title: 'Logo', icon: PiApplePodcastsLogo, href: '/manage-logo' },
   { title: 'Calendar', icon: FaRegCalendarAlt, href: '/calendar2' },
   { title: 'Chat', icon: IoChatboxOutline, href: '/chat' },
   { title: 'AI', icon: ImMagicWand, href: '/agents' },

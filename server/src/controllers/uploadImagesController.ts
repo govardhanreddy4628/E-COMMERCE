@@ -44,6 +44,7 @@ import { uploadSingle } from "../middleware/multer.js";
 import { inngest } from "../inngest/client.js";
 import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE_MB, MAX_FILES } from "../config/uploadConfig.js";
 import { deleteTempFile } from "../utils/deleteTempFile.js";
+import { success } from "zod";
 
 /**
  * Backend single upload (e.g. category image) -> multer handles req.file
@@ -105,19 +106,42 @@ export const getSignedUploadParams = (req: Request, res: Response) => {
 
 
 // DELETE /api/v1/media/delete
-export const deleteTempImageController = async (req: Request, res: Response) => {
+export const deleteImageController = async (req: Request, res: Response) => {
   try {
     const { publicId } = req.body;
-    if (!publicId) return res.status(400).json({ message: "Missing publicId" });
 
-    await cloudinary.uploader.destroy(publicId);
+    console.log("Received delete request for publicId:", publicId);
 
-    res.json({ message: "Image deleted successfully" });
+    if (!publicId) {
+      return res.status(400).json({ message: "Missing publicId" });
+    }
+
+    const result = await cloudinary.uploader.destroy(publicId);
+
+    // ✅ Cloudinary may return "not found" if already deleted
+    if (result.result !== "ok" && result.result !== "not found") {
+      return res.status(400).json({
+        message: "Cloudinary delete failed",
+        result,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message:
+        result.result === "not found"
+          ? "Image already deleted"
+          : "Image deleted successfully",
+    });
   } catch (error: any) {
-    console.error("deleteTempImage error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("deleteImage error:", error);
+    return res.status(500).json({
+      message: "Server error",
+      error: error.message,
+    });
   }
 };
+
 
 
 

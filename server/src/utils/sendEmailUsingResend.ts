@@ -2,35 +2,36 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
-export const sendVerificationEmailUsingResend = async (
-  to: string,
-  otp: string
-) => {
+interface SendEmailParams {
+  to: string;
+  subject: string;
+  html: string;
+}
+
+export const sendEmailUsingResend = async ({
+  to,
+  subject,
+  html,
+}: SendEmailParams) => {
   try {
-    console.log("📨 Sending OTP using RESEND:", to);
+    console.log("📨 Sending email via Resend:", to);
 
     const { data, error } = await resend.emails.send({
-      from: "Your App <onboarding@resend.dev>", // or "no-reply@yourdomain.com"
+      from: "Your App <onboarding@resend.dev>", // change after domain verification
       to,
-      subject: "Verify your Email",
-      html: `
-        <div style="font-family: Arial; padding: 12px;">
-          <h2>Your OTP Code</h2>
-          <p>Your email verification OTP is:</p>
-          <h1 style="color: #4CAF50;">${otp}</h1>
-          <p>This code expires in 10 minutes.</p>
-        </div>
-      `,
+      subject,
+      html,
     });
 
     if (error) {
       console.error("❌ Resend error:", error);
-      throw new Error("Resend failed to send email");
+      throw new Error("Failed to send email");
     }
 
-    console.log("✅ Resend email sent:", data?.id);
+    console.log("✅ Email sent:", data?.id);
+    return data;
   } catch (err) {
-    console.error("❌ RESEND SEND ERROR:", err);
+    console.error("❌ SEND EMAIL ERROR:", err);
     throw err;
   }
 };

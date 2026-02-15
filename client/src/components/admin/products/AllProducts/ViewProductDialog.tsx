@@ -1,7 +1,8 @@
 import { Badge } from "../../../../ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../../../ui/dialog";
 import { Separator } from "../../../../ui/separator";
-import { Product } from "./ProductsData";
+import type { Product } from "../../context/productsContext";
+
 
 interface ViewProductDialogProps {
   open: boolean;
@@ -47,18 +48,22 @@ export function ViewProductDialog({ open, onOpenChange, product }: ViewProductDi
         <div className="space-y-6">
           <div className="flex gap-6">
             <img
-              src={product.image}
+              src={
+                product.images?.[0]?.url ||
+                "https://placehold.co/400x400?text=No+Image"
+              }
               alt={product.name}
-              className="h-40 w-40 rounded-lg object-cover border border-border"
+              className="h-40 w-40 rounded-lg object-cover border"
             />
             <div className="flex-1 space-y-3">
               <div>
                 <h3 className="text-2xl font-bold text-foreground">{product.name}</h3>
-                <p className="text-sm text-muted-foreground mt-1">ID: {product.id}</p>
+                <p className="text-sm text-muted-foreground mt-1">ID: {product._id}</p>
               </div>
               <div className="flex gap-2">
                 {getStatusBadge(product.status)}
-                {getStockBadge(product.stock)}
+                {getStockBadge(product.quantityInStock)}
+
               </div>
             </div>
           </div>
@@ -72,11 +77,11 @@ export function ViewProductDialog({ open, onOpenChange, product }: ViewProductDi
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Stock</p>
-              <p className="text-lg font-semibold text-foreground">{product.stock} units</p>
+              <p className="text-lg font-semibold text-foreground">{product.quantityInStock} units</p>
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Category</p>
-              <p className="text-lg font-semibold text-foreground">{product.category}</p>
+              <p className="text-lg font-semibold text-foreground">{product.category.name}</p>
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Created Date</p>
@@ -87,8 +92,8 @@ export function ViewProductDialog({ open, onOpenChange, product }: ViewProductDi
           <Separator />
 
           <div>
-            <p className="text-sm font-medium text-muted-foreground mb-2">Description</p>
-            <p className="text-foreground leading-relaxed">{product.description}</p>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Short Description</p>
+            <p className="text-foreground leading-relaxed">{ product.shortDescription}</p>
           </div>
         </div>
       </DialogContent>

@@ -1,144 +1,114 @@
 // context/AuthContext.tsx
 import {
   createContext,
-  useEffect,
-  useState,
-  ReactNode,
-  useCallback,
   useContext,
+  useEffect,
+  useMemo,
+  useState,
 } from "react";
-import toast from "react-hot-toast";
-import { useNavigate } from "react-router-dom";
+import api, { setAccessToken } from "../api/api_utility";
+import { useCart } from "./cartContext";
 
-// --- Type Definitions ---
-export interface User {
-  _id: string;
-  fullName: string;
+export interface AuthUser {
+  id: string;
   email: string;
-  role: string;
+  role: "user" | "admin";
+  fullName?: string;
   avatar?: string;
-  [key: string]: any;
 }
 
-export interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  error: string | null;
-  fetchUser: () => Promise<void>;
+interface AuthContextType {
+  user: AuthUser | null;
+  isAuthenticated: boolean;
+  isAuthLoading: boolean;
+  setUser: (user: AuthUser | null) => void;
   logout: () => Promise<void>;
-  isLogin: boolean;
 }
 
-export const AuthContext = createContext<AuthContextType | undefined>(
+const AuthContext = createContext<AuthContextType | undefined>(
   undefined
 );
 
-// --- Provider Component ---
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export const AuthProvider = ({
+  children,
+}: {
+  children: React.ReactNode;
+}) => {
+  const [user, setUser] = useState<AuthUser | null>(null);
+const [isAuthLoading, setIsAuthLoading] = useState(true);
 
-   const navigate = useNavigate();
+const isAuthenticated = !!user; 
 
-  // FIXED: Proper fallback chaining (local → production)
-  const API_BASE_URL =
-    import.meta.env.VITE_BACKEND_URL_LOCAL ||
-    import.meta.env.VITE_BACKEND_URL_PRODUCTION;
+  const LOGOUT_FLAG = "didLogout";
 
-  const fetchUser = useCallback(async () => {
-    if (!API_BASE_URL) {
-      console.error("❌ Backend URL is not defined.");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const res = await fetch(`${API_BASE_URL}/api/v1/user/me`, {
-        credentials: "include",
-      });
-
-      if (!res.ok) {
-        // Avoid leaving stale user
+  // Rehydrate session
+  useEffect(() => {
+    const initAuth = async () => {
+      // ✅ HARD STOP after logout
+      if (sessionStorage.getItem(LOGOUT_FLAG) === "true") {
         setUser(null);
-
-        const errData = await res.json().catch(() => null);
-        setError(errData?.message || "Unauthorized");
-
-        return;
-      }
-
-      const data = await res.json();
-      setUser(data.user);
-      setError(null);
-    } catch (err: any) {
-      console.error(err);
-      setUser(null);
-      setError("Failed to fetch user");
-    } finally {
-      setLoading(false);
-    }
-  }, [API_BASE_URL]);
-
-  const logout = useCallback(
-    async () => {
-      if (!API_BASE_URL) {
-        toast.error("Backend URL missing");
+        setAccessToken(null);
+        setIsAuthLoading(false);
         return;
       }
 
       try {
-        const res = await fetch(`${API_BASE_URL}/api/v1/user/logout`, {
-          method: "GET",
-          credentials: "include",
-        });
+        const refreshRes = await api.get("/api/v1/user/auth/refresh");
+        const accessToken = refreshRes.data?.accessToken;
+        if (!accessToken) throw new Error("No access token");
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => null);
-          toast.error(errData?.message || "Logout failed");
-          return;
-        }
+        setAccessToken(accessToken);
 
+        const meRes = await api.get("/api/v1/user/me");
+        setUser(meRes.data?.user || null);
+      } catch {
+        setAccessToken(null);
         setUser(null);
-        toast.success("Logged out");
-        navigate("/");
-      } catch (err: any) {
-        console.error("Logout failed", err);
-        toast.error(err?.message || "Logout failed");
+      } finally {
+        setIsAuthLoading(false);
       }
-    },
-    [API_BASE_URL]
-  );
+    };
 
-  // Fetch user on mount
-  useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
+    initAuth();
+  }, []);
 
-  // Computed value
-  const isLogin = !!user;
+
+  //Logout
+  const logout = async () => {
+    try {
+      await api.post("/api/v1/user/logout");
+    } catch { }
+    finally {
+      sessionStorage.setItem(LOGOUT_FLAG, "true"); // ✅ IMPORTANT
+      setAccessToken(null);
+      setUser(null);
+    }
+  };
+
+
+  const value = useMemo(
+  () => ({
+    user,
+    isAuthenticated,
+    isAuthLoading,
+    setUser,
+    logout,
+  }),
+  [user, isAuthLoading, isAuthenticated]
+);
+
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        error,
-        isLogin,
-        fetchUser,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// Custom hook
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within AuthProvider");
-  return context;
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+  return ctx;
 };

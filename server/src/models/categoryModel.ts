@@ -26,9 +26,12 @@ export interface ICategory extends Document {
   parentCategoryName?: string | null;
   parentCategoryId?: Types.ObjectId | null;
   children: Types.ObjectId[];
+  path: mongoose.Types.ObjectId[];
   level: number;
-  isActive: boolean;
+  isLeaf: boolean
   isFeatured: boolean;
+  isActive: boolean;
+  deletedAt?: Date | null;
   createdBy?: Types.ObjectId | null;
   createdAt?: Date;
   updatedAt?: Date;
@@ -111,19 +114,34 @@ const categorySchema = new Schema<ICategory>(
       ref: "Category",
       default: [], // <-- important
     },
+     path: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "Category",
+        index: true,
+      },
+    ],
     level: { type: Number, default: 0 },
-    createdBy: {
-      type: Schema.Types.ObjectId,
-      ref: "User",
-      default: null,
+    isLeaf: {
+      type: Boolean,
+      default: false,
+    },
+    isFeatured: {
+      type: Boolean,
+      default: false,
     },
     isActive: {
       type: Boolean,
       default: true,
     },
-    isFeatured: {
-      type: Boolean,
-      default: false,
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    createdBy: {
+      type: Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
   },
   { timestamps: true }
@@ -151,6 +169,8 @@ categorySchema.pre<ICategory>("save", async function (next) {
 
 // Indexes
 categorySchema.index({ parentCategoryId: 1 });
+categorySchema.index({ path: 1 });
+categorySchema.index({ slug: 1 });
 
 categorySchema.virtual("imageUrl").get(function () {
   return this.image?.url || null;

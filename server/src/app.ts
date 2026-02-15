@@ -30,6 +30,7 @@ import { initAdminChat } from "./sockets/initAdminChat.js";
 import { initAssistantChat } from "./sockets/initAssistantChat.js";
 import { socketAuthenticator } from "./middleware/socketAuthenticator.js";
 import uploadRoutes from "./routes/uploadRoutes.js";  
+import wishlistRouter from "./routes/wishlistRoutes.js";
 //import authRoutes from "./routes/authRoutes.js"
 
 const app = express();
@@ -40,16 +41,17 @@ const allowedOrigins = [
   process.env.CLIENT_URL_PROD,
 ].filter(Boolean);
 
-// ✅ Dynamic CORS configuration
-const corsOptions = {
-  origin: function (origin: any, callback: any) {
+
+const corsOptions: cors.CorsOptions = {
+  origin(origin, callback) {
+    console.log("🧪 CORS origin check:", origin);
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
     }
   },
-  credentials: true, // important for cookies/auth headers
+  credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
 };
@@ -65,7 +67,7 @@ app.use((req, res, next) => {
 app.use(cors(corsOptions)); // refer npm cors site for more info. and this middleware should be at top.
 
 // ✅ Handle preflight requests globally
-app.options("http://localhost:5173", cors(corsOptions));
+app.options("*", cors(corsOptions));
 
 app.use(cookieParser());
 
@@ -96,6 +98,7 @@ app.use("/api/v1/chat", chatRoutes)
 app.use("/api/v1/offers", offersRoutes)
 app.use("/api/v1/upload", uploadRoutes);
 app.use("/api/v1/cart", cartRouter);
+app.use("/api/v1/wishlist", wishlistRouter);
 // app.use("/api/v1/coupons", couponRouter);
 // app.use("/api/v1/payments", paymentRoutes);
 // app.use("/api/v1/order", orderRoutes);

@@ -4,7 +4,7 @@ import { MdInfo, MdInventory, MdOutlinePermMedia } from "react-icons/md";
 import { HiOutlineTag } from "react-icons/hi2";
 import { BsCurrencyDollar } from "react-icons/bs";
 import { BiSolidOffer } from "react-icons/bi";
-import Media, { UploadedImage } from "./Media";
+import Media, { UploadedImage } from "./MediaDnD2";
 import BasicInfo from "./BasicInfo";
 import Pricing from "./Pricing";
 import Inventory from "./Inventory";
@@ -15,11 +15,11 @@ import * as z from "zod";
 import { useToast } from "../../../../hooks/use-toast";
 import { Form } from "../../../../ui/form"
 
-//import BasicInfo from "./BasicInfo";
 import { sideBarContext } from "../../../../context/sidebarContext";
 import { Button } from "../../../../ui/button";
 import { useCategories } from "../../context/categoryContext";
 import Offers from "./Offers";
+import { deleteCloudinaryImage } from "../../utils/cloudinaryDelete";
 
 // ---------------------------
 // TAB COMPONENT CONFIG
@@ -48,45 +48,48 @@ const TABS = [
 // ---------------------------
 const offerSchema = z.object({
     type: z.enum(["Bank Offer", "Special Price", "Coupon", "Cashback"]),
-    description: z.string().min(1, "Offer description is required"),
-    discountValue: z.number().min(0).optional(),
+    description: z.string().min(1),
+
+    discountValue: z.coerce.number().min(0).optional(),
     discountType: z.enum(["PERCENTAGE", "FLAT"]).optional(),
-    maxDiscount: z.number().min(0).optional(),
-    minOrderValue: z.number().min(0).optional(),
+    maxDiscount: z.coerce.number().min(0).optional(),
+    minOrderValue: z.coerce.number().min(0).optional(),
+
     applicableBanks: z.array(z.string()).optional(),
     paymentMethods: z.array(z.string()).optional(),
     applicableCategories: z.array(z.string()).optional(),
     applicableProducts: z.array(z.string()).optional(),
+
     couponCode: z.string().optional(),
-    validFrom: z.string().optional(), // "2025-09-22"
-    validTill: z.string().optional(), // "2025-09-30"
-    usageLimit: z.number().min(1).optional(),
+    validFrom: z.string().optional(),
+    validTill: z.string().optional(),
+
+    usageLimit: z.coerce.number().min(1).optional(),
     isStackable: z.boolean().optional(),
-    priority: z.number().optional()
+    priority: z.coerce.number().optional(),
 });
 
 
 
 const productSchema = z.object({
     name: z.string().min(2, "Product name must be at least 2 characters").max(200, "Product name must be less than 100 characters"),
-    shortDescription: z.string().min(5, "Short description must be at least 5 characters").max(160, "Short description must be less than 160 characters"),
-    description: z.string().min(10, "Description must be at least 10 characters").max(2000, "Description must be less than 2000 characters"),
+    shortDescription: z.string().min(5, "Short description must be at least 5 characters").max(360, "Short description must be less than 360 characters"),
+    description: z.string().min(10, "Description must be at least 10 characters").max(5000, "Description must be less than 5000 characters"),
     category: z.string().min(1, "Please select a category"),
-    subcategory: z.string().optional(),
-    finalPrice: z.number().min(1, "Price must be greater than 0").max(200000),
-    costPerItem: z.number().min(0, "Cost must be 0 or greater").optional(),
-    listedPrice: z.number().optional(),
+    listedPrice: z.coerce.number().min(1, "Listed price is required"),
+    finalPrice: z.coerce.number().min(0).optional(),
+    costPerItem: z.coerce.number().optional(),
     highlights: z.array(z.string().min(2, "Highlight must be at least 2 characters")).max(10, "Max 10 highlights allowed").optional(),
     isActive: z.boolean().default(true),
     isFeatured: z.boolean().default(false),
-    warranty: z.string(),
+    warranty: z.string().optional(),
     sku: z.string().min(1, "SKU is required").max(50, "SKU must be less than 50 characters"),
-    productColor: z.string().optional(),
+    productColor: z.string().optional(), // ✅ string now
     availableColorsForProduct: z.array(z.string()).optional(),
     trackQuantity: z.boolean().default(true),
-    quantityInStock: z.number().min(0, "Quantity In Stock cannot be negative").optional(),
-    lowStockThreshold: z.number().min(0, "Quantity In Stock cannot be negative").default(10),
-    recentQuantity: z.number().min(0, "Recent Quantity cannot be negative").optional(),
+    quantityInStock: z.coerce.number().optional(),
+    lowStockThreshold: z.coerce.number().default(10),
+    recentQuantity: z.coerce.number().optional(),
     specifications: z.array(
         z.object({
             key: z.string().min(1, "Specification key is required"),
@@ -97,22 +100,22 @@ const productSchema = z.object({
     ).optional(),
     shipping: z.boolean().default(true),
     barcode: z.string().optional(),
-    seoTags: z.array(z.string()).max(10, "Maximum 10 tags allowed"),
+    seoTags: z.array(z.string()).max(10, "Maximum 10 tags allowed").optional(),
     seoTitle: z.string().max(60, "SEO title must be less than 60 characters").optional(),
     seoDescription: z.string().max(160, "SEO description must be less than 160 characters").optional(),
     offers: z.array(offerSchema).optional(),
-    returnPolicy: z.string(),
-    brand: z.string()
+    returnPolicy: z.string().optional(),
+    brand: z.string().optional(),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
 
-// ---------------------------
 // MAIN COMPONENT
-// ---------------------------
+
 export default function CreateProduct3() {
     const navigate = useNavigate();
     const { id } = useParams(); // detect edit mode
+    console.log("Product ID param:", id);
     const isEditMode = Boolean(id);
 
     const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
@@ -121,12 +124,11 @@ export default function CreateProduct3() {
     const [currentTab, setCurrentTab] = useState("basic");
 
     const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
+    const [deletedImagePublicIds, setDeletedImagePublicIds] = useState<string[]>([]);
     const [tagInput, setTagInput] = useState("");
 
-    const [selectedCategory, setSelectedCategory] = useState("");
     const { categories } = useCategories();
     const { toast } = useToast();
-
 
     const context = useContext(sideBarContext);
     if (!context) { throw new Error('sideBarContext must be used within a Provider') }
@@ -135,96 +137,195 @@ export default function CreateProduct3() {
     useEffect(() => { setIsExpand(false) }, [setIsExpand])
 
 
-    const MAX_IMAGES = 10;
+    const MAX_IMAGES = 8;
+
+    const BASE_URL = import.meta.env.VITE_BACKEND_URL_LOCAL || import.meta.env.VITE_BACKEND_URL;
+
+    const emptyProductValues: ProductFormData = {
+        name: "",
+        description: "",
+        shortDescription: "",
+        category: "",
+        finalPrice: 0,
+        listedPrice: 0,
+        costPerItem: 0,
+        sku: "",
+        barcode: "",
+        trackQuantity: true,
+        quantityInStock: 0,
+        lowStockThreshold: 0,
+        recentQuantity: 0,
+        specifications: [],
+        seoTags: [],
+        seoTitle: "",
+        seoDescription: "",
+        isActive: true,
+        isFeatured: false,
+        shipping: true,
+        offers: [],
+        warranty: "",
+        brand: "",
+        returnPolicy: "",
+        highlights: [],
+        productColor: "",
+        availableColorsForProduct: [],
+
+    };
 
     const form = useForm<ProductFormData>({
         resolver: zodResolver(productSchema) as Resolver<ProductFormData, object>,
-        defaultValues: {
-            name: "",
-            description: "",
-            shortDescription: "",
-            category: "",
-            subcategory: "",
-            finalPrice: 0,
-            listedPrice: 0,
-            costPerItem: 0,
-            sku: "",
-            barcode: "",
-            trackQuantity: true,
-            quantityInStock: 0,
-            lowStockThreshold: 0,
-            recentQuantity: 0,
-            specifications: [],
-            seoTags: [],
-            seoTitle: "",
-            seoDescription: "",
-            isActive: true,
-            isFeatured: false,
-            shipping: true,
-            offers: [],
-            warranty: "",
-            brand: "",
-            returnPolicy: "",
-            highlights: [],
-        },
+        defaultValues: emptyProductValues,
     });
 
+
+    useEffect(() => {
+        if (!id) {
+            // Create mode → reset everything
+            form.reset(emptyProductValues);
+            setUploadedImages([]);
+            setDeletedImagePublicIds([]);
+            setTagInput("");
+            setCurrentTab("basic");
+            setActiveTab("basic");
+        }
+    }, [id, form]);
 
     // ---------------------------
     // LOAD PRODUCT DATA IF EDIT MODE
     // ---------------------------
     useEffect(() => {
-        if (isEditMode) {
-            (async () => {
-                try {
-                    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/product/${id}`);
-                    if (!res.ok) throw new Error("Failed to fetch product");
-                    const data = await res.json();
-                    if (data?.product) {
-                        form.reset(data.product);
-                        setSelectedCategory(data.product.category || "");
-                        setUploadedImages(data.product.images || []);
-                    }
-                } catch (err) {
-                    console.error("Error loading product:", err);
-                    toast({
-                        title: "Error loading product",
-                        description: "Could not load product details.",
-                        variant: "destructive",
-                    });
-                }
-            })();
-        }
+        if (!isEditMode) return;
+
+        const fetchSingleProduct = async () => {
+            try {
+                const res = await fetch(`${BASE_URL}/api/v1/product/getproductdetails/${id}`);
+                if (!res.ok) throw new Error("Failed to fetch product");
+
+                const data = await res.json();
+                console.log("Raw product data:", data);
+
+                if (!data?.data) return;
+
+                const product = data.data;
+
+                // Normalize the data to match your form schema
+                form.reset({
+                    name: product.name || "",
+                    description: product.description || "",
+                    shortDescription: product.shortDescription || "",
+                    category: product.category?._id || "",       // category object -> string id
+                    finalPrice: product.finalPrice ?? 0,
+                    listedPrice: product.listedPrice ?? 0,
+                    costPerItem: product.costPerItem || 0,
+                    sku: product.sku || "",
+                    brand: product.brand || "",
+                    barcode: product.barcode || "",
+                    quantityInStock: product.quantityInStock || 0,
+                    lowStockThreshold: product.lowStockThreshold || 10,
+                    recentQuantity: product.recentQuantity || 0,
+                    isActive: product.isActive ?? true,
+                    isFeatured: product.isFeatured ?? false,
+                    shipping: product.shipping ?? true,
+                    warranty: product.warranty || "",
+                    seoTags: product.seoTags || [],
+                    seoTitle: product.seoTitle || "",
+                    seoDescription: product.seoDescription || "",
+                    highlights: product.highlights || [],
+                    specifications: product.specifications || [],
+                    offers: product.offers || [],
+                    returnPolicy: product.returnPolicy || "",
+                    productColor: product.productColor ?? "",
+                    availableColorsForProduct: product.availableColorsForProduct || [],
+                    trackQuantity: product.trackQuantity ?? true,
+                });
+
+
+
+                // Normalize images for your Media component
+                setUploadedImages(
+                    (product.images || []).map((img: any) => ({
+                        id: img.public_id,               // ✅ STABLE ID
+                        public_id: img.public_id,
+                        url: img.url,
+                        width: img.width,
+                        height: img.height,
+                        format: img.format,
+                        size: img.size,
+                        originalName: img.public_id,
+                        uploadedAt: new Date(img.uploadedAt || Date.now()),
+                        status: "done",
+                        role: img.role ?? "gallery",
+                    }))
+                );
+
+            } catch (err) {
+                console.error("Error loading product:", err);
+                toast({
+                    title: "Error loading product",
+                    description: "Could not load product details.",
+                    variant: "destructive",
+                });
+            }
+        };
+
+        fetchSingleProduct();
     }, [isEditMode, id]);
+
 
 
     // ---------------------------
     // FORM SUBMIT HANDLER
     // ---------------------------
     const onSubmit = async (data: ProductFormData) => {
+        console.log("hello")
         try {
 
             // const allValid = Object.values(validation).every(Boolean);
             // if (!allValid) return;
 
-            if (uploadedImages.length === 0) {
-                toast({
-                    title: "Missing images",
-                    description: "Please upload at least one image.",
-                    variant: "destructive",
-                });
-                return;
-            }
+            // if (uploadedImages.length === 0) {
+            //     toast({
+            //         title: "Missing images",
+            //         description: "Please upload at least one image.",
+            //         variant: "destructive",
+            //     });
+            //     return;
+            // }
+
+            // const hasCover = uploadedImages.some(img => img.role === "cover");
+            // if (!hasCover) {
+            //     toast({
+            //         title: "Cover image required",
+            //         description: "Please select one image as cover.",
+            //         variant: "destructive",
+            //     });
+            //     return;
+            // }
+
+
+            const normalizedImages = uploadedImages.map(
+                ({ public_id, url, width, height, format, size, uploadedAt, role }) => ({
+                    public_id,
+                    url,
+                    width,
+                    height,
+                    format,
+                    size,
+                    uploadedAt,
+                    role,
+                })
+            );
 
             const payload = {
                 ...data,
-                images: uploadedImages, // each image has public_id + secure_url
+                images: normalizedImages, // each image has public_id + secure_url
+                deletedImages: deletedImagePublicIds,
             };
 
-            const url = isEditMode
-                ? `${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/product/update/${id}`
-                : `${import.meta.env.VITE_BACKEND_URL_LOCAL}/api/v1/product/createproduct`;
 
+            const url = isEditMode
+                ? `${BASE_URL}/api/v1/product/update/${id}`
+                : `${BASE_URL}/api/v1/product/createproduct`;
             const method = isEditMode ? "PUT" : "POST";
 
             console.log("Product data:", data);
@@ -249,12 +350,11 @@ export default function CreateProduct3() {
             });
 
             // Reset form
-            if (isEditMode) navigate("/admin/products");
+            if (isEditMode) navigate(`/products/all`);
             if (!isEditMode) {
                 form.reset();
                 setUploadedImages([]);
                 setTagInput("");
-                setSelectedCategory("");
             }
             return respData;
         } catch (error) {
@@ -267,28 +367,15 @@ export default function CreateProduct3() {
         }
     };
 
-
-
-    // ---------------------------
     // OTHER UI LOGIC (TABS, VALIDATION, ETC.)
-    // ---------------------------
     const [validation, setValidation] = useState<Record<string, boolean>>(
         TABS.reduce((acc, tab) => ({ ...acc, [tab.id]: false }), {})
     );
-
 
     const watchedTags = form.watch("seoTags");
     const watchedTrackQuantity = form.watch("trackQuantity");
     const watchedFinalPrice = form.watch("finalPrice");
     const watchedListedPrice = form.watch("listedPrice");
-
-
-
-    const handleCategoryChange = (category: string) => {
-        setSelectedCategory(category);
-        form.setValue("category", category);
-        form.setValue("subcategory", ""); // Reset subcategory when category changes
-    };
 
     const generateSKU = () => {
         const name = form.getValues("name");
@@ -311,24 +398,22 @@ export default function CreateProduct3() {
     };
 
 
-    const removeImage = async (index: number) => {
-        const image = uploadedImages[index];
-        if (!image?.public_id) return;
+    const removeImage = (id: string) => {
+        const image = uploadedImages.find(img => img.id === id);
+        if (!image) return;
 
-        try {
-            await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/v1/product/delete`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ publicId: image.public_id }),
-            });
-
-            setUploadedImages((prev) => prev.filter((_, i) => i !== index));
-            toast({ title: "Image deleted successfully" });
-        } catch (err: any) {
-            console.error(err);
-            toast({ title: "Failed to delete image", description: err.message, variant: "destructive" });
+        if (image.status === "uploading") {
+            toast({ title: "Please wait", description: "Image is still uploading" });
+            return;
         }
+
+        if (image.public_id) {
+            setDeletedImagePublicIds(prev => [...prev, image.public_id]);
+        }
+
+        setUploadedImages(prev => prev.filter(img => img.id !== id));
     };
+
 
 
 
@@ -384,8 +469,6 @@ export default function CreateProduct3() {
             validateSection,
             generateSKU,
             categories,
-            handleCategoryChange,
-            selectedCategory
         },
         media: {
             uploadedImages,
@@ -413,10 +496,12 @@ export default function CreateProduct3() {
         },
     };
 
+    console.log("Form errors:", form.formState.errors);
+
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
+            <form onSubmit={form.handleSubmit(onSubmit, (errors) => console.log("❌ BLOCKED BY ZOD", errors))}>
                 <div className="h-[calc(100vh-5rem)] flex flex-col overflow-hidden relative">
                     {/* Breadcrumb */}
                     <div className="p-4 border-b bg-white sticky top-0 z-50 flex justify-between items-center">

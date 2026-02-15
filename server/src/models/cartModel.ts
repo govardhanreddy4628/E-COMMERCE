@@ -6,6 +6,7 @@ export interface ICart extends Document {
   userId: mongoose.Types.ObjectId;
   size?: unknown; // Mixed can be unknown or any
   color?: unknown;
+  expiresAt: Date;
 }
 
 
@@ -17,8 +18,23 @@ const cartSchema = new Schema<ICart>(
     //   items: [{ productId: { type: mongoose.Types.ObjectId, ref: "Product" }, qty: Number }],
     size: { type: Schema.Types.Mixed },
     color: { type: Schema.Types.Mixed },
+     // 👇 Cart expiration after 60 days
+    expiresAt: {
+      type: Date,
+      required: true,
+      default: () =>
+        new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days
+    },
   },
   { timestamps: true } // ✅ corrected spelling
+);
+
+// 🔥 TTL Index (Mongo auto deletes)
+cartSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+cartSchema.index(
+  { userId: 1, productId: 1, size: 1, color: 1 },
+  { unique: true }
 );
 
 // Virtual field
@@ -35,9 +51,8 @@ cartSchema.set('toJSON', {
   },
 });
 
+
+
 const CartModel: Model<ICart> = mongoose.model<ICart>('Cart', cartSchema);
 
 export default CartModel;
-
-
-

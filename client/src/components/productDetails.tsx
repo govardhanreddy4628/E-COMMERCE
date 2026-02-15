@@ -1,11 +1,14 @@
 import 'react-inner-image-zoom/lib/styles.min.css';
+import 'swiper/css';
+import 'swiper/css/navigation';
+
 import InnerImageZoom from 'react-inner-image-zoom'
 import { useState, useEffect } from 'react';
+
 import type { Swiper as SwiperType } from 'swiper';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { FreeMode, Navigation, Thumbs } from 'swiper/modules';
-import 'swiper/css';
-import 'swiper/css/navigation';
+
 import { FaRegHeart } from "react-icons/fa";
 import { GoGitCompare } from "react-icons/go";
 import { LiaShippingFastSolid } from "react-icons/lia";
@@ -166,12 +169,12 @@ const ProductDetails = () => {
                     {/* vertical swiper */}
                     <div className='col1 w-24 lg:h-[500px] h-[460px]'>
                         <Swiper
-                            onSwiper={setThumbsSwiper}
                             direction='vertical'
                             navigation={true}
                             spaceBetween={15}
                             slidesPerView="auto"
                             freeMode={true}
+                            onSwiper={setThumbsSwiper}
                             modules={[FreeMode, Navigation, Thumbs]}
                             className="verticalSwiper h-full"
                         >

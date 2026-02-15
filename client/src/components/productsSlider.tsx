@@ -1,17 +1,14 @@
 import { useEffect, useState } from "react";
-import ShoppingCartCheckoutIcon from "@mui/icons-material/ShoppingCartCheckout";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import AddIcon from "@mui/icons-material/Add";
-import RemoveIcon from "@mui/icons-material/Remove";
-import { IoExpand } from "react-icons/io5";
-import { FaRegHeart } from "react-icons/fa";
-import { Link, useNavigate } from "react-router-dom";
-import { Button, IconButton } from "@mui/material";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Navigation } from "swiper/modules";
 import "swiper/css";
 import "swiper/css/navigation";
+import { useCart } from "../context/cartContext";
+import ProductCard from "./productCard";
 import { useAuth } from "../context/authContext";
+import { Box } from "@mui/material";
+import { Product } from "../types/product";
+
 
 // ✅ Mock products data
 const mockProducts = [
@@ -41,58 +38,6 @@ const mockProducts = [
       "https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg",
     ],
   },
-  {
-    id: 3,
-    name: "Silver Bracelet",
-    description: "Minimal design, perfect for daily wear.",
-    brand: "SilverStone",
-    discount: 8,
-    price: 249.99,
-    originalPrice: 299.99,
-    images: [
-      "https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg",
-      "https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg",
-    ],
-  },
-  {
-    id: 4,
-    name: "Gold Bangles",
-    description: "Traditional handcrafted bangles in 22K gold.",
-    brand: "Spicez Gold",
-    discount: 12,
-    price: 799.99,
-    originalPrice: 899.99,
-    images: [
-      "https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg",
-      "https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg",
-    ],
-  },
-  {
-    id: 5,
-    name: "Pearl Necklace",
-    description: "Elegant pearls with a gold-plated clasp.",
-    brand: "Oceanic Pearls",
-    discount: 20,
-    price: 499.99,
-    originalPrice: 699.99,
-    images: [
-      "https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg",
-      "https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg",
-    ],
-  },
-  {
-    id: 6,
-    name: "Gemstone Ring",
-    description: "Radiant ruby stone with pure gold band.",
-    brand: "Royal Gems",
-    discount: 5,
-    price: 349.99,
-    originalPrice: 369.99,
-    images: [
-      "https://serviceapi.spicezgold.com/download/1742463096955_hbhb1.jpg",
-      "https://serviceapi.spicezgold.com/download/1742463096956_hbhb2.jpg",
-    ],
-  },
 ];
 
 // ✅ Skeleton Card
@@ -109,19 +54,61 @@ const SkeletonCard = () => (
   </div>
 );
 
-const ProductsSlider = ({ handleClickOpen }) => {
+const ProductsSlider = ({ handleClickOpen, headerName }) => {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cart, setCart] = useState<{ [key: number]: number }>({});
-  const navigate = useNavigate();
-  const { isLogin } = useAuth();
 
+  // ✅ CONTEXTS
+  const { isAuthenticated } = useAuth();
+  const { cart, addToCart, updateQuantity } = useCart();
+
+  // ✅ FETCH PRODUCTS FROM BACKEND
   useEffect(() => {
-    setTimeout(() => {
-      setProducts(mockProducts);
-      setLoading(false);
-    }, 2000);
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+
+        const res = await fetch(
+          "http://localhost:8080/api/v1/product/top-rated"
+        );
+        const data = await res.json();
+
+        if (data.success) {
+          setProducts(data.data);
+        } else {
+          setProducts([]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch products:", err);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
   }, []);
+
+
+  // =========================
+  // ✅ CART HANDLERS (CLEAN)
+  // =========================
+  const handleAdd = (product: Product) => {
+    // if (!isAuthenticated) {
+    //   console.log("Login required");
+    //   return;
+    // }
+    addToCart(product, 1);
+  };
+
+  const handleIncrease = (productId: string) => {
+    updateQuantity(productId, "inc");
+  };
+
+  const handleDecrease = (productId: string) => {
+    updateQuantity(productId, "dec");
+  };
+
 
 
   // // with mock data
@@ -147,148 +134,17 @@ const ProductsSlider = ({ handleClickOpen }) => {
   // };
 
 
-  // ✅ Fetch user cart from backend
-  const fetchCart = async () => {
-    if (!isLogin) return; // Only fetch if logged in
-
-    try {
-      const res = await fetch("http://localhost:8080/api/v1/cart/getCart", {
-        method: "GET",
-        credentials: "include",
-      });
-
-      const data = await res.json();
-      console.log("Fetched cart data:", data);
-      if (!data.success) {
-        setCart([]);
-        return;
-      }
-
-      // ✅ Always set an array
-      if (!Array.isArray(data.data) || data.data.length === 0) {
-        setCart([]);
-        return;
-      }
-
-      // ✅ Save entire cart array
-      setCart(data.data);
-    } catch (err) {
-      console.error("Failed to fetch cart:", err);
-      setCart([]);
-    }
-  };
-
-
-  useEffect(() => {
-    fetchCart();
-  }, []);
-
-  // ✅ Add to Cart
-  const handleAddToCart = async (productId: string) => {
-    console.log(productId)
-    if (isLogin) return; // skip fetching if not logged in
-    try {
-      const res = await fetch("http://localhost:8080/api/v1/cart/add", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ productId, quantity: 1 }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        fetchCart(); // refresh state
-      } else {
-        console.error("Add to cart failed:", data.message);
-      }
-    } catch (err) {
-      console.error("Error adding to cart:", err);
-    }
-  };
-
-  // ✅ Increase quantity
-  const handleIncrease = async (productId: string) => {
-    if (isLogin) return; // skip fetching if not logged in
-    const currentQty = cart[productId] || 0;
-    try {
-      const res = await fetch("http://localhost:8080/api/v1/cart/update", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          // You’d ideally need cartItemId from backend, but if not stored, refetch and find
-          cartItemId: await getCartItemId(productId),
-          quantity: currentQty + 1,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) fetchCart();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  // ✅ Decrease quantity
-  const handleDecrease = async (productId: string) => {
-    if (isLogin) return; // skip fetching if not logged in
-    const currentQty = cart[productId];
-    if (currentQty <= 1) {
-      await handleDelete(productId);
-      return;
-    }
-
-    try {
-      const res = await fetch("http://localhost:8080/api/v1/cart/update", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          cartItemId: await getCartItemId(productId),
-          quantity: currentQty - 1,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) fetchCart();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  // ✅ Delete item (when qty <= 0)
-  const handleDelete = async (productId: string) => {
-    if (isLogin) return; // skip fetching if not logged in
-    try {
-      const res = await fetch("http://localhost:8080/api/v1/cart/delete", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ cartItemId: await getCartItemId(productId) }),
-      });
-      const data = await res.json();
-      if (data.success) fetchCart();
-    } catch (err) {
-      console.error("Delete failed:", err);
-    }
-  };
-
-  // ✅ Helper to find cartItemId for a product
-  const getCartItemId = async (productId: string) => {
-    if (isLogin) return;
-    try {
-      const res = await fetch("http://localhost:8080/api/v1/cart", {
-        credentials: "include",
-      });
-      const data = await res.json();
-      const item = data.data.find((c: any) => c.productId._id === productId);
-      return item?._id;
-    } catch (err) {
-      console.error("Error finding cart item:", err);
-      return null;
-    }
-  };
-
-
   return (
     <div className="categorySwiper my-8">
+      <Box
+        sx={{ width: "95%" }}
+        className="w-full flex justify-between items-center mx-auto pt-4 mb-4"
+      >
+        {/* Left: Heading */}
+        <div className="flex flex-col justify-start">
+          <h1 className="text-[24px] font-bold">{headerName}</h1>
+        </div>
+      </Box>
       <div className="w-[95%] mx-auto">
         <Swiper
           slidesPerView={6}
@@ -313,107 +169,21 @@ const ProductsSlider = ({ handleClickOpen }) => {
               </SwiperSlide>
             ))
             : products.map((product) => {
-              const inCart = cart[product.id] !== undefined;
-              const qty = cart[product.id] || 0;
-
+              const item = cart[product._id];
               return (
-                <SwiperSlide key={product.id}>
-                  <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-400 shadow-md rounded-md flex flex-col items-center relative overflow-hidden">
-                    <div className="bg-white w-full flex items-center justify-center border-1 border-gray-200 relative group">
-                      <Link
-                        to={`/productdetails/${product.id}`}
-                        className="w-full h-[200px] relative overflow-hidden"
-                      >
-                        <img
-                          src={product.images[0]}
-                          className="w-full opacity-100 hover:opacity-0 transition duration-500"
-                        />
-                        <img
-                          src={product.images[1]}
-                          className="w-full absolute top-[0px] left-[0px] opacity-0 group-hover:scale-105 group-hover:opacity-100 group-hover:z-50 transition duration-500"
-                        />
-                      </Link>
-
-                      <div className="bg-red-400 rounded-md absolute left-[10px] top-[10px] text-[14px] px-2 py-1 z-50">
-                        {product.discount}%
-                      </div>
-
-                      <div className="absolute right-[10px] -top-[100%] flex flex-col gap-[5px] p-1 transition-all z-50 duration-400 group-hover:top-[10px]">
-                        <div
-                          className="h-[35px] w-[35px] rounded-full bg-white dark:bg-gray-800 dark:text-gray-200 flex items-center justify-center dark:hover:bg-red-500 hover:text-white hover:bg-red-500 transition-all cursor-pointer"
-                          onClick={handleClickOpen}
-                        >
-                          <IoExpand />
-                        </div>
-                        <div className="h-[35px] w-[35px] rounded-full bg-white dark:bg-gray-800 dark:text-gray-200 flex items-center justify-center dark:hover:bg-red-500 hover:text-white hover:bg-red-500 transition-all cursor-pointer">
-                          <FaRegHeart />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="info flex flex-col itms-center hustify-center w-full p-3">
-                      <h6 className="text-[14px] font-[600] capitalize mt-2">
-                        <Link to="/" className="link">
-                          {product.name}
-                        </Link>
-                      </h6>
-                      <p className="text-[13px] font-[400] text-gray-500 dark:text-gray-300 mt-1">
-                        {product.brand}
-                      </p>
-                      <h3 className="text-[13px] font-[300] leading-[20px] mt-2 text-[rgba(0,0,0,0.6)] dark:text-gray-300 transition-all">
-                        {product.description}
-                      </h3>
-
-                      <div className="flex items-center justify-between w-full py-2">
-                        <p className="text-[16px] font-medium line-through text-gray-600 dark:text-gray-300">
-                          ${product.originalPrice}
-                        </p>
-                        <p className="text-[16px] font-bold text-red-400">
-                          ${product.price}
-                        </p>
-                      </div>
-
-                      {/* ✅ Cart Button Logic */}
-                      {!inCart ? (
-                        <Button
-                          className="flex items-center justify-center !w-[90%] !border-[1.5px] !border-solid !border-red-400 !bg-inherit !text-red-400 !mx-auto gap-3 !my-4"
-                          onClick={() => handleAddToCart("6910382ab2bde5be4093f7e5")}
-                        >
-                          <ShoppingCartCheckoutIcon /> ADD TO CART
-                        </Button>
-                      ) : (
-                        <div className="flex items-center justify-between !w-[90%] border border-red-400 rounded-md !mx-auto !my-4 text-red-400">
-                          {/* <IconButton
-                              onClick={() => handleRemove(product.id)}
-                              className="!text-red-400"
-                            >
-                              <DeleteOutlineIcon />
-                            </IconButton> */}
-                          <IconButton
-                            onClick={() => handleDecrease(product.id)}
-                            className="!text-red-400 cursor-pointer border-r"
-                          >
-                            <RemoveIcon />
-                          </IconButton>
-                          <Button
-                            onClick={() => navigate("/cart")}
-                            className="!text-red-400 font-medium text-nowrap"
-                          >
-                            GO TO CART ({qty})
-                          </Button>
-                          <IconButton
-                            onClick={() => handleIncrease(product.id)}
-                            className="!text-red-400 cursor-pointer"
-                          >
-                            <AddIcon />
-                          </IconButton>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                <SwiperSlide key={product._id}>
+                  <ProductCard
+                    product={product}
+                    item={item}
+                    handleAdd={handleAdd}
+                    handleIncrease={handleIncrease}
+                    handleDecrease={handleDecrease}
+                    handleClickOpen={handleClickOpen}
+                  />
                 </SwiperSlide>
               );
-            })}
+            })
+          }
         </Swiper>
       </div>
     </div>

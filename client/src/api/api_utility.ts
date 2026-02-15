@@ -1,129 +1,139 @@
-import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
+// services/api.ts
+import axios, {
+  AxiosError,
+  AxiosInstance,
+  AxiosRequestConfig,
+} from "axios";
 
+/* ======================
+   Config
+====================== */
 
-const BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000/api";
+const BASE_URL =
+  import.meta.env.VITE_BACKEND_URL_LOCAL || "http://localhost:5000/api";
+
+/* ======================
+   In-memory access token
+====================== */
+
+let accessToken: string | null = null;
+
+export const setAccessToken = (token: string | null) => {
+  accessToken = token;
+};
+
+export const getAccessToken = () => accessToken;
+
+/* ======================
+   Axios instance
+====================== */
 
 const api: AxiosInstance = axios.create({
-    baseURL: BASE_URL,
-    timeout: 10000,
-    headers: {
-        "content-type": "application/json",
-    }
-})
-
-api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem("token");
-        if(token) {
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-    console.error("Request error:", error);
-    return Promise.reject(error);
-  }
-)
-
-// intentApi.ts
-const intentApi = axios.create({ baseURL: import.meta.env.VITE_BACKEND_URL || "http://localhost:5000/api"});
-
-intentApi.interceptors.request.use((config) => {
-  const intentToken = localStorage.getItem("intentToken");
-  if (intentToken) {
-    config.headers.Authorization = `Bearer ${intentToken}`;
-  }
-  return config;
+  baseURL: BASE_URL,
+  withCredentials: true, // refresh cookie
+  timeout: 10000,
 });
 
-export default intentApi;
+/* ======================
+   Refresh lock
+====================== */
 
+let refreshPromise: Promise<string> | null = null;
 
+/* ======================
+   Request interceptor
+====================== */
 
+api.interceptors.request.use(
+  (config) => {
+    if (accessToken) {
+      config.headers = config.headers ?? {};
+      (config.headers as any).Authorization = `Bearer ${accessToken}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
+/* ======================
+   Response interceptor
+====================== */
 
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
-    if (error.response?.status === 401) {
-      // Example: logout user or redirect
-      console.warn("Unauthorized — maybe redirect to login");
+  async (error: AxiosError) => {
+    const originalRequest = error.config as
+      | (AxiosRequestConfig & { _retry?: boolean })
+      | undefined;
+
+    if (!originalRequest) {
+      return Promise.reject(error);
     }
 
-    // Throw error to be handled in calling code
-    return Promise.reject(error);
+    // 🛑 IMPORTANT GUARD (ADD THIS HERE)
+    if (
+      error.response?.status !== 401 ||
+      originalRequest._retry ||
+      originalRequest.url?.includes("/auth/refresh")
+    ) {
+      return Promise.reject(error);
+    }
+
+    originalRequest._retry = true;
+
+    try {
+      if (!refreshPromise) {
+        refreshPromise = api
+          .get("/api/v1/user/auth/refresh")
+          .then((res) => {
+            const newToken = res.data?.accessToken;
+            if (!newToken) throw new Error("No access token");
+            setAccessToken(newToken);
+            return newToken;
+          })
+          .finally(() => {
+            refreshPromise = null;
+          });
+      }
+
+      const newToken = await refreshPromise;
+
+      originalRequest.headers = originalRequest.headers ?? {};
+      (originalRequest.headers as any).Authorization = `Bearer ${newToken}`;
+
+      return api(originalRequest);
+    } catch (err) {
+      setAccessToken(null);
+      return Promise.reject(err);
+    }
   }
 );
 
 
-// Create shortcut functions for each HTTP method
-export const GET = (
+export default api;
+
+/* ======================
+   Optional helpers
+====================== */
+
+export const GET = <T = any>(
   url: string,
   config?: AxiosRequestConfig
-): Promise<AxiosResponse> => api.get(url, config);
-export const PUT = (
+) => api.get<T>(url, config);
+
+export const POST = <T = any>(
   url: string,
   data?: any,
   config?: AxiosRequestConfig
-): Promise<AxiosResponse> => api.put(url, data, config);
-export const POST = (
+) => api.post<T>(url, data, config);
+
+export const PUT = <T = any>(
   url: string,
   data?: any,
   config?: AxiosRequestConfig
-): Promise<AxiosResponse> => api.post(url, data, config);
-export const DELETE = (
+) => api.put<T>(url, data, config);
+
+export const DELETE = <T = any>(
   url: string,
   config?: AxiosRequestConfig
-): Promise<AxiosResponse> => api.delete(url, config);
-
-
-
-
-// // services/api.ts
-// import axios from "axios";
-
-// const api = axios.create({
-//   baseURL: process.env.REACT_APP_API_BASE,
-//   withCredentials: true,
-// });
-
-// let isRefreshing = false;
-// let queue: { resolve: (v?: any) => void; reject: (e?: any) => void }[] = [];
-
-// const processQueue = (error: any) => {
-//   queue.forEach(p => {
-//     if (error) p.reject(error);
-//     else p.resolve();
-//   });
-//   queue = [];
-// };
-
-// api.interceptors.response.use(
-//   res => res,
-//   async err => {
-//     const originalReq = err.config;
-//     if (err.response?.status === 401 && !originalReq._retry) {
-//       if (isRefreshing) {
-//         return new Promise((resolve, reject) => {
-//           queue.push({ resolve, reject });
-//         }).then(() => api(originalReq));
-//       }
-//       originalReq._retry = true;
-//       isRefreshing = true;
-//       try {
-//         await api.get("/auth/refresh"); // server rotates and sets cookies
-//         processQueue(null);
-//         return api(originalReq);
-//       } catch (e) {
-//         processQueue(e);
-//         window.location.href = "/login";
-//         return Promise.reject(e);
-//       } finally {
-//         isRefreshing = false;
-//       }
-//     }
-//     return Promise.reject(err);
-//   }
-// );
-
-// export default api;
+) => api.delete<T>(url, config);

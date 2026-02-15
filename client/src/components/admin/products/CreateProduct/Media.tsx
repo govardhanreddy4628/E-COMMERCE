@@ -2,11 +2,12 @@ import { Upload } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../../ui/card";
 import { IoMdTrash } from "react-icons/io";
 import { RiImageEditLine } from "react-icons/ri";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { ImgEditModal } from './ImgEditModal';
 import { Area } from 'react-easy-crop';
 import { toast } from "../../../../hooks/use-toast";
 import { uploadFileDirect } from "../../utils/cloudinaryUpload";
+
 
 interface MediaProps {
     uploadedImages: UploadedImage[];
@@ -26,13 +27,33 @@ export interface UploadedImage {
     originalName: string;
     uploadedAt: Date;
     file?: File;
+
+    progress?: number;
+    status?: "uploading" | "done" | "error";
+    role?: "cover" | "thumbnail" | "gallery";
 }
 
-const Media: React.FC<MediaProps> = ({ uploadedImages, setUploadedImages, removeImage, MAX_IMAGES }) => {
 
-    // ✅ Add upload state
-    const [uploading, setUploading] = useState(false);
 
+/* ---------------- HELPERS ---------------- */
+
+const buildUploadedImage = (file: File, role: UploadedImage["role"]): UploadedImage => ({
+    public_id: "",
+    url: URL.createObjectURL(file),
+    width: 0,
+    height: 0,
+    format: file.type,
+    size: file.size,
+    originalName: file.name,
+    uploadedAt: new Date(),
+    file,
+    progress: 0,
+    status: "uploading",
+    role,
+});
+
+
+export default function Media2({ uploadedImages, setUploadedImages, removeImage, MAX_IMAGES }: MediaProps) {
 
     const [crop, setCrop] = useState({ x: 0, y: 0 });
     const [zoom, setZoom] = useState(1);
@@ -182,82 +203,23 @@ const Media: React.FC<MediaProps> = ({ uploadedImages, setUploadedImages, remove
     };
 
 
+    const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
 
-    //     const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    //         console.log(event.target.files);
-    //     const files = Array.from(event.target.files || []);
-    //     console.log(files);
-    //     const validImageTypes = ["image/jpeg", "image/png", "image/webp"];
+        const files = Array.from(event.target.files || []);
+        if (!files.length) return;
 
-    //     if (!files.length) return;
+        const validImageTypes = ["image/jpeg", "image/png", "image/webp"];
 
-    //     let validFiles = files.filter((file) => {
-    //       if (!validImageTypes.includes(file.type)) {
-    //         toast({
-    //           title: "Invalid file type",
-    //           description: "Please upload only JPEG, PNG, or WebP images.",
-    //           variant: "destructive",
-    //         });
-    //         return false;
-    //       }
-    //       if (file.size > 5 * 1024 * 1024) {
-    //         toast({
-    //           title: "File too large",
-    //           description: "Please upload images smaller than 5MB.",
-    //           variant: "destructive",
-    //         });
-    //         return false;
-    //       }
-    //       return true;
-    //     });
-
-    //     // Remove duplicates by name + size
-    //     validFiles = validFiles.filter(
-    //       (file) =>
-    //         !uploadedImages.some(
-    //           (img) => img.name === file.name && img.size === file.size
-    //         )
-    //     );
-
-    //     // Enforce max limit
-    //     if (uploadedImages.length + validFiles.length > MAX_IMAGES) {
-    //       toast({
-    //         title: "Image limit reached",
-    //         description: `You can only upload up to ${MAX_IMAGES} images.`,
-    //         variant: "destructive",
-    //       });
-    //       validFiles = validFiles.slice(0, MAX_IMAGES - uploadedImages.length);
-    //     }
-
-    //     if (validFiles.length) {
-    //       setUploadedImages((prev) => [...prev, ...validFiles]);
-    //     }
-
-    //     // Reset input so same file can be selected again
-    //     event.target.value = "";
-    //   };
-
-
-    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files;
-        if (!files || files.length === 0) return;
-
-        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
-        const MAX_UPLOAD_COUNT = 6;
-
-        let validFiles = Array.from(files);
-
-        if (uploadedImages.length + validFiles.length > MAX_UPLOAD_COUNT) {
-            toast({
-                title: "Image limit reached",
-                description: `You can only upload up to ${MAX_UPLOAD_COUNT} images.`,
-                variant: "destructive",
-            });
-            validFiles = validFiles.slice(0, MAX_UPLOAD_COUNT - uploadedImages.length);
-        }
-
-        validFiles = validFiles.filter((file) => {
-            if (file.size > MAX_FILE_SIZE) {
+        let validFiles = files.filter((file) => {
+            if (!validImageTypes.includes(file.type)) {
+                toast({
+                    title: "Invalid file type",
+                    description: "Please upload only JPEG, PNG, or WebP images.",
+                    variant: "destructive",
+                });
+                return false;
+            }
+            if (file.size > 5 * 1024 * 1024) {
                 toast({
                     title: "File too large",
                     description: "Please upload images smaller than 5MB.",
@@ -268,6 +230,7 @@ const Media: React.FC<MediaProps> = ({ uploadedImages, setUploadedImages, remove
             return true;
         });
 
+        // Remove duplicates by name + size
         validFiles = validFiles.filter(
             (file) =>
                 !uploadedImages.some(
@@ -275,50 +238,131 @@ const Media: React.FC<MediaProps> = ({ uploadedImages, setUploadedImages, remove
                 )
         );
 
-        if (validFiles.length === 0) return;
-
-        try {
-            setUploading(true);
-
-            const uploadPromises = validFiles.map(async (file) => {
-                const res = await uploadFileDirect(file); // Cloudinary upload
-                return {
-                    ...res,
-                    file, // ✅ Keep a reference to local File for cropping later
-                    originalName: file.name,
-                    size: file.size,
-                    uploadedAt: new Date(),
-                } as UploadedImage;
-            });
-
-            const uploadedResults = await Promise.all(uploadPromises);
-
-            setUploadedImages((prev) => [
-                ...prev,
-                ...uploadedResults.filter(
-                    (u) => !prev.some((p) => p.public_id === u.public_id)
-                ),
-            ]);
-
+        // Enforce max limit
+        if (uploadedImages.length + validFiles.length > MAX_IMAGES) {
             toast({
-                title: "Upload successful",
-                description: `${uploadedResults.length} image(s) uploaded.`,
-            });
-        } catch (err) {
-            console.error("Upload error:", err);
-            toast({
-                title: "Upload failed",
-                description: "Something went wrong while uploading images.",
+                title: "Image limit reached",
+                description: `You can only upload up to ${MAX_IMAGES} images.`,
                 variant: "destructive",
             });
-        } finally {
-            setUploading(false);
+            validFiles = validFiles.slice(0, MAX_IMAGES - uploadedImages.length);
         }
+
+        if (validFiles.length === 0) return;
+
+        const previews = validFiles.map((file, idx) => {
+            const position = uploadedImages.length + idx;
+            let role: UploadedImage["role"] = "gallery";
+
+            if (position === 0 || position === 1) role = "thumbnail";
+            if (position === 2) role = "cover";
+
+            return buildUploadedImage(file, role);
+        });
+
+
+        // Show preview immediately
+        setUploadedImages((prev) => [...prev, ...previews]);
+
+
+        validFiles.forEach(async (file) => {
+            try {
+                const res = await uploadFileDirect(file); // Cloudinary upload
+                // const finalRes = { ...res, file, originalName: file.name, size: file.size, uploadedAt: new Date() } as UploadedImage;
+                setUploadedImages((prev) =>
+                    prev.map((img) =>
+                        img.originalName === file.name
+                            ? { ...img, ...res, file, status: "done", originalName: file.name, size: file.size, uploadedAt: new Date(), }
+                            : img
+                    )
+                );
+                //remove this toast later as it toasting for every image uploaded
+                toast({
+                    title: "Upload successful",
+                    description: `${validFiles.length} image(s) uploaded.`,
+                });
+
+            } catch (err) {
+                console.error("Upload error:", err);
+                setUploadedImages((prev) =>
+                    prev.map((img) =>
+                        img.originalName === file.name
+                            ? { ...img, status: "error" }
+                            : img
+                    )
+                );
+                toast({
+                    title: "Upload failed",
+                    description: "Something went wrong while uploading images.",
+                    variant: "destructive",
+                });
+
+                // reset input
+                event.target.value = "";
+            }
+        });
+    }
+
+
+
+
+
+    /* ---------------- ROLE LOGIC ---------------- */
+
+    // const setRole = (index: number, role: "cover" | "thumbnail") => {
+    //     setUploadedImages((prev) => {
+    //         const coverCount = prev.filter((i) => i.role === "cover").length;
+    //         const thumbCount = prev.filter((i) => i.role === "thumbnail").length;
+
+    //         if (role === "cover" && coverCount >= 1) {
+    //             toast({ title: "Only one cover allowed", variant: "destructive" });
+    //             return prev;
+    //         }
+
+    //         if (role === "thumbnail" && thumbCount >= 2) {
+    //             toast({ title: "Max 2 thumbnails", variant: "destructive" });
+    //             return prev;
+    //         }
+
+    //         return prev.map((img, i) =>
+    //             i === index ? { ...img, role } : img
+    //         );
+    //     });
+    // };
+
+    const setRole = (index: number, role: "cover" | "thumbnail") => {
+        setUploadedImages(prev => {
+            let updated = [...prev];
+
+            if (role === "cover") {
+                updated = updated.map(img =>
+                    img.role === "cover" ? { ...img, role: "gallery" } : img
+                );
+            }
+
+            if (role === "thumbnail") {
+                const thumbs = updated.filter(i => i.role === "thumbnail");
+                if (thumbs.length >= 2) {
+                    toast({ title: "Max 2 thumbnails allowed", variant: "destructive" });
+                    return prev;
+                }
+            }
+
+            updated[index] = { ...updated[index], role };
+            return updated;
+        });
     };
 
 
+    /* ---------------- MEMORY CLEANUP ---------------- */
 
-
+    useEffect(() => {
+        return () => {
+            uploadedImages.forEach((img) => {
+                if (img.file) URL.revokeObjectURL(img.url);
+            });
+        };
+    }, [uploadedImages]);
 
     return (
         <div>
@@ -326,24 +370,38 @@ const Media: React.FC<MediaProps> = ({ uploadedImages, setUploadedImages, remove
                 <CardHeader>
                     <CardTitle>Product Images</CardTitle>
                     <CardDescription>
-                        Upload high-quality images of your product (max 10 images, 5MB each)
+                        Upload high-quality images of your product (max 8 images, 5MB each). 1 Cover, up to 2 Thumbnails, drag to reorder
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                     <div className="grid grid-cols-4 sm:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4 gap-2 ">
                         {uploadedImages.map((img, index) => (
+
                             <div
                                 key={index}
-                                className="group relative rounded-xl border border-gray-200 dark:border-gray-600 p-2 flex grid-cols-1"
+                                className="group relative rounded-xl border border-gray-200 dark:border-gray-600 p-2 flex grid-cols-1 flex-col"
                             >
                                 <img
-                                    src={img.url || URL.createObjectURL(new File([], img.originalName))}
+                                    src={
+                                        img.url
+                                            ? img.url
+                                            : img.file
+                                                ? URL.createObjectURL(img.file)
+                                                : ""
+                                    }
                                     alt={img.originalName}
                                     className="rounded-lg max-h-[140px] mx-auto max-w-full dark:bg-transparent"
                                 />
 
+                                {/* ROLE BADGE */}
+                                {img.role !== "gallery" && (
+                                    <span className="absolute top-1 left-1 bg-black text-white text-xs px-2 py-0.5 rounded">
+                                        {img.role?.toUpperCase()}
+                                    </span>
+                                )}
 
-                                <div className="absolute inset-2 bg-[#000000ba] group-hover:flex hidden text-xl items-center justify-center gap-2">
+                                {/* ACTION BUTTONS */}
+                                <div className="absolute top-2 right-2 bg-[#858181ba] group-hover:flex hidden text-xl flex-col gap-1 rounded-full">
                                     <span
                                         className="text-gray-100 hover:text-green-500 cursor-pointer p-1.5"
                                         title="Edit"
@@ -360,23 +418,35 @@ const Media: React.FC<MediaProps> = ({ uploadedImages, setUploadedImages, remove
                                         <IoMdTrash />
                                     </span>
                                 </div>
+
+                                {/* ROLE BUTTONS (CONDITIONAL) */}
+                                <div className="flex justify-between mt-2 text-xs">
+                                    {img.role !== "cover" && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setRole(index, "cover")}
+                                            className="border border-gray-300 p-1 rounded-sm"
+                                        >
+                                            Set Cover
+                                        </button>
+                                    )}
+
+                                    {img.role !== "thumbnail" && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setRole(index, "thumbnail")}
+                                            className="border border-gray-300 p-1 rounded-sm"
+                                        >
+                                            Set Thumbnail
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         ))}
 
-                        {/* Modal */}
-                        {previewIndex !== null && (
-                            <ImgEditModal image={uploadedImages[previewIndex]} onClose={() => setPreviewIndex(null)}
-                                crop={crop} zoom={zoom} rotate={rotate} aspect={aspect}
-                                brightness={brightness} contrast={contrast} grayscale={grayscale}
-                                onCropChange={setCrop} onZoomChange={setZoom} onRotationChange={setRotate} onAspectChange={setAspect}
-                                onBrightnessChange={setBrightness} onContrastChange={setContrast} onGrayscaleChange={setGrayscale}
-                                onCropComplete={onCropComplete}
-                                onResetFilters={handleResetFilters}
-                                onCropAndSave={handleCropAndSave} />
-                        )}
-                        {uploadedImages.length < MAX_IMAGES && (
 
-                            <label className={`"upload upload-draggable hover:border-primary border border-dashed border-gray-300 rounded-lg cursor-pointer flex justify-center items-center px-4 py-2 min-h-[130px]" ${uploadedImages.length ? "lg:col-span-2 h-[160px]" : ""}`}>
+                        {uploadedImages.length < MAX_IMAGES && (
+                            <label className={`upload upload-draggable hover:border-primary border border-dashed border-gray-300 rounded-lg cursor-pointer flex justify-center items-center px-4 py-2 min-h-[130px] ${uploadedImages.length === 0 ? "lg:col-span-2 w-full h-[160px]" : ""}`}>
                                 <input
                                     type="file"
                                     accept="image/*"
@@ -398,50 +468,26 @@ const Media: React.FC<MediaProps> = ({ uploadedImages, setUploadedImages, remove
                         )}
                     </div>
 
-                    {/* {uploadedImages.length > 0 && (
-                        <div className="space-y-4">
-                            <h4 className="font-medium">Uploaded Images ({uploadedImages.length}/10)</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                {uploadedImages.map((file, index) => (
-                                    <div key={index} className="relative group">
-                                        <div className="aspect-square rounded-lg overflow-hidden bg-muted border">
-                                            <img
-                                                src={URL.createObjectURL(file)}
-                                                alt={`Product image ${index + 1}`}
-                                                className="w-full h-full object-cover"
-                                            />
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="destructive"
-                                            size="icon"
-                                            className="absolute -top-2 -right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={() => removeImage(index)}
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </Button>
-                                        {index === 0 && (
-                                            <Badge className="absolute bottom-2 left-2 text-xs">
-                                                Main
-                                            </Badge>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                                The first image will be used as the main product image
-                            </p>
-                        </div>
-                    )} */}
-
                     <p className="mt-4 text-sm text-gray-500">
                         Image formats: <strong>.jpg, .jpeg, .png</strong>, preferred size: 1:1, file size
                         is restricted to a maximum of 500kb.
                     </p>
+
+                    {/* Modal */}
+                    {previewIndex !== null && (
+                        <ImgEditModal image={uploadedImages[previewIndex]} onClose={() => setPreviewIndex(null)}
+                            crop={crop} zoom={zoom} rotate={rotate} aspect={aspect}
+                            brightness={brightness} contrast={contrast} grayscale={grayscale}
+                            onCropChange={setCrop} onZoomChange={setZoom} onRotationChange={setRotate} onAspectChange={setAspect}
+                            onBrightnessChange={setBrightness} onContrastChange={setContrast} onGrayscaleChange={setGrayscale}
+                            onCropComplete={onCropComplete}
+                            onResetFilters={handleResetFilters}
+                            onCropAndSave={handleCropAndSave} />
+                    )}
                 </CardContent>
             </Card>
+
         </div>
     )
-}
+};
 
-export default Media

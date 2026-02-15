@@ -20,7 +20,7 @@ interface IVariant {
   color?: string;
   size?: string;
   stock: number;
-  price?: number;
+  finalPrice?: number;
   images?: string[];
   active?: boolean;
   specifications?: [ISpecifications];
@@ -53,22 +53,22 @@ interface IProduct extends Document {
   shortDescription: string;
   description: string;
   category: mongoose.Types.ObjectId;
-  price: number;
   costPerItem?: number;
-  discountedPrice?: number;
+  finalPrice?: number;
+  listedPrice: number;
   discountPercentage?: number;
   isFeatured?: boolean;
   isActive?: boolean;
   productRam?: string[];
   productWeight?: string[];
-  productColor?: string[];
+  productColor?: string;
   availableColorsForProduct?: string[];
   brand: string;
   quantityInStock: number;
   recentQuantity: number;
   rating?: number;
   numReviews: number;
-  thumbnails: string[];
+  // thumbnails: string[];
   images?: {
     public_id: string;
     url: string;
@@ -78,6 +78,7 @@ interface IProduct extends Document {
     size?: number;
     uploadedAt?: Date;
     alt?: string;
+    role?: "cover" | "thumbnail" | "gallery";
   }[];
   imageAudit?: {
     public_id?: string;
@@ -90,7 +91,7 @@ interface IProduct extends Document {
   productMeasurement?: string[];
   sizes?: any[];
   highlights?: string[];
-  status?: "active" | "inactive" | "deleted";
+  status?: "active" | "inactive" | "discontinued" | "archived";
   barcode?: string;
   sku?: string;
   shipping?: IShipping;
@@ -117,7 +118,7 @@ const EmbeddedOfferSchema = new Schema<IEmbeddedOffer>(
     description: { type: String, required: true },
     offerId: { type: Schema.Types.ObjectId, ref: "Offer" },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const SpecificationsSchema = new Schema<ISpecifications>({
@@ -133,12 +134,12 @@ const VariantSchema: Schema = new Schema(
     color: { type: String },
     size: { type: String },
     stock: { type: Number, required: true, min: 0 },
-    price: { type: Number, min: 0 },
+    finalPrice: { type: Number, min: 0 },
     images: [{ type: String }],
     active: { type: Boolean, default: true },
     specifications: [SpecificationsSchema],
   },
-  { _id: false }
+  { _id: false },
 );
 
 export const ShippingSchema: Schema = new Schema(
@@ -170,7 +171,7 @@ export const ShippingSchema: Schema = new Schema(
 
     handlingTimeInDays: { type: Number, min: 0, default: 0 },
   },
-  { _id: false } // ✅ prevents separate _id for sub-doc
+  { _id: false }, // ✅ prevents separate _id for sub-doc
 );
 
 const productSchema = new mongoose.Schema<IProduct>(
@@ -191,27 +192,26 @@ const productSchema = new mongoose.Schema<IProduct>(
     shortDescription: { type: String, required: true },
     description: { type: String, required: true },
     category: { type: Schema.Types.ObjectId, ref: "Category" },
-    price: {
+
+    costPerItem: { type: Number, min: 0 },
+
+    listedPrice: {
       type: Number,
       required: true,
-      min: [1, "wrong min price"],
-      max: [100000, "wrong max price"],
+      min: [1, "Listed price must be at least 1"],
+      max: [300000, "Listed price too high"],
     },
-    costPerItem: { type: Number, min: 0 },
 
     discountPercentage: {
       type: Number,
-      min: [1, "wrong min discount"],
-      max: [99, "wrong max discount"],
+      min: [0, "Discount cannot be negative"],
+      max: [99, "Discount cannot exceed 99%"],
+      default: 0,
     },
-    discountedPrice: {
+
+    finalPrice: {
       type: Number,
-      validate: {
-        validator: function (val: number) {
-          return !val || val < this.price;
-        },
-        message: "Discounted price must be less than original price",
-      },
+      min: [0, "Final price cannot be negative"],
     },
 
     brand: {
@@ -229,20 +229,21 @@ const productSchema = new mongoose.Schema<IProduct>(
     productRam: { type: [String], default: [] },
     productMeasurement: { type: [String], default: [] },
     productWeight: { type: [String], default: [] },
-    productColor: { type: [String], default: [] },
+    productColor: { type: String },
+    availableColorsForProduct: { type: [String], default: [] },
 
     //category: { type: Schema.Types.ObjectId, ref: "Category", required: true },
 
     recentQuantity: { type: Number, min: 0, default: 0 },
     quantityInStock: { type: Number, min: 0, default: 0 },
 
-    thumbnails: {
-      type: [String],
-      // validate: [
-      //   (val: string[]) => val.length > 0,
-      //   "At least one thumbnail required",
-      // ],
-    },
+    // thumbnails: {
+    //   type: [String],
+    //   // validate: [
+    //   //   (val: string[]) => val.length > 0,
+    //   //   "At least one thumbnail required",
+    //   // ],
+    // },
     images: [
       {
         public_id: { type: String, required: true },
@@ -253,6 +254,11 @@ const productSchema = new mongoose.Schema<IProduct>(
         size: Number,
         uploadedAt: { type: Date, default: Date.now },
         alt: { type: String, default: "" },
+        role: {
+          type: String,
+          enum: ["cover", "thumbnail", "gallery"],
+          default: "gallery",
+        },
       },
     ],
     imageAudit: [
@@ -292,7 +298,7 @@ const productSchema = new mongoose.Schema<IProduct>(
       type: Number,
       min: [0, "wrong min rating"],
       max: [5, "wrong max rating"],
-      default: 0,
+      default: 4,
     },
     reviews: [
       {
@@ -306,7 +312,7 @@ const productSchema = new mongoose.Schema<IProduct>(
 
     status: {
       type: String,
-      enum: ["active", "inactive", "deleted"],
+      enum: ["active", "inactive", "discontinued", "archived"],
       default: "active",
     },
 
@@ -314,7 +320,7 @@ const productSchema = new mongoose.Schema<IProduct>(
     updatedBy: { type: Schema.Types.ObjectId, ref: "User" },
     createdAt: { type: Date, default: Date.now },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // ✅ Auto-generate slug before saving  //To ensure unique slugs if multiple products have the same name: This will automatically append -1, -2, etc. to ensure uniqueness.
@@ -337,16 +343,13 @@ productSchema.pre("save", async function (next) {
 
 //======================== Virtuals & Indexes ========================//
 
-// ✅ Virtual field for final price
-productSchema.virtual("finalPrice").get(function () {
-  const discount = this.discountPercentage || 0;
-  return Math.round(this.price * (1 - discount / 100));
-});
+
 
 // productSchema.index({ slug: 1 });
-// productSchema.index({ category: 1 });
+productSchema.index({ category: 1 });
 // productSchema.index({ deleted: 1 });
 // productSchema.index({ isFeatured: 1 });
+
 
 const productModel = mongoose.model<IProduct>("Product", productSchema);
 export default productModel;
@@ -371,3 +374,15 @@ export default productModel;
 //     toObject: { virtuals: true },
 //   }
 // );
+
+productSchema.pre("save", function (next) {
+  const cover = this.images.filter((i) => i.role === "cover");
+  const thumbs = this.images.filter((i) => i.role === "thumbnail");
+
+  if (cover.length !== 1)
+    return next(new Error("Exactly one cover image required"));
+
+  if (thumbs.length > 2) return next(new Error("Max 2 thumbnails allowed"));
+
+  next();
+});

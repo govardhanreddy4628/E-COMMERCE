@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 
 export const ACCESS_EXPIRES_SEC = 15 * 60; // 15 minutes
 export const REFRESH_EXPIRES_SEC = 7 * 24 * 60 * 60; // 7 days
+export const ABSOLUTE_SESSION_SEC = 30 * 24 * 60 * 60; // 30 days
 
 export function generateAccessToken(userId: string, role: string) {
   return jwt.sign({ id: userId, role }, process.env.JWT_ACCESS_SECRET!, {

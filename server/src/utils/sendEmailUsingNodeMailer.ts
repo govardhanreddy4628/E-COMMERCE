@@ -5,15 +5,15 @@ dotenv.config();
 
 const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 465,
-  secure: true, //true for 465, false for other ports
+  port: 587,
+  secure: false, //true for port 465, false for other ports
   auth: {
     user: process.env.EMAIL_USER!, //your SMTP email user
     pass: process.env.EMAIL_PASS!, // your SMTP email password
   },
-  tls: {
-    rejectUnauthorized: false, // 👈 use this tls cerificate only for development mode. using it in production may cause security issues.
-  },
+  // tls: {
+  //   rejectUnauthorized: false, // 👈 use this tls cerificate only for development mode. using it in production may cause security issues.
+  // },
 });
 
 transporter.verify((error, success) => {

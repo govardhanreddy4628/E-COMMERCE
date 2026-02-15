@@ -51,10 +51,10 @@ export const authenticate = (roles?: string[]): RequestHandler => {
         });
         return;
       }
-      if (roles && !roles.includes(decoded?.role)) {
-        res.status(403).json({ message: "Forbidden: insufficient role" });
-        return;
-      }
+      // if (roles && !roles.includes(decoded?.role)) {
+      //   res.status(403).json({ message: "Forbidden: insufficient role" });
+      //   return;
+      // }
       const user: IUserDocument | null = await UserModel.findById(
         decoded.id
       ).select("-password -otp -otpExpiresAt");
@@ -102,3 +102,5 @@ export const authenticate = (roles?: string[]): RequestHandler => {
     }
   };
 };
+
+
