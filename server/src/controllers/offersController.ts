@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
-import { OfferSchema } from "../validators/offersValidation";
-import { OfferModel } from "../models/offersModel";
+import { OfferSchema } from "../validators/offersValidation.js";
+import { OfferModel } from "../models/offersModel.js";
+
 
 
 // ✅ Create Offer

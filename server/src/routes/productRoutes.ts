@@ -1,16 +1,16 @@
 import express from "express";
 import {
-  checkoutController,
+  //checkoutController,
   createProduct,
   createProductController,
   deleteProductController,
-  filters,
+  //filters,
   getAllProductController,
   getProductsByCategoryId,
   getProductsByCategorySlug,
   getSingleProductByIdController,
   getTopRatedProducts,
-  productFiltersController,
+  //productFiltersController,
   updateProductController,
   //updateProductController,
 } from "../controllers/productController.js";
@@ -41,14 +41,14 @@ productRouter.get("/getallproducts", asyncHandler(getAllProductController));
 productRouter.get("/getproductdetails/:id", asyncHandler(getSingleProductByIdController));
 // router.put("/updateproduct", updateProductController)
 productRouter.delete("/delete/:id", asyncHandler(deleteProductController));
-productRouter.post("/checkout", asyncHandler(checkoutController));
+//productRouter.post("/checkout", asyncHandler(checkoutController));
 
 //productRouter.post('/filters', productFiltersController);
 
 productRouter.get("/category/:slug", asyncHandler(getProductsByCategorySlug));
 productRouter.get("/category/id/:id", asyncHandler(getProductsByCategoryId));
 
-productRouter.post('/filters', filters)
+//productRouter.post('/filters', filters)
 
 productRouter.get("/top-rated", asyncHandler(getTopRatedProducts));
 

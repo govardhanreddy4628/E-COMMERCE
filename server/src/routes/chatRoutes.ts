@@ -1,5 +1,5 @@
 import express from "express";
-import { accessChat, createGroupChat } from "../controllers/chatController.js";
+//import { accessChat, createGroupChat } from "../controllers/chatController.js";
 import { authenticate } from "../middleware/authenticate.js";
 //import upload from "../middleware/multer";
 
@@ -11,9 +11,9 @@ const asyncHandler = (fn: any) => (req: any, res: any, next: any) => {
 
 chatRouter.use(authenticate());
 
-chatRouter.route("/").post(accessChat);
+//chatRouter.route("/").post(accessChat);
 // chatRouter.route("/").get(fetchChats);
-chatRouter.route("/newgroup").post(createGroupChat);
+//chatRouter.route("/newgroup").post(createGroupChat);
 // chatRouter.route("/rename").put(renameGroup);
 // chatRouter.route("/groupremove").put(removeFromGroup);
 // chatRouter.route("/groupadd").put(addToGroup);

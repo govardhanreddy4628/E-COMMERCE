@@ -11,6 +11,6 @@
     "skipLibCheck": true,
      "typeRoots": ["./node_modules/@types", "./src/types"]
   },
-  "include": ["src/**/*", "src/types/**/*.d.ts", "clearRedis.ts"]
+  "include": ["src/**/*", "src/types/**/*.d.ts"]
    //"include": ["src", "src/types", "src/__tests__"],
 }

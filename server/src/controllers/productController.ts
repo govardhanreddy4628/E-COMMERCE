@@ -721,17 +721,25 @@ export const getProductByIdandCategory = async (
         breadcrumb,
       },
     });
-  } catch (error) {
-    // 6. Handle Server Errors (e.g., database connection issues)
+  }  catch (error: unknown) {
+  if (error instanceof Error) {
     console.error(
       `Error fetching product ID ${req.params.productId}:`,
-      error.message,
+      error.message
     );
     res.status(500).json({
       success: false,
       message: "A server error occurred while fetching the product.",
     });
+  } else {
+    console.error("Unknown error:", error);
+    res.status(500).json({
+      success: false,
+      message: "An unexpected error occurred.",
+    });
   }
+}
+
 };
 
 /**
@@ -779,16 +787,24 @@ export const getProductById = async (req: Request, res: Response) => {
         breadcrumb,
       },
     });
-  } catch (error) {
-    // 6. Handle Server Errors (e.g., database connection issues)
-    console.error(
-      `Error fetching product ID ${req.params.productId}:`,
-      error.message,
-    );
-    res.status(500).json({
-      success: false,
-      message: "A server error occurred while fetching the product.",
-    });
+  } catch (error: unknown) {
+    // ✅ Narrow the type safely
+    if (error instanceof Error) {
+      console.error(
+        `Error fetching product ID ${req.params.productId}:`,
+        error.message
+      );
+      res.status(500).json({
+        success: false,
+        message: "A server error occurred while fetching the product.",
+      });
+    } else {
+      console.error("Unknown error:", error);
+      res.status(500).json({
+        success: false,
+        message: "An unexpected server error occurred.",
+      });
+    }
   }
 };
 
@@ -1738,150 +1754,150 @@ export async function removeImageFromCloudinary(
 }
 
 //single controller instead of using multiple controllers.
-export const getFilteredProductsController = async (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): Promise<void> => {
-  try {
-    const {
-      page = "1",
-      perPage = "10",
-      search,
-      sortBy = "createdAt",
-      sortOrder = "desc",
-      inStock,
-    } = req.query;
+// export const getFilteredProductsController = async (
+//   req: Request,
+//   res: Response,
+//   next: NextFunction,
+// ): Promise<void> => {
+//   try {
+//     const {
+//       page = "1",
+//       perPage = "10",
+//       search,
+//       sortBy = "createdAt",
+//       sortOrder = "desc",
+//       inStock,
+//     } = req.query;
 
-    const catId = req.params.catId;
+//     const catId = req.params.catId;
 
-    // Validate pagination
-    const currentPage = Number(page);
-    const limit = Number(perPage);
+//     // Validate pagination
+//     const currentPage = Number(page);
+//     const limit = Number(perPage);
 
-    if (
-      !Number.isInteger(currentPage) ||
-      !Number.isInteger(limit) ||
-      currentPage <= 0 ||
-      limit <= 0
-    ) {
-      return res.status(400).json({
-        message: "'page' and 'perPage' must be positive integers",
-        success: false,
-        error: true,
-      });
-    }
+//     if (
+//       !Number.isInteger(currentPage) ||
+//       !Number.isInteger(limit) ||
+//       currentPage <= 0 ||
+//       limit <= 0
+//     ) {
+//       return res.status(400).json({
+//         message: "'page' and 'perPage' must be positive integers",
+//         success: false,
+//         error: true,
+//       });
+//     }
 
-    // Build dynamic filter
-    const filter: any = {};
+//     // Build dynamic filter
+//     const filter: any = {};
 
-    if (catId) filter.catId = catId;
+//     if (catId) filter.catId = catId;
 
-    if (search) {
-      filter.name = { $regex: search.toString(), $options: "i" };
-    }
+//     if (search) {
+//       filter.name = { $regex: search.toString(), $options: "i" };
+//     }
 
-    if (inStock === "true") filter.inStock = true;
-    if (inStock === "false") filter.inStock = false;
+//     if (inStock === "true") filter.inStock = true;
+//     if (inStock === "false") filter.inStock = false;
 
-    // Get total count
-    const totalProducts = await productModel.countDocuments(filter);
-    const totalPages = Math.ceil(totalProducts / limit);
+//     // Get total count
+//     const totalProducts = await productModel.countDocuments(filter);
+//     const totalPages = Math.ceil(totalProducts / limit);
 
-    if (currentPage > totalPages && totalPages > 0) {
-      return res.status(404).json({
-        message: "Page not found",
-        success: false,
-        error: true,
-      });
-    }
+//     if (currentPage > totalPages && totalPages > 0) {
+//       return res.status(404).json({
+//         message: "Page not found",
+//         success: false,
+//         error: true,
+//       });
+//     }
 
-    const products = await productModel
-      .find(filter)
-      .populate("category")
-      .sort({ [sortBy as string]: sortOrder === "asc" ? 1 : -1 })
-      .skip((currentPage - 1) * limit)
-      .limit(limit);
+//     const products = await productModel
+//       .find(filter)
+//       .populate("category")
+//       .sort({ [sortBy as string]: sortOrder === "asc" ? 1 : -1 })
+//       .skip((currentPage - 1) * limit)
+//       .limit(limit);
 
-    return res.status(200).json({
-      success: true,
-      error: false,
-      data: products,
-      pagination: {
-        currentPage,
-        perPage: limit,
-        totalProducts,
-        totalPages,
-      },
-    });
-  } catch (error) {
-    console.error("Error fetching filtered products:", error);
-    const message =
-      error instanceof Error ? error.message : "Unknown error occurred";
-    return res.status(500).json({ success: false, error: message });
-  }
-};
+//     return res.status(200).json({
+//       success: true,
+//       error: false,
+//       data: products,
+//       pagination: {
+//         currentPage,
+//         perPage: limit,
+//         totalProducts,
+//         totalPages,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error fetching filtered products:", error);
+//     const message =
+//       error instanceof Error ? error.message : "Unknown error occurred";
+//     return res.status(500).json({ success: false, error: message });
+//   }
+// };
 
-export const checkoutController = async (req: Request, res: Response) => {
-  try {
-    const { productId, quantity = 1, couponCode, userId } = req.body;
+// export const checkoutController = async (req: Request, res: Response) => {
+//   try {
+//     const { productId, quantity = 1, couponCode, userId } = req.body;
 
-    const product = await productModel.findById(productId);
-    if (!product) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Product not found" });
-    }
+//     const product = await productModel.findById(productId);
+//     if (!product) {
+//       return res
+//         .status(404)
+//         .json({ success: false, message: "Product not found" });
+//     }
 
-    let discountPercentage = 0;
+//     let discountPercentage = 0;
 
-    if (couponCode) {
-      const coupon = await couponModel.findOne({
-        code: couponCode.toUpperCase(),
-        isActive: true,
-      });
+//     if (couponCode) {
+//       const coupon = await couponModel.findOne({
+//         code: couponCode.toUpperCase(),
+//         isActive: true,
+//       });
 
-      if (
-        !coupon ||
-        coupon.expiresAt < new Date() ||
-        coupon.usedCount >= coupon.usageLimit
-      ) {
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid or expired coupon" });
-      }
+//       if (
+//         !coupon ||
+//         coupon.expiresAt < new Date() ||
+//         coupon.usedCount >= coupon.usageLimit
+//       ) {
+//         return res
+//           .status(400)
+//           .json({ success: false, message: "Invalid or expired coupon" });
+//       }
 
-      if (
-        coupon.applicableUsers.length &&
-        !coupon.applicableUsers.some((id) => id.toString() === userId)
-      ) {
-        return res
-          .status(403)
-          .json({ success: false, message: "Coupon not valid for user" });
-      }
+//       if (
+//         coupon.applicableUsers.length &&
+//         !coupon.applicableUsers.some((id) => id.toString() === userId)
+//       ) {
+//         return res
+//           .status(403)
+//           .json({ success: false, message: "Coupon not valid for user" });
+//       }
 
-      discountPercentage = coupon.discountPercentage;
-      coupon.usedCount += 1;
-      await coupon.save();
-    }
+//       discountPercentage = coupon.discountPercentage;
+//       coupon.usedCount += 1;
+//       await coupon.save();
+//     }
 
-    const totalPrice = product.price * quantity;
-    const finalPrice = Math.round(totalPrice * (1 - discountPercentage / 100));
+//     const totalPrice = product.finalPrice * quantity;
+//     const finalPrice = Math.round(totalPrice * (1 - discountPercentage / 100));
 
-    res.status(200).json({
-      success: true,
-      product: {
-        name: product.name,
-        quantity,
-        originalPrice: product.price,
-        discountPercentage,
-        finalPrice,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Checkout failed" });
-  }
-};
+//     res.status(200).json({
+//       success: true,
+//       product: {
+//         name: product.name,
+//         quantity,
+//         originalPrice: product.finalPrice,
+//         discountPercentage,
+//         finalPrice,
+//       },
+//     });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: "Checkout failed" });
+//   }
+// };
 
 // export async function productFiltersController(req:Request, res:Response){
 //   const {catId, subCatId, thirdSubCatId,minPrice, maxPrice, rating, page, limit} = req.body;
@@ -2003,7 +2019,7 @@ const getDescendantCategoryIds = async (
   return ids;
 };
 
-export const getProductsByCategorySlug = async (req, res) => {
+export const getProductsByCategorySlug = async (req:Request, res:Response) => {
   try {
     const { slug } = req.params;
 
@@ -2056,7 +2072,7 @@ export const getProductsByCategorySlug = async (req, res) => {
 };
 
 
-export const getProductsByCategoryId = async (req, res) => {
+export const getProductsByCategoryId = async (req:Request, res:Response) => {
   try {
     const { id } = req.params;
 
@@ -2109,60 +2125,60 @@ export const getProductsByCategoryId = async (req, res) => {
 };
 
 
-export async function filters(request, response) {
-  const {
-    catId,
-    subCatId,
-    thirdSubCategoryId,
-    minPrice,
-    maxPrice,
-    rating,
-    page,
-    limit,
-  } = request.body;
+// export async function filters(request, response) {
+//   const {
+//     catId,
+//     subCatId,
+//     thirdSubCategoryId,
+//     minPrice,
+//     maxPrice,
+//     rating,
+//     page,
+//     limit,
+//   } = request.body;
 
-  const filters = {};
+//   const filters = {};
 
-  if (catId?.length) {
-    filters.catId = { $in: catId };
-  }
-  if (subCatId?.length) {
-    filters.subCatId = { $in: subCatId };
-  }
-  if (thirdSubCategoryId?.length) {
-    filters.thirdSubCategoryId = { $in: thirdSubCategoryId };
-  }
+//   if (catId?.length) {
+//     filters.catId = { $in: catId };
+//   }
+//   if (subCatId?.length) {
+//     filters.subCatId = { $in: subCatId };
+//   }
+//   if (thirdSubCategoryId?.length) {
+//     filters.thirdSubCategoryId = { $in: thirdSubCategoryId };
+//   }
 
-  if (minPrice || maxPrice) {
-    filters.price = { $gte: +minPrice || 0, $lte: +maxPrice || Infinity };
-  }
+//   if (minPrice || maxPrice) {
+//     filters.price = { $gte: +minPrice || 0, $lte: +maxPrice || Infinity };
+//   }
 
-  if (rating?.length) {
-    filters.rating = { $in: rating };
-  }
+//   if (rating?.length) {
+//     filters.rating = { $in: rating };
+//   }
 
-  try {
-    const products = await productModel
-      .find(filters)
-      .populate("category".skip(page - 1) * limit)
-      .limit(parseInt(limit));
-    const total = await productModel.countDocuments(filters);
-    return response.status(200).json({
-      error: false,
-      success: true,
-      products: products,
-      total: total,
-      page: parseInt(page),
-      totalPages: Math.ceil(total / limit),
-    });
-  } catch (error) {
-    return response.status(500).json({
-      message: error.message || error,
-      error: true,
-      success: false,
-    });
-  }
-}
+//   try {
+//     const products = await productModel
+//       .find(filters)
+//       .populate("category".skip(page - 1) * limit)
+//       .limit(parseInt(limit));
+//     const total = await productModel.countDocuments(filters);
+//     return response.status(200).json({
+//       error: false,
+//       success: true,
+//       products: products,
+//       total: total,
+//       page: parseInt(page),
+//       totalPages: Math.ceil(total / limit),
+//     });
+//   } catch (error) {
+//     return response.status(500).json({
+//       message: error.message || error,
+//       error: true,
+//       success: false,
+//     });
+//   }
+// }
 
 
 

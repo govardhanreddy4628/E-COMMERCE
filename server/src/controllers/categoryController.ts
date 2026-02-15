@@ -14,10 +14,15 @@ import {
   MAX_FILE_SIZE_MB,
 } from "../config/uploadConfig.js";
 import { addAuditLog } from "../lib/audit.js";
-import slugify from "slugify";
 import productModel from "../models/productModel.js";
 import { deleteTempFile } from "../utils/deleteTempFile.js";
 import { getCategoryBreadcrumb } from "../services/getBreadCrumb.js";
+import slugifyModule from "slugify";
+
+const slugify = slugifyModule as unknown as (
+  input: string,
+  options?: { lower?: boolean; strict?: boolean }
+) => string;
 
 const CATEGORY_TREE_KEY = "category_tree";
 const isValidObjectId = (id?: string) => !!(id && Types.ObjectId.isValid(id));

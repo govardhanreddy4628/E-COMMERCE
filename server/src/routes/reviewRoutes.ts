@@ -9,7 +9,7 @@ const router = express.Router();
 // router.get("/reviews/stats", adminAuth, getReviewModerationStats);
 
 router.get("/reviews/pending", getPendingReviews);
-router.put("/reviews/:id/moderate", moderateReview);
+//router.put("/reviews/:id/moderate", moderateReview);
 router.get("/reviews/stats", getReviewModerationStats);
 
 export default router;

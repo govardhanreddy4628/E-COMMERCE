@@ -25,7 +25,10 @@ async function fetchAllCloudinaryResources(prefix: string) {
       if (nextCursor) await sleep(300);
     } while (nextCursor);
   } catch (err) {
-    console.error(`💥 [Fetch] Failed to fetch resources for prefix: ${prefix}`, err);
+    console.error(
+      `💥 [Fetch] Failed to fetch resources for prefix: ${prefix}`,
+      err,
+    );
   }
 
   return allResources;
@@ -43,12 +46,14 @@ cron.schedule("0 3 * * *", async () => {
     const cutoff = Date.now() - 24 * 60 * 60 * 1000; // 24 hours
 
     const oldTempImages = allTemp.filter(
-      (img: any) => new Date(img.created_at).getTime() < cutoff
+      (img: any) => new Date(img.created_at).getTime() < cutoff,
     );
 
     if (oldTempImages.length) {
       const publicIds = oldTempImages.map((img: any) => img.public_id);
-      console.log(`🗑️ [Temp Cleanup] Deleting ${publicIds.length} old temp images...`);
+      console.log(
+        `🗑️ [Temp Cleanup] Deleting ${publicIds.length} old temp images...`,
+      );
       await cloudinary.api.delete_resources(publicIds);
       console.log(`✅ [Temp Cleanup] Deleted ${publicIds.length} old images.`);
     } else {
@@ -72,23 +77,29 @@ cron.schedule("0 */6 * * *", async () => {
     // Get all used image public_ids from DB
     const allProducts = await productModel.find({}, { "images.public_id": 1 });
     const usedPublicIds = new Set(
-      allProducts.flatMap((p) => p.images.map((img: any) => img.public_id))
+      allProducts.flatMap(
+        (p) => p.images?.map((img: any) => img.public_id) || [],
+      ),
     );
 
     // Find orphaned Cloudinary images
     const orphanedImages = allCloudinaryImages.filter(
-      (img: any) => !usedPublicIds.has(img.public_id)
+      (img: any) => !usedPublicIds.has(img.public_id),
     );
 
     if (orphanedImages.length > 0) {
-      console.log(`🗑️ [Orphan Cleanup] Found ${orphanedImages.length} orphaned images.`);
+      console.log(
+        `🗑️ [Orphan Cleanup] Found ${orphanedImages.length} orphaned images.`,
+      );
 
       const CHUNK_SIZE = 50;
       for (let i = 0; i < orphanedImages.length; i += CHUNK_SIZE) {
         const chunk = orphanedImages.slice(i, i + CHUNK_SIZE);
-        await cloudinary.api.delete_resources(chunk.map((img: any) => img.public_id));
+        await cloudinary.api.delete_resources(
+          chunk.map((img: any) => img.public_id),
+        );
         console.log(
-          `✅ [Orphan Cleanup] Deleted batch ${i / CHUNK_SIZE + 1} (${chunk.length} images)`
+          `✅ [Orphan Cleanup] Deleted batch ${i / CHUNK_SIZE + 1} (${chunk.length} images)`,
         );
         await sleep(500);
       }
@@ -101,13 +112,6 @@ cron.schedule("0 */6 * * *", async () => {
     console.error("💥 [Orphan Cleanup] Error:", err);
   }
 });
-
-
-
-
-
-
-
 
 // v2
 // import cron from "node-cron";

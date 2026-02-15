@@ -1,6 +1,6 @@
 import express from "express";
 import {createOffer, getOffers, getOfferById, updateOffer, deleteOffer} from "../controllers/offersController.js";
-import { validate } from "../middleware/validate";
+import { validate } from "../middleware/validate.js";
 import { OfferSchema } from "../validators/offersValidation.js";
 
 const router = express.Router();

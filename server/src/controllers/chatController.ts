@@ -5,62 +5,62 @@ import UserModel from "../models/userModel.js";
 import Chat from "../models/chatModal.js";
 import ChatModel from "../models/chatModal.js";
 import { Message } from "../models/MessageModel.js";
-import { ApiError } from "../utils/ApiError";
+import { ApiError } from "../utils/ApiError.js";
 
 // ---------------- Access / Create One-to-One Chat ----------------
-export const accessChat: RequestHandler = asyncHandler(
-  async (req: Request, res: Response) => {
-    const { userId } = req.body;
+// export const accessChat: RequestHandler = asyncHandler(
+//   async (req: Request, res: Response) => {
+//     const { userId } = req.body;
 
-    if (!userId) {
-      console.log("UserId param not sent with request");
-      res.sendStatus(400);
-      return;
-    }
+//     if (!userId) {
+//       console.log("UserId param not sent with request");
+//       res.sendStatus(400);
+//       return;
+//     }
 
-    let isChat = await ChatModel.find({
-      isGroupChat: false,
-      $and: [
-        { users: { $elemMatch: { $eq: req.userId } } },
-        { users: { $elemMatch: { $eq: userId } } },
-      ],
-    })
-      .populate("users", "-password")
-      .populate("latestMessage");
+//     let isChat = await ChatModel.find({
+//       isGroupChat: false,
+//       $and: [
+//         { users: { $elemMatch: { $eq: req.userId } } },
+//         { users: { $elemMatch: { $eq: userId } } },
+//       ],
+//     })
+//       .populate("users", "-password")
+//       .populate("latestMessage");
 
-    // isChat = await UserModel.populate(isChat, {
-    //   path: "latestMessage.sender",
-    //   select: "name pic email",
-    // });
+//     // isChat = await UserModel.populate(isChat, {
+//     //   path: "latestMessage.sender",
+//     //   select: "name pic email",
+//     // });
 
-    isChat = await ChatModel.populate(isChat, {
-      path: "latestMessage.sender",
-      select: "name pic email",
-    });
+//     isChat = await ChatModel.populate(isChat, {
+//       path: "latestMessage.sender",
+//       select: "name pic email",
+//     });
 
-    if (isChat.length > 0) {
-      res.send(isChat[0]);
-    } else {
-      const chatData = {
-        chatName: "sender",
-        isGroupChat: false,
-        users: [req.userId, userId],
-      };
+//     if (isChat.length > 0) {
+//       res.send(isChat[0]);
+//     } else {
+//       const chatData = {
+//         chatName: "sender",
+//         isGroupChat: false,
+//         users: [req.userId, userId],
+//       };
 
-      try {
-        const createdChat = await Chat.create(chatData);
-        const FullChat = await Chat.findOne({ _id: createdChat._id }).populate(
-          "users",
-          "-password"
-        );
+//       try {
+//         const createdChat = await Chat.create(chatData);
+//         const FullChat = await Chat.findOne({ _id: createdChat._id }).populate(
+//           "users",
+//           "-password"
+//         );
 
-        res.status(200).send(FullChat);
-      } catch (error: any) {
-        res.status(400).json({ message: error.message });
-      }
-    }
-  }
-);
+//         res.status(200).send(FullChat);
+//       } catch (error: any) {
+//         res.status(400).json({ message: error.message });
+//       }
+//     }
+//   }
+// );
 
 // // ---------------- Fetch All Chats ----------------
 // export const fetchChats: RequestHandler = asyncHandler(
@@ -313,61 +313,61 @@ export const accessChat: RequestHandler = asyncHandler(
 
 
 // ---------------- Create Group Chat ----------------
-export const createGroupChat: RequestHandler = asyncHandler(
-  async (req: Request, res: Response) => {
-    const { members: usersRaw, name } = req.body;
+// export const createGroupChat: RequestHandler = asyncHandler(
+//   async (req: Request, res: Response) => {
+//     const { members: usersRaw, name } = req.body;
 
-    if (!usersRaw || !name) {
-      res.status(400).json({ message: "Please fill all the fields" });
-      return;
-    }
+//     if (!usersRaw || !name) {
+//       res.status(400).json({ message: "Please fill all the fields" });
+//       return;
+//     }
 
-    let members: string[];
-    try {
-      members = typeof usersRaw === "string" ? JSON.parse(usersRaw) : usersRaw;
-    } catch {
-      res.status(400).json({ message: "Invalid users format" });
-      return;
-    }
+//     let members: string[];
+//     try {
+//       members = typeof usersRaw === "string" ? JSON.parse(usersRaw) : usersRaw;
+//     } catch {
+//       res.status(400).json({ message: "Invalid users format" });
+//       return;
+//     }
 
-    if (!Array.isArray(members) || members.length < 2) {
-      res.status(400).json({
-        message: "At least 2 other users are required to form a group chat",
-      });
-      return;
-    }
+//     if (!Array.isArray(members) || members.length < 2) {
+//       res.status(400).json({
+//         message: "At least 2 other users are required to form a group chat",
+//       });
+//       return;
+//     }
 
-    if (!req.userId) {
-      res.status(401).json({ message: "Unauthorized" });
-      return;
-    }
+//     if (!req.userId) {
+//       res.status(401).json({ message: "Unauthorized" });
+//       return;
+//     }
 
-    const allMembers = [...members, req.userId];
+//     const allMembers = [...members, req.userId];
 
-    try {
-      const isGroup = await ChatModel.create({
-        chatName: name,
-        members: allMembers,
-        isGroupChat: true,
-        groupAdmin: req.userId,
-      });
+//     try {
+//       const isGroup = await ChatModel.create({
+//         chatName: name,
+//         members: allMembers,
+//         isGroupChat: true,
+//         groupAdmin: req.userId,
+//       });
 
-      const fullGroupChat = await ChatModel.findById(isGroup._id)
-        .populate("users", "-password")
-        .populate("groupAdmin", "-password");
+//       const fullGroupChat = await ChatModel.findById(isGroup._id)
+//         .populate("users", "-password")
+//         .populate("groupAdmin", "-password");
 
-      if (!fullGroupChat) {
-        res.status(500).json({ message: "Failed to create group chat" });
-        return;
-      }
+//       if (!fullGroupChat) {
+//         res.status(500).json({ message: "Failed to create group chat" });
+//         return;
+//       }
 
-      res.status(201).json(fullGroupChat);
-    } catch (error: any) {
-      console.error("Error creating group chat:", error);
-      res.status(500).json({ message: error.message || "Server error" });
-    }
-  }
-);
+//       res.status(201).json(fullGroupChat);
+//     } catch (error: any) {
+//       console.error("Error creating group chat:", error);
+//       res.status(500).json({ message: error.message || "Server error" });
+//     }
+//   }
+// );
 
 // // ---------------- Rename Group ----------------
 // export const renameGroup: RequestHandler = asyncHandler(

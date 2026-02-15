@@ -20,7 +20,7 @@ uploadRouter.get("/signature", getSignedUploadParams);
 uploadRouter.delete("/delete", asyncHandler(deleteImageController));
 
 // Backend single image upload (admin/category)
-uploadRouter.post("/category", uploadSingle, uploadCategoryImage);
+uploadRouter.post("/category", uploadSingle, asyncHandler(uploadCategoryImage));
 
 
 export default uploadRouter;

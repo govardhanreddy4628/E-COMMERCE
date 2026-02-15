@@ -1,7 +1,8 @@
 // controllers/question.controller.ts
 import { Request, Response } from "express";
-import { QuestionValidationSchema } from "../validators/questionsValidation";
-import { QuestionModel } from "../models/questionsModel";
+import { QuestionValidationSchema } from "../validators/questionsValidation.js";
+import { QuestionModel } from "../models/questionsModel.js";
+
 
 
 // ✅ Ask a Question

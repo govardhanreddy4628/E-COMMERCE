@@ -1,4 +1,4 @@
-import AuditLog from "../models/AuditLog";
+import AuditLog from "../models/auditLog.js";
 
 export const addAuditLog = async ({
   entity,

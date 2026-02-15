@@ -50,31 +50,46 @@ import { success } from "zod";
  * Backend single upload (e.g. category image) -> multer handles req.file
  * Route: POST /api/v1/upload/category  (uses uploadSingle middleware)
  */
+
+interface CloudinaryUploadResult {
+  public_id: string;
+  secure_url: string;
+  width?: number;
+  height?: number;
+  format?: string;
+  [key: string]: any;
+}
+
 export const uploadCategoryImage = async (req: Request, res: Response) => {
   try {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
     const uploaded = await uploadToCloudinary(req.file.path, "categories");
 
-    // fire an Inngest event for async processing (audit/thumbnail generation etc.)
+    // fire an Inngest event
     await inngest.send({
       name: "product/image.uploaded",
       data: {
         userId: (req as any).user?._id || null,
         public_id: uploaded.public_id,
-        url: uploaded.url,
+        url: uploaded.secure_url, // <-- use secure_url instead of url
         src: "backend",
       },
     });
 
     return res.status(200).json({ success: true, image: uploaded });
-  } catch (err: any) {
+  } catch (err: unknown) {
     // ensure temp file removed
     if ((req as any).file?.path) await deleteTempFile((req as any).file.path);
+
+    let message = "Upload failed";
+    if (err instanceof Error) message = err.message;
+
     console.error("uploadCategoryImage error:", err);
-    return res.status(500).json({ message: "Upload failed", error: err.message });
+    return res.status(500).json({ message, error: message });
   }
 };
+
 
 /**
  * Signed params endpoint for direct frontend uploads to Cloudinary

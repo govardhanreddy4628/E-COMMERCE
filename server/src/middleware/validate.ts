@@ -40,7 +40,7 @@
 // src/middleware/validate.ts
 import { ZodError, ZodObject } from "zod";
 import { Request, Response, NextFunction } from "express";
-import { ApiError } from "../utils/ApiError";
+import { ApiError } from "../utils/ApiError.js";
 
 /**
  * ✅ Smart Zod validation middleware

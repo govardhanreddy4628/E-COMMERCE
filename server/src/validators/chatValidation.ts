@@ -1,8 +1,8 @@
 // validators.ts
 import { z, ZodError, ZodObject } from "zod";
 import { Request, Response, NextFunction } from "express";
-import { errorHandler } from "../middleware/errorHandler";
-import { ApiError } from "../utils/ApiError";
+import { errorHandler } from "../middleware/errorHandler.js";
+import { ApiError } from "../utils/ApiError.js";
 
 // ✅ A reusable middleware to validate body/params/query
 export const validate = (schema: ZodObject) => (req:Request, res:Response, next:NextFunction) => {

@@ -1,6 +1,11 @@
 import mongoose, { Schema, Document } from "mongoose";
-import slugify from "slugify";
 import { IReview } from "./reviewsModel.js";
+import slugifyModule from "slugify";
+
+const slugify = slugifyModule as unknown as (
+  input: string,
+  options?: { lower?: boolean; strict?: boolean }
+) => string;
 
 export interface IEmbeddedOffer {
   type: string;
@@ -376,8 +381,9 @@ export default productModel;
 // );
 
 productSchema.pre("save", function (next) {
-  const cover = this.images.filter((i) => i.role === "cover");
-  const thumbs = this.images.filter((i) => i.role === "thumbnail");
+  const images = this.images || []; // fallback if undefined
+  const cover = images.filter((i) => i.role === "cover");
+  const thumbs = images.filter((i) => i.role === "thumbnail");
 
   if (cover.length !== 1)
     return next(new Error("Exactly one cover image required"));

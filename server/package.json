@@ -44,7 +44,7 @@
     "razorpay": "^2.9.6",
     "redis": "^5.8.2",
     "resend": "^6.5.2",
-    "slugify": "^1.6.6",
+    "slugify": "^1.6.5",
     "socket.io": "^4.8.1",
     "speakeasy": "^2.0.0",
     "uuid": "^13.0.0",

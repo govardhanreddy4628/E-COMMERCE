@@ -1,10 +1,9 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
-import  ProductModel  from "../models/productModel.js"
+import ProductModel from "../models/productModel.js";
 import { z } from "zod";
 import { moderateComment } from "../utils/moderation.js";
 import { ReviewModel } from "../models/reviewsModel.js";
-
 
 // --- Zod validation schema for adding/updating review ---
 const ReviewValidationSchema = z.object({
@@ -16,20 +15,28 @@ const ReviewValidationSchema = z.object({
   media: z.array(z.string().url()).optional(),
 });
 
-
 // --- Update Product rating aggregation ---
 const updateProductRating = async (productId: string) => {
   const agg = await ReviewModel.aggregate([
-    { $match: { product: new mongoose.Types.ObjectId(productId), status: "approved" } },
-    { $group: { _id: "$product", averageRating: { $avg: "$rating" }, totalReviews: { $sum: 1 } } },
+    {
+      $match: {
+        product: new mongoose.Types.ObjectId(productId),
+        status: "approved",
+      },
+    },
+    {
+      $group: {
+        _id: "$product",
+        averageRating: { $avg: "$rating" },
+        totalReviews: { $sum: 1 },
+      },
+    },
   ]);
   await ProductModel.findByIdAndUpdate(productId, {
     rating: agg[0]?.averageRating || 0,
     recentQuantity: agg[0]?.totalReviews || 0,
   });
 };
-
-
 
 // --- Add a review ---
 export const addReview = async (req: Request, res: Response) => {
@@ -42,7 +49,9 @@ export const addReview = async (req: Request, res: Response) => {
       user: validated.user,
     });
     if (existing)
-      return res.status(400).json({ error: "User has already reviewed this product" });
+      return res
+        .status(400)
+        .json({ error: "User has already reviewed this product" });
 
     // 2️⃣ Count previous reviews for spam heuristic
     const userPreviousCount = await ReviewModel.countDocuments({
@@ -51,7 +60,9 @@ export const addReview = async (req: Request, res: Response) => {
     });
 
     // 3️⃣ Moderate comment
-    const { ok, reason } = moderateComment(validated.comment, { userPreviousCount });
+    const { ok, reason } = moderateComment(validated.comment, {
+      userPreviousCount,
+    });
 
     // 4️⃣ Decide status based on moderation
     let status: "pending" | "approved" | "rejected" = "approved"; // default
@@ -107,7 +118,6 @@ export const addReview = async (req: Request, res: Response) => {
   }
 };
 
-
 // --- Get reviews for a product with pagination & sorting ---
 export const getProductReviews = async (req: Request, res: Response) => {
   try {
@@ -119,18 +129,35 @@ export const getProductReviews = async (req: Request, res: Response) => {
     else if (sortBy === "rating_high") sortOptions.rating = -1;
     else if (sortBy === "rating_low") sortOptions.rating = 1;
 
-    const reviews = await ReviewModel.find({ product: productId, status: "approved" })
+    const reviews = await ReviewModel.find({
+      product: productId,
+      status: "approved",
+    })
       .populate("user", "name")
       .skip((+page - 1) * +limit)
       .limit(+limit)
       .sort(sortOptions);
 
     const stats = await ReviewModel.aggregate([
-      { $match: { product: new mongoose.Types.ObjectId(productId), status: "approved" } },
-      { $group: { _id: "$product", averageRating: { $avg: "$rating" }, totalReviews: { $sum: 1 } } },
+      {
+        $match: {
+          product: new mongoose.Types.ObjectId(productId),
+          status: "approved",
+        },
+      },
+      {
+        $group: {
+          _id: "$product",
+          averageRating: { $avg: "$rating" },
+          totalReviews: { $sum: 1 },
+        },
+      },
     ]);
 
-    res.json({ reviews, stats: stats[0] || { averageRating: 0, totalReviews: 0 } });
+    res.json({
+      reviews,
+      stats: stats[0] || { averageRating: 0, totalReviews: 0 },
+    });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
   }
@@ -142,21 +169,29 @@ export const voteReview = async (req: Request, res: Response) => {
     const { reviewId } = req.params;
     const { userId, vote } = req.body; // vote: "up" or "down"
 
-    if (!["up", "down"].includes(vote)) return res.status(400).json({ error: "Invalid vote type" });
+    if (!["up", "down"].includes(vote))
+      return res.status(400).json({ error: "Invalid vote type" });
 
     const review = await ReviewModel.findById(reviewId);
     if (!review) return res.status(404).json({ error: "Review not found" });
 
-    const existingVote = review.votedUsers?.find(v => v.userId.toString() === userId);
+    const existingVote = review.votedUsers?.find(
+      (v) => v.userId.toString() === userId,
+    );
     if (existingVote) {
       if (existingVote.vote === vote) return res.json(review); // already voted same way
       existingVote.vote = vote; // update opposite vote
     } else {
-      review.votedUsers?.push({ userId: new mongoose.Types.ObjectId(userId), vote });
+      review.votedUsers?.push({
+        userId: new mongoose.Types.ObjectId(userId),
+        vote,
+      });
     }
 
-    review.upvotes = review.votedUsers?.filter(v => v.vote === "up").length;
-    review.downvotes = review.votedUsers?.filter(v => v.vote === "down").length;
+    review.upvotes = review.votedUsers?.filter((v) => v.vote === "up").length;
+    review.downvotes = review.votedUsers?.filter(
+      (v) => v.vote === "down",
+    ).length;
 
     await review.save();
     res.json(review);
@@ -171,7 +206,9 @@ export const updateReview = async (req: Request, res: Response) => {
     const { reviewId } = req.params;
     const validated = ReviewValidationSchema.partial().parse(req.body);
 
-    const review = await ReviewModel.findByIdAndUpdate(reviewId, validated, { new: true });
+    const review = await ReviewModel.findByIdAndUpdate(reviewId, validated, {
+      new: true,
+    });
     if (!review) return res.status(404).json({ error: "Review not found" });
 
     await updateProductRating(review.product.toString());
@@ -195,15 +232,8 @@ export const deleteReview = async (req: Request, res: Response) => {
   }
 };
 
-
-
-
-
-
-
-
 // GET /api/admin/reviews/pending
-export const getPendingReviews = async (req:Request, res:Response) => {
+export const getPendingReviews = async (req: Request, res: Response) => {
   try {
     const reviews = await ReviewModel.find({ status: "pending" })
       .populate("user", "name email")
@@ -215,14 +245,16 @@ export const getPendingReviews = async (req:Request, res:Response) => {
       count: reviews.length,
       reviews,
     });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+  } catch (err: unknown) {
+    let message = "Something went wrong";
+    if (err instanceof Error) message = err.message;
+
+    res.status(500).json({ success: false, error: message });
   }
 };
 
-
 // PUT /api/admin/reviews/:id/moderate
-export const moderateReview = async (req:Request, res:Response) => {
+export const moderateReview = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { action } = req.body; // "approve" or "reject"
@@ -245,7 +277,12 @@ export const moderateReview = async (req:Request, res:Response) => {
     if (action === "approve") {
       const { product } = review;
       const agg = await ReviewModel.aggregate([
-        { $match: { product: new mongoose.Types.ObjectId(product), status: "approved" } },
+        {
+          $match: {
+            product: new mongoose.Types.ObjectId(product),
+            status: "approved",
+          },
+        },
         {
           $group: {
             _id: "$product",
@@ -266,14 +303,16 @@ export const moderateReview = async (req:Request, res:Response) => {
       message: `Review ${action}d successfully`,
       review,
     });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+  } catch (err: unknown) {
+    let message = "Something went wrong";
+    if (err instanceof Error) message = err.message;
+
+    res.status(500).json({ success: false, error: message });
   }
 };
 
-
 // GET /api/admin/reviews/stats
-export const getReviewModerationStats = async (req:Request, res:Response) => {
+export const getReviewModerationStats = async (req: Request, res: Response) => {
   try {
     const [counts] = await ReviewModel.aggregate([
       {
@@ -281,14 +320,24 @@ export const getReviewModerationStats = async (req:Request, res:Response) => {
           _id: null,
           total: { $sum: 1 },
           pending: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] } },
-          approved: { $sum: { $cond: [{ $eq: ["$status", "approved"] }, 1, 0] } },
-          rejected: { $sum: { $cond: [{ $eq: ["$status", "rejected"] }, 1, 0] } },
+          approved: {
+            $sum: { $cond: [{ $eq: ["$status", "approved"] }, 1, 0] },
+          },
+          rejected: {
+            $sum: { $cond: [{ $eq: ["$status", "rejected"] }, 1, 0] },
+          },
         },
       },
     ]);
 
-    res.json({ success: true, stats: counts || { total: 0, pending: 0, approved: 0, rejected: 0 } });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.json({
+      success: true,
+      stats: counts || { total: 0, pending: 0, approved: 0, rejected: 0 },
+    });
+  } catch (err: unknown) {
+    let message = "Something went wrong";
+    if (err instanceof Error) message = err.message;
+
+    res.status(500).json({ success: false, error: message });
   }
 };

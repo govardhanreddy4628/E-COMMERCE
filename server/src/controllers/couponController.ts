@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
-import Coupon, { ICoupon } from '../models/couponModel';
+import couponModel, { ICoupon } from '../models/couponModel.js';
+
 
 export const applyCoupon = async (req: Request, res: Response) => {
   try {
     const { code, userId } = req.body;
 
-    const coupon: ICoupon | null = await Coupon.findOne({ code: code.toUpperCase(), isActive: true });
+    const coupon: ICoupon | null = await couponModel.findOne({ code: code.toUpperCase(), isActive: true });
 
     if (!coupon || coupon.expiresAt < new Date()) {
       return res.status(400).json({ success: false, message: 'Invalid or expired coupon' });

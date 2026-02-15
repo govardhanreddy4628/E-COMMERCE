@@ -1,6 +1,11 @@
 // models/Category.ts
 import mongoose, { Document, Schema, Types } from "mongoose";
-import slugify from "slugify";
+import slugifyModule from "slugify";
+
+const slugify = slugifyModule as unknown as (
+  input: string,
+  options?: { lower?: boolean; strict?: boolean }
+) => string;
 
 export interface ICategory extends Document {
   name: string;
